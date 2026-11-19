@@ -69,15 +69,6 @@ No legado, os distratores "hora vizinha" eram `displayH + 1` e `displayH - 1` se
 
 **Garantia real (sem promessas de atomicidade).** A escrita por operação é **best-effort**. Ela mitiga o caso comum, que é uma aba aberta há muito tempo, com estado obsoleto, sobrescrever as estrelas que outra aba gravou. Ela **não** oferece atomicidade nem exclusão mútua entre abas. O par releitura + gravação do `localStorage` não é transacional: se duas abas fizerem leitura e gravação no mesmo instante, a última gravação vence e a operação da outra pode se perder (ex.: uma das duas estrelas novas). Aceitamos esse risco porque a janela de corrida é pequena (duas gravações praticamente simultâneas), o dado é de baixo valor e recuperável (basta jogar de novo), e a alternativa assíncrona complicaria toda a API.
 
-#### Adendo descritivo (F2a, 2026-11-19): limite aprovado e releitura ao voltar à aba
-
-Este adendo só descreve o comportamento já aprovado em F1a (`storage/preferencesStore.ts`) e a ligação feita em F2a (`hooks/usePreferences.ts`). Ele não muda contratos, o formato salvo nem a garantia best-effort acima.
-
-- **Operações pendentes.** Se a gravação falhar (cota, modo privado), a operação fica pendente em memória: o snapshot mostra a última versão conhecida do storage mais as operações locais, e `persistent` fica `false`. Na recuperação (próxima operação ou `refresh()`), as pendentes são gravadas sobre uma releitura, reconciliadas com o que outras abas gravaram nesse meio-tempo.
-- **Limite aprovado: operações "às cegas".** Uma operação feita com a **leitura** do storage também bloqueada não sabe o que outras abas gravaram antes dela. O formato salvo (do legado) não tem relógio nem versão, então uma mudança externa descoberta depois tem **ordem indeterminada** em relação a essa operação. Nesse caso vale a regra **não destrutiva**: o `set-*` local vence e a rodada local é preservada, mesmo que isso faça sobreviver um recorde anterior a um reset de estrelas que esta aba não observou. Para operações feitas com leitura OK, o que a releitura revela de novo aconteceu depois delas, e a mudança externa vence (inclusive um reset externo, que descarta as estrelas pendentes).
-- **Evento `storage` é só um sinal.** O conteúdo (`oldValue`/`newValue`) e a ordem de entrega não são usados, porque o evento pode chegar atrasado. Ele só dispara uma releitura, e o handler nunca grava.
-- **Releitura ao voltar à aba.** Eventos `storage` podem se perder enquanto a aba está congelada ou no bfcache. Por isso `usePreferences()` lê o store com `useSyncExternalStore` (snapshot estável, que só muda quando preferências ou `persistent` mudam) e chama `refresh()` em `visibilitychange` (só quando visível), `focus` e `pageshow`. O `refresh()` relê o storage, aplica a regra acima e grava as pendentes. Sem pendências, ele não regrava as preferências: no máximo testa a gravação numa chave de sonda própria, que as outras abas ignoram. Assim a releitura não cria loop entre abas.
-
 ## Consequências
 
 - Distratores, dicas, estrelas e preferências têm teste unitário sem DOM.
