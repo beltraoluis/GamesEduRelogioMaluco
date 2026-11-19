@@ -1,0 +1,2 @@
+.clock { display: inline-flex; align-items: center; background: #1e2832; color: white; border-radius: 12px; padding: .3em .6em; font: bold 2rem monospace; }
+.hour { color: #8ec5ff; } .minute { color: #ff9aa2; }

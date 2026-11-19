@@ -1,0 +1,4 @@
+.slot { display: inline-block; min-width: 3em; min-height: 1.5em; border: 2px solid #1560bd; border-left-width: 6px; border-radius: 12px; background: #e8f1fc; text-align: center; }
+.slot[data-group='minute'] { border: 2px dashed #d62839; background: #fff5f6; }
+.slot[data-group='period'] { border: 2px dotted #7b2cbf; border-radius: 9999px; background: #f3eafa; }
+.slot[data-over] { outline: 3px solid #2e7d32; }

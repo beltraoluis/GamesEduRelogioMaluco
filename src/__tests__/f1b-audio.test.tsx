@@ -55,3 +55,16 @@ describe('modal dialog', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 });
+
+it('opens and closes a controlled native dialog without notifying twice', () => {
+  const close = vi.fn();
+  const show = vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', ''); });
+  const closeNative = vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open'); this.dispatchEvent(new Event('close')); });
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: show });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: closeNative });
+  function Example({ open }: { readonly open: boolean }) { const ref = useModalDialog(open, close); return <dialog ref={ref} aria-label="Teste" />; }
+  const { rerender } = render(<Example open />);
+  expect(show).toHaveBeenCalledTimes(1);
+  rerender(<Example open={false} />);
+  expect(closeNative).toHaveBeenCalledTimes(1); expect(close).not.toHaveBeenCalled();
+});

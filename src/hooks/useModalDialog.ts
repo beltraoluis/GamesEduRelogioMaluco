@@ -6,12 +6,13 @@ import type { RefObject } from 'react';
 
 export function useModalDialog(open: boolean, onClose: () => void): RefObject<HTMLDialogElement | null> {
   const ref = useRef<HTMLDialogElement>(null);
+  const controlledClose = useRef(false);
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
     dialog.setAttribute('closedby', 'any');
     if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (!open && dialog.open) { controlledClose.current = true; dialog.close(); }
   }, [open]);
   useEffect(() => {
     const dialog = ref.current;
@@ -22,8 +23,8 @@ export function useModalDialog(open: boolean, onClose: () => void): RefObject<HT
       return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
     };
     const down = (event: PointerEvent) => { downOutside = outside(event); };
-    const up = (event: PointerEvent) => { if (downOutside && outside(event)) onClose(); downOutside = false; };
-    const close = () => onClose();
+    const up = (event: PointerEvent) => { if (!('closedBy' in dialog) && downOutside && outside(event)) onClose(); downOutside = false; };
+    const close = () => { if (controlledClose.current) controlledClose.current = false; else onClose(); };
     dialog.addEventListener('pointerdown', down);
     dialog.addEventListener('pointerup', up);
     dialog.addEventListener('close', close);
