@@ -1,0 +1,105 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: max(0.75rem, env(safe-area-inset-top)) var(--space-4)
+      max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-surface-card);
+    border: 2.5px solid var(--color-border-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .heroIdentity {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mascotWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    overflow: visible;
+  }
+
+  .titleBlock {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .title {
+    margin: 0;
+    font-size: clamp(1.75rem, 5.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--color-warning-ink);
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    margin: 0;
+    font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+    font-weight: 600;
+    color: var(--color-ink-muted);
+    line-height: 1.3;
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .sectionTitle {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--ambient-ink);
+  }
+
+  .modesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+    gap: var(--space-4);
+  }
+
+  @media (max-width: 480px) {
+    .screen {
+      padding-inline: var(--space-3);
+      gap: var(--space-4);
+    }
+
+    .hero {
+      padding: var(--space-3);
+      gap: var(--space-2);
+    }
+
+    .heroIdentity {
+      gap: var(--space-3);
+    }
+
+    .modesGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+}

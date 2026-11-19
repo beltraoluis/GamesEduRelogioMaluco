@@ -1,0 +1,161 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: max(0.75rem, env(safe-area-inset-top)) var(--space-4)
+      max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-xl);
+    background-color: var(--ambient-pill-bg);
+    border: 2px solid var(--ambient-pill-border);
+  }
+
+  .topbarTitle {
+    margin: 0;
+    font-size: clamp(1.2rem, 3.5vw, 1.5rem);
+    font-weight: 700;
+    color: var(--ambient-ink);
+    text-align: center;
+  }
+
+  .exploreGrid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-6);
+  }
+
+  .clockColumn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: min(86vw, 24rem);
+  }
+
+  /* Card sempre claro para preservar contraste WCAG 2.2 AA em qualquer atmosfera */
+  .infoCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1 1 19rem;
+    max-width: 30rem;
+    padding: var(--space-5);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-surface-card);
+    color: var(--color-ink);
+    border: 2.5px solid var(--color-border-card);
+    box-shadow: var(--shadow-card);
+    text-align: center;
+  }
+
+  .phrase {
+    margin: 0;
+    font-size: clamp(1.25rem, 3.8vw, 1.55rem);
+    font-weight: 700;
+    color: var(--color-ink);
+    line-height: 1.3;
+  }
+
+  .phrase24 {
+    margin: -0.25rem 0 0;
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-ink-muted);
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .facts {
+    list-style: none;
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface-dial);
+    border: 1.5px solid var(--color-border-card);
+    text-align: left;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  .factItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .secondBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex: none;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-second-soft);
+    border: 2px solid var(--color-second);
+  }
+
+  .secondNeedle {
+    display: block;
+    width: 10px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: var(--color-second);
+  }
+
+  .hourglassIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex: none;
+    color: var(--color-second);
+  }
+
+  .dragTip {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-ink-muted);
+    line-height: 1.4;
+  }
+
+  @media (max-width: 480px) {
+    .screen {
+      padding-inline: var(--space-3);
+    }
+
+    .infoCard {
+      padding: var(--space-4);
+    }
+  }
+}
