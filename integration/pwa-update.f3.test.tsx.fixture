@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
-// F3: copy to src/hooks/__tests__/pwa-update-integration.test.tsx after composing F2a/F2b/F2c.
+// F3: copy to src/app/__tests__/pwa-update-integration.test.tsx after composing F2a/F2b/F2c.
 import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { App } from '../../app/App';
+import { App } from '../App';
 import { HomeScreen } from '../../screens/HomeScreen';
 import { GameScreen } from '../../screens/GameScreen';
 import { ExploreScreen } from '../../screens/ExploreScreen';
 import { ResultScreen } from '../../screens/ResultScreen';
-import { useServiceWorkerUpdate } from '../useServiceWorkerUpdate';
+import { useServiceWorkerUpdate } from '../../hooks/useServiceWorkerUpdate';
 
 const screens = { Home: HomeScreen, Game: GameScreen, Explore: ExploreScreen, Result: ResultScreen };
 
