@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { requiresF3Composition } from './helpers/composition.ts';
-import { homeHeading, offlineReadyBadge } from './helpers/locators.ts';
+import { homeHeading, menuButton, offlineReadyBadge } from './helpers/locators.ts';
 import { F2C_DIST, F2C_SHA, REPO_ROOT, RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
 import {
   cacheHasUrl,
@@ -133,6 +133,7 @@ test.describe('Offline + licenças', () => {
     expect(controller).toMatch(/sw\.js/);
     const caches = await listCacheNames(page);
     expect(caches.some((name) => name.startsWith('workbox-precache-v2-'))).toBe(true);
+    await menuButton(page).click();
     await expect(offlineReadyBadge(page)).toBeVisible({ timeout: 20_000 });
     expect(existsSync(path.join(REPO_ROOT, 'public', 'LICENSE.txt'))).toBe(true);
   });

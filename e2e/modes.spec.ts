@@ -12,11 +12,10 @@ import {
   modeCard,
   modeTitle,
 } from './helpers/locators.ts';
-import type { GameMode } from '../src/domain/types.ts';
+import type { GameMode, LevelId } from '../src/domain/types.ts';
 
-const LEVELS = [1, 2, 3, 4] as const;
 /** Amostra da matriz 4×4: todo modo × nível 1, e nível 4 nos modos pontuados. */
-const MATRIX: ReadonlyArray<{ mode: (typeof MODE_IDS)[number]; level: (typeof LEVELS)[number] }> = [
+const MATRIX: ReadonlyArray<{ mode: (typeof MODE_IDS)[number]; level: LevelId }> = [
   ...MODE_IDS.map((mode) => ({ mode, level: 1 as const })),
   { mode: 'numbers', level: 4 },
   { mode: 'words', level: 4 },

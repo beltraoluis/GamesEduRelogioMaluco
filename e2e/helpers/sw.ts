@@ -2,11 +2,11 @@
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { expect, type Page } from '@playwright/test';
 
-/** Contador de navegações do main frame (reload automático vs explícito). */
+/** Documentos carregados no main frame. pushState e popstate mantêm o documento. */
 export function trackMainFrameNavigations(page: Page): { readonly count: () => number } {
   let n = 0;
-  page.on('framenavigated', (frame) => {
-    if (frame === page.mainFrame()) n += 1;
+  page.on('domcontentloaded', () => {
+    n += 1;
   });
   return { count: () => n };
 }

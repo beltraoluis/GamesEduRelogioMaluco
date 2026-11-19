@@ -55,10 +55,7 @@ test.describe('TeachersDialog confirmação [F3]', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
 
-    // Foco devolve ao controle que abriu (menu item / botão educadores).
-    await expect
-      .poll(async () => page.evaluate(() => document.activeElement?.textContent ?? document.activeElement?.getAttribute('aria-label') ?? ''))
-      .toMatch(/educadores|Menu|Para educadores/i);
+    await expect(menuButton(page)).toBeFocused();
   });
 
   test('[F3] apagar progresso exige confirmação em 2 etapas e preserva nível/som/voz', async ({

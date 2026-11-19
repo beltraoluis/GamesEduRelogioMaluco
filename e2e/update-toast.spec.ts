@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test';
 import { openHome, openMode, returnHome, selectLevel } from './helpers/app.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
 import { APP_COPY } from './helpers/locators.ts';
+import { waitForServiceWorkerControl } from './helpers/preferences.ts';
 import { trackMainFrameNavigations } from './helpers/sw.ts';
 
 /**
@@ -35,6 +36,7 @@ test.describe('Toast de atualização [F3]', () => {
 
     const nav = trackMainFrameNavigations(page);
     await openHome(page);
+    expect(await waitForServiceWorkerControl(page)).toMatch(/sw\.js$/);
     await selectLevel(page, 1);
 
     // Durante a partida o toast não aparece.
@@ -57,8 +59,10 @@ test.describe('Toast de atualização [F3]', () => {
     await simulateControllerUpdate(page);
     await expect(page.getByText(APP_COPY.updateToast.title)).toBeVisible();
     const beforeApply = nav.count();
-    await page.getByRole('button', { name: APP_COPY.updateToast.apply }).click();
-    await page.waitForLoadState('domcontentloaded');
+    await Promise.all([
+      page.waitForEvent('domcontentloaded'),
+      page.getByRole('button', { name: APP_COPY.updateToast.apply }).click(),
+    ]);
     expect(nav.count()).toBe(beforeApply + 1);
   });
 });

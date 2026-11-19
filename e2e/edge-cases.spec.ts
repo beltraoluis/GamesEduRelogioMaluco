@@ -7,6 +7,7 @@
 import { expect, test } from '@playwright/test';
 
 import { openHome, openMode, openTeachersDialog, returnHome, selectLevel } from './helpers/app.ts';
+import { solveLevelOneNumbers } from './helpers/clock.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
 import {
   APP_COPY,
@@ -18,6 +19,7 @@ import {
   PREFERENCES_STORAGE_KEY,
   readPreferences,
   seedPreferencesOnPage,
+  waitForServiceWorkerControl,
 } from './helpers/preferences.ts';
 
 test.describe('Edge cases P0 [F3]', () => {
@@ -27,20 +29,17 @@ test.describe('Edge cases P0 [F3]', () => {
     await openHome(page);
     await openMode(page, 'explore');
 
-    // Define 11:59 via teclado/API se exposta; senão arrasta até o texto mostrar.
-    await page.evaluate(() => {
-      // Hook de teste opcional F3: window.__setExploreTime?.({ h: 11, m: 59, s: 0 })
-      const w = window as unknown as { __setExploreTime?: (t: { h: number; m: number; s: number }) => void };
-      w.__setExploreTime?.({ h: 11, m: 59, s: 0 });
-    });
-
-    const clock = page.getByRole('group', { name: /Relógio analógico/i }).or(page.locator('svg[role="group"]'));
-    await clock.first().focus();
-    // Um passo de minuto para cima a partir de 59 → 0 e hora 12.
-    await page.keyboard.press('ArrowUp');
-
-    await expect(page.getByText(/doze|12/i).first()).toBeVisible();
-    await expect(page.locator('[data-atmosphere]').or(page.locator('html'))).toBeVisible();
+    const clock = page.getByRole('group', { name: /^Relógio analógico para explorar/ });
+    await expect(page.getByRole('group', { name: 'Relógio digital marcando 09:00' })).toBeVisible();
+    await clock.press('ArrowRight');
+    await clock.press('ArrowRight');
+    await clock.press('ArrowRight');
+    await clock.press('ArrowDown');
+    await expect(page.getByRole('group', { name: 'Relógio digital marcando 11:59' })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'manha');
+    await clock.press('ArrowUp');
+    await expect(page.getByRole('group', { name: 'Relógio digital marcando 12:00' })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'tarde');
   });
 
   test('[F3] #4 storage indisponível: aviso + jogo em memória (F5.3.4)', async ({ page }, testInfo) => {
@@ -53,10 +52,12 @@ test.describe('Edge cases P0 [F3]', () => {
       };
     });
     await openHome(page);
+    await openTeachersDialog(page);
     await expect(page.getByText(APP_COPY.persistence.unavailable)).toBeVisible();
-    await selectLevel(page, 2);
+    await page.keyboard.press('Escape');
+    await selectLevel(page, 1);
     await openMode(page, 'numbers');
-    await expect(page.getByRole('group', { name: /Relógio digital/i })).toBeVisible();
+    await solveLevelOneNumbers(page);
   });
 
   test('[F3] #5 reset concorrente 2 abas preserva nível/som/voz e zera stars', async ({ browser, baseURL }, testInfo) => {
@@ -97,12 +98,7 @@ test.describe('Edge cases P0 [F3]', () => {
     requiresF3Composition(testInfo, 'useServiceWorkerUpdate + UpdateToast (F2c/F2b); cobrado também em update-toast.spec');
 
     await openHome(page);
-    // 1ª aquisição
-    await page.evaluate(() => {
-      const sw = navigator.serviceWorker;
-      Object.defineProperty(sw, 'controller', { configurable: true, get: () => null });
-      sw.dispatchEvent(new Event('controllerchange'));
-    });
+    expect(await waitForServiceWorkerControl(page)).toMatch(/sw\.js$/);
     await expect(page.getByText(APP_COPY.updateToast.title)).toHaveCount(0);
 
     await openMode(page, 'numbers');

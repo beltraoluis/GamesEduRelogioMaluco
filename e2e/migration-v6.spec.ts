@@ -3,8 +3,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { requiresF3Composition } from './helpers/composition.ts';
+import { handAngle, normalizeAngle } from './helpers/clock.ts';
 import { playLegacyNumbersOnce } from './helpers/legacy-play.ts';
-import { homeHeading, modeCard } from './helpers/locators.ts';
+import { answerRegion, homeHeading, modeCard } from './helpers/locators.ts';
 import {
   LEGACY_SEEDED_PREFS,
   PREFERENCES_STORAGE_KEY,
@@ -145,9 +146,12 @@ test.describe('Migração legado v6 → React', () => {
       for (const page of [pageA, pageB]) {
         await expect(homeHeading(page)).toBeVisible();
         await modeCard(page, 'numbers').click();
-        await expect(page.getByRole('group', { name: /Relógio digital/i })).toBeVisible();
-        await page.getByRole('button', { name: /^Horas:/ }).first().click();
-        await expect(page.locator('[data-slot-id][data-filled]').first()).toBeVisible();
+        const region = answerRegion(page, 'numbers');
+        await expect(region).toBeVisible();
+        const minutes = normalizeAngle(await handAngle(page.locator('svg[role="group"]'), 'minute')) / 6;
+        const value = String(minutes).padStart(2, '0');
+        await page.getByRole('button', { name: `Minutos: ${value}`, exact: true }).click();
+        await expect(region.locator('[data-slot-id][data-group="minute"][data-filled]')).toHaveText(value);
       }
     } finally {
       await context.close();

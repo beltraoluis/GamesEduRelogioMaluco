@@ -7,6 +7,7 @@ import {
   backHomeButton,
   homeHeading,
   levelRadio,
+  levelSelectorButton,
   menuButton,
   modeCard,
   teachersDialog,
@@ -21,17 +22,8 @@ export async function openHome(page: Page, path = '/'): Promise<void> {
 
 export async function selectLevel(page: Page, level: 1 | 2 | 3 | 4): Promise<void> {
   const radio = levelRadio(page, level);
-  // LevelSelector may keep radios inside a closed popover; open via current level control first.
-  if (!(await radio.isVisible().catch(() => false))) {
-    const opener = page.getByRole('button', {
-      name: /Nível|nível|Horas certas|Meias e quartos|De 5 em 5|Minuto a minuto/i,
-    }).first();
-    await expect(
-      opener,
-      'LevelSelector (F2b) deve expor controle de nível ou radios visíveis na Home',
-    ).toBeVisible({ timeout: 5_000 });
-    await opener.click();
-  }
+  const opener = levelSelectorButton(page);
+  if (await opener.getAttribute('aria-expanded') === 'false') await opener.click();
   await expect(radio, `Radio do nível ${level} (APP_COPY.levels) deve existir`).toBeVisible({
     timeout: 5_000,
   });
@@ -40,6 +32,11 @@ export async function selectLevel(page: Page, level: 1 | 2 | 3 | 4): Promise<voi
 }
 
 export async function openMode(page: Page, id: ModeId): Promise<void> {
+  const opener = levelSelectorButton(page);
+  if (await opener.getAttribute('aria-expanded') === 'true') {
+    await page.keyboard.press('Escape');
+    await expect(opener).toHaveAttribute('aria-expanded', 'false');
+  }
   await modeCard(page, id).click();
   if (id === 'explore') {
     await expect(page.getByRole('heading', { name: /Explorar/i })).toBeVisible();

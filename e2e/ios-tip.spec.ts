@@ -10,31 +10,29 @@ import { PREVIEW_ORIGIN } from './helpers/paths.ts';
 const IOS_SAFARI_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
-function installStandaloneStub(standalone: boolean): () => void {
-  return () => {
-    Object.defineProperty(window.navigator, 'standalone', {
-      configurable: true,
-      get: () => standalone,
-    });
-    const originalMatchMedia = window.matchMedia.bind(window);
-    window.matchMedia = ((query: string) => {
-      if (query.includes('display-mode: standalone')) {
-        return {
-          matches: standalone,
-          media: query,
-          onchange: null,
-          addListener() {},
-          removeListener() {},
-          addEventListener() {},
-          removeEventListener() {},
-          dispatchEvent() {
-            return false;
-          },
-        } as MediaQueryList;
-      }
-      return originalMatchMedia(query);
-    }) as typeof window.matchMedia;
-  };
+function installStandaloneStub(standalone: boolean): void {
+  Object.defineProperty(window.navigator, 'standalone', {
+    configurable: true,
+    get: () => standalone,
+  });
+  const originalMatchMedia = window.matchMedia.bind(window);
+  window.matchMedia = ((query: string) => {
+    if (query.includes('display-mode: standalone')) {
+      return {
+        matches: standalone,
+        media: query,
+        onchange: null,
+        addListener() {},
+        removeListener() {},
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent() {
+          return false;
+        },
+      } as MediaQueryList;
+    }
+    return originalMatchMedia(query);
+  }) as typeof window.matchMedia;
 }
 
 test.describe('Dica iOS', () => {
@@ -52,7 +50,7 @@ test.describe('Dica iOS', () => {
         hasTouch: true,
       });
       const page = await context.newPage();
-      await page.addInitScript(installStandaloneStub(false));
+      await page.addInitScript(installStandaloneStub, false);
 
       try {
         await openHome(page);
@@ -76,7 +74,7 @@ test.describe('Dica iOS', () => {
         hasTouch: true,
       });
       const page = await context.newPage();
-      await page.addInitScript(installStandaloneStub(true));
+      await page.addInitScript(installStandaloneStub, true);
 
       try {
         await openHome(page);
@@ -107,7 +105,7 @@ test.describe('Dica iOS', () => {
         },
       });
       const page = await context.newPage();
-      await page.addInitScript(installStandaloneStub(false));
+      await page.addInitScript(installStandaloneStub, false);
 
       try {
         await openHome(page);

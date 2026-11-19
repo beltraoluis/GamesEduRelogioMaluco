@@ -9,7 +9,13 @@ E2E_PORT=44181 E2E_F2C_SHA=0aa620edb7fa4ef1dd2d2e47f5b1b9c2608f4083 \
   npm run test:e2e -- --workers=7
 ```
 
-## Matriz executada em cópia isolada
+## Execução com as quatro branches compostas
+
+A composição de validação reuniu F2a `8a2c8c4`, F2b `29a4145` e F2c `43ef50e` com os testes desta revisão de F2d, sucessora de `7fc5903`. A entrada temporária montou o App em StrictMode com as quatro telas, registro do SW e hooks reais de atualização e instalação. O launcher também compilou o checkout isolado de F2c com `E2E_F2C_SHA=43ef50ebc350ad8cfaee5f8da65b82cf21a68e96`.
+
+A suíte completa aprovou 48 casos em Chromium e WebKit. Três combinações da matriz são puladas porque cada perfil de iOS tem motor definido. Para o teste de armazenamento indisponível, o navegador simula falha de escrita e abre o aviso no diálogo de educadores. O teste de horário usa as setas para chegar a 11:59, cruza para 12:00 e verifica a hora e o período exibidos. Os cenários de cancelamento de voz usam síntese instrumentada. Safari em aparelho físico segue pendente.
+
+## Matriz histórica antes da composição
 
 Checkout sem worktrees irmãos, com `npm ci` próprio. Node 22.23.4 e Playwright 1.65.1. Os projetos foram Chromium 159.0.8154.6 e WebKit 27.2, ambos executados pelo Playwright em macOS. A dica de iOS usa UA e estado standalone simulados. A validação em Safari de aparelho fica pendente de QA de dispositivo.
 

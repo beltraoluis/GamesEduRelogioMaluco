@@ -3,13 +3,15 @@
 import { expect, test } from '@playwright/test';
 
 import { openHome, openMode, returnHome, selectLevel } from './helpers/app.ts';
+import { ROUND_LENGTH } from '../src/contracts/index.ts';
+import { RESULT_TITLES } from '../src/domain/scoring.ts';
+import { solveLevelOneNumbers } from './helpers/clock.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
-import { APP_COPY, listenButton } from './helpers/locators.ts';
-import { installSpeechProbe, readSpeechProbe } from './helpers/speech.ts';
+import { APP_COPY, listenButton, nextButton } from './helpers/locators.ts';
+import { expectSpeakingAfterListen, installSpeechProbe, readSpeechProbe } from './helpers/speech.ts';
 
 async function speakViaListen(page: import('@playwright/test').Page): Promise<void> {
-  await listenButton(page).click();
-  await page.waitForFunction(() => (window.__speechProbe?.speakCount ?? 0) > 0);
+  await expectSpeakingAfterListen(page, listenButton(page));
 }
 
 test.describe('Voz cancelada nas saídas [F3]', () => {
@@ -23,6 +25,7 @@ test.describe('Voz cancelada nas saídas [F3]', () => {
     await openHome(page);
     await selectLevel(page, 1);
     await openMode(page, 'numbers');
+    await solveLevelOneNumbers(page);
     await speakViaListen(page);
     const before = await readSpeechProbe(page);
 
@@ -53,23 +56,12 @@ test.describe('Voz cancelada nas saídas [F3]', () => {
     await selectLevel(page, 1);
     await openMode(page, 'numbers');
 
-    // Completa a rodada até a tela de resultado (8 perguntas) — F3 wiring.
-    for (let i = 0; i < 8; i++) {
-      const tiles = page.getByRole('button', { name: /^(Horas|Minutos|Período):/ });
-      const n = await tiles.count();
-      for (let t = 0; t < n; t++) {
-        const tile = tiles.nth(t);
-        if (!(await tile.isDisabled())) await tile.click();
-      }
-      const next = page.getByRole('button', { name: APP_COPY.game.next });
-      if (await next.isVisible().catch(() => false)) await next.click();
+    for (let i = 0; i < ROUND_LENGTH; i++) {
+      await solveLevelOneNumbers(page);
+      await nextButton(page).click();
     }
-
     await expect(page.getByRole('button', { name: APP_COPY.result.home })).toBeVisible();
-    await speakViaListen(page).catch(async () => {
-      // Resultado pode falar sozinho no fanfare; garante speakCount > 0.
-      await page.waitForFunction(() => (window.__speechProbe?.speakCount ?? 0) > 0);
-    });
+    await expect.poll(() => readSpeechProbe(page)).toMatchObject({ speaking: true, lastText: RESULT_TITLES[3] });
     const before = await readSpeechProbe(page);
     await page.getByRole('button', { name: APP_COPY.result.home }).click();
     await expect(page.getByRole('heading', { name: APP_COPY.home.title })).toBeVisible();
@@ -83,7 +75,7 @@ test.describe('Voz cancelada nas saídas [F3]', () => {
 
     await openHome(page);
     await selectLevel(page, 1);
-    await openMode(page, 'words');
+    await openMode(page, 'hands');
     await speakViaListen(page);
     const before = await readSpeechProbe(page);
 

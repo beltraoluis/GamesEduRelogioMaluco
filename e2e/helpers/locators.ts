@@ -27,6 +27,11 @@ export function modeCard(page: Page, id: ModeId): Locator {
   return page.getByRole('button', { name: new RegExp(escapeRegExp(title)) });
 }
 
+export function levelSelectorButton(page: Page): Locator {
+  return page.getByRole('group', { name: 'Níveis', exact: true })
+    .getByRole('button', { name: /^Nível [1-4]:/ });
+}
+
 export function levelRadio(page: Page, id: 1 | 2 | 3 | 4): Locator {
   return page.getByRole('radio', { name: new RegExp(escapeRegExp(levelName(id))) });
 }
