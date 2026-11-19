@@ -51,16 +51,23 @@ describe('TeachersDialog', () => {
     expect(
       screen.getByText('Tem certeza? Todas as estrelas salvas neste aparelho serão apagadas.'),
     ).toBeInTheDocument();
+    const confirmBtn = screen.getByRole('button', { name: 'Sim, apagar' });
+    expect(confirmBtn).toHaveFocus();
+    expect(confirmBtn).toHaveAccessibleDescription(
+      'Tem certeza? Todas as estrelas salvas neste aparelho serão apagadas.',
+    );
 
     // Cancelar volta para etapa 1 sem apagar
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onResetStars).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Apagar progresso deste aparelho' })).toHaveFocus();
 
     // Confirmar na etapa 2 apaga e anuncia 'Progresso apagado.'
     await user.click(screen.getByRole('button', { name: 'Apagar progresso deste aparelho' }));
     await user.click(screen.getByRole('button', { name: 'Sim, apagar' }));
     expect(onResetStars).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Progresso apagado.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apagar progresso deste aparelho' })).toHaveFocus();
 
     const results = await axe(container);
     expect(results.violations).toHaveLength(0);

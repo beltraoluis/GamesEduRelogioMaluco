@@ -11,10 +11,16 @@ import {
   type ReactElement,
 } from 'react';
 
-import type { Level, LevelId, LevelSelectorProps } from '@/contracts';
+import type { LevelSelectorProps } from '@/contracts';
+import { getLevel } from '@/domain/levels';
 import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './LevelSelector.module.css';
+
+const supportsAnchoredPopover =
+  globalThis.CSS?.supports('position-area', 'block-end') &&
+  typeof HTMLElement !== 'undefined' &&
+  typeof HTMLElement.prototype.showPopover === 'function';
 
 export function LevelSelector({
   levels,
@@ -33,30 +39,17 @@ export function LevelSelector({
 
   const currentIndex = levels.findIndex((l) => l.id === current);
   const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-  const currentLevel: Level =
-    levels[safeIndex] ??
-    levels[0] ?? {
-      id: 1,
-      name: 'Horas certas',
-      grade: '1º ano',
-      step: 60,
-      h24: false,
-      bankSize: 3,
-      bncc: ['EF01MA16'],
-    };
+  const currentLevel = levels[safeIndex] ?? getLevel(1);
 
   const prevLevel = safeIndex > 0 ? levels[safeIndex - 1] : undefined;
   const nextLevel = safeIndex < levels.length - 1 ? levels[safeIndex + 1] : undefined;
 
   const closePopover = useCallback((restoreFocus: boolean) => {
     setOpen(false);
-    const panel = popoverRef.current;
-    if (panel && typeof panel.hidePopover === 'function') {
-      try {
-        panel.hidePopover();
-      } catch {
-        // Ignora caso não esteja aberto na top-layer nativa
-      }
+    try {
+      popoverRef.current?.hidePopover?.();
+    } catch {
+      // Ignora caso não esteja aberto na top-layer nativa
     }
     if (restoreFocus) {
       triggerRef.current?.focus();
@@ -66,67 +59,38 @@ export function LevelSelector({
   useLayoutEffect(() => {
     const panel = popoverRef.current;
     if (!panel) return;
-    if (open) {
-      if (typeof panel.showPopover === 'function') {
-        try {
-          panel.showPopover();
-        } catch {
-          // Fallback em ambientes sem Popover API completa (JSDOM)
-        }
-      }
-    } else if (typeof panel.hidePopover === 'function') {
+    if (supportsAnchoredPopover) {
       try {
-        panel.hidePopover();
+        if (open) panel.showPopover();
+        else panel.hidePopover();
       } catch {
-        // Ignora
+        // O painel posicionado por CSS também funciona fora da camada nativa.
       }
     }
+    if (open) panel.querySelector<HTMLInputElement>('input:checked')?.focus();
   }, [open]);
 
   useEffect(() => {
-    const panel = popoverRef.current;
-    if (!panel) return;
-    const handleToggle = (event: Event) => {
-      const toggleEvent = event as Event & { readonly newState?: string };
-      if (toggleEvent.newState === 'closed') {
-        setOpen(false);
-      } else if (toggleEvent.newState === 'open') {
-        setOpen(true);
-      }
-    };
-    panel.addEventListener('toggle', handleToggle);
-    return () => panel.removeEventListener('toggle', handleToggle);
-  }, []);
-
-  useEffect(() => {
     if (!open) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
+    const handleOutside = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (target && containerRef.current && !containerRef.current.contains(target)) {
         closePopover(false);
       }
     };
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
         closePopover(true);
       }
     };
-
-    document.addEventListener('click', handlePointerDown);
+    document.addEventListener('click', handleOutside);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('click', handlePointerDown);
+      document.removeEventListener('click', handleOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [open, closePopover]);
-
-  const handleSelect = (id: LevelId) => {
-    onChange(id);
-    closePopover(true);
-  };
 
   return (
     <div
@@ -136,6 +100,12 @@ export function LevelSelector({
       aria-label="Níveis"
       data-level-selector="true"
       data-open={String(open)}
+      onBlur={(event) => {
+        const nextFocus = event.relatedTarget;
+        if (open && nextFocus && !event.currentTarget.contains(nextFocus)) {
+          closePopover(false);
+        }
+      }}
     >
       <div className={styles.row}>
         <button
@@ -144,9 +114,7 @@ export function LevelSelector({
           aria-label="Nível anterior"
           disabled={prevLevel === undefined}
           onClick={() => {
-            if (prevLevel !== undefined) {
-              onChange(prevLevel.id);
-            }
+            if (prevLevel !== undefined) onChange(prevLevel.id);
           }}
         >
           <UiIcon name="ChevronLeft" size={24} />
@@ -178,9 +146,7 @@ export function LevelSelector({
           aria-label="Próximo nível"
           disabled={nextLevel === undefined}
           onClick={() => {
-            if (nextLevel !== undefined) {
-              onChange(nextLevel.id);
-            }
+            if (nextLevel !== undefined) onChange(nextLevel.id);
           }}
         >
           <UiIcon name="ChevronRight" size={24} />
@@ -192,14 +158,16 @@ export function LevelSelector({
         id={popoverId}
         className={styles.popover}
         hidden={!open}
-        style={{ display: open ? 'block' : 'none' }}
         data-open={String(open)}
-        {...({ popover: 'auto' } as Record<string, unknown>)}
+        popover={supportsAnchoredPopover ? 'auto' : undefined}
+        onToggle={(event) => {
+          if (event.newState === 'closed') setOpen(false);
+        }}
       >
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Escolha o nível</legend>
           {levels.map((level) => {
-            const isSelected = level.id === current;
+            const isSelected = level.id === currentLevel.id;
             return (
               <label
                 key={level.id}
@@ -213,12 +181,7 @@ export function LevelSelector({
                   name={radioGroupName}
                   value={level.id}
                   checked={isSelected}
-                  onChange={() => handleSelect(level.id)}
-                  onClick={() => {
-                    if (isSelected) {
-                      closePopover(true);
-                    }
-                  }}
+                  onChange={() => onChange(level.id)}
                 />
                 <span className={styles.levelNum}>{level.id}</span>
                 <span className={styles.levelText}>

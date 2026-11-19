@@ -14,6 +14,27 @@
     gap: var(--space-2);
   }
 
+  .currentBtn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1;
+    min-width: 0;
+    min-height: var(--tap-target-min);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-surface-elevated);
+    color: var(--color-ink);
+    border: 2.5px solid var(--color-warning-warm);
+    box-shadow: var(--shadow-card);
+    text-align: left;
+    cursor: pointer;
+    anchor-name: --level-selector-trigger;
+    transition:
+      transform var(--duration-fast) var(--ease-spring),
+      box-shadow var(--duration-fast) var(--ease-standard);
+  }
+
   .stepBtn {
     display: inline-flex;
     align-items: center;
@@ -39,7 +60,8 @@
     border-color: var(--color-warning-warm);
   }
 
-  .stepBtn:active:not(:disabled) {
+  .stepBtn:active:not(:disabled),
+  .currentBtn:active {
     transform: translateY(2px);
     box-shadow: 0 1px 0 var(--color-border-ledge);
   }
@@ -48,32 +70,6 @@
     opacity: 0.4;
     cursor: not-allowed;
     box-shadow: none;
-  }
-
-  .currentBtn {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex: 1;
-    min-width: 0;
-    min-height: var(--tap-target-min);
-    padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-xl);
-    background-color: var(--color-surface-elevated);
-    color: var(--color-ink);
-    border: 2.5px solid var(--color-warning-warm);
-    box-shadow: var(--shadow-card);
-    text-align: left;
-    cursor: pointer;
-    anchor-name: --level-selector-trigger;
-    transition:
-      transform var(--duration-fast) var(--ease-spring),
-      box-shadow var(--duration-fast) var(--ease-standard);
-  }
-
-  .currentBtn:active {
-    transform: translateY(2px);
-    box-shadow: 0 2px 0 var(--color-border-ledge);
   }
 
   .levelNum {
@@ -130,11 +126,14 @@
   }
 
   .popover {
+    display: block;
     position: absolute;
     z-index: 50;
     inset-inline: 0;
     inset-block-start: calc(100% + var(--space-2));
     width: auto;
+    max-block-size: calc(100vh - 2rem);
+    overflow: auto;
     margin: 0;
     padding: var(--space-2);
     border-radius: var(--radius-xl);
@@ -198,12 +197,12 @@
       border-color var(--duration-fast) var(--ease-standard);
   }
 
-  .optionLabel:hover {
+  .optionLabel:hover,
+  .optionLabel[data-active='true'] {
     background-color: var(--color-surface-elevated);
   }
 
   .optionLabel[data-active='true'] {
-    background-color: var(--color-surface-elevated);
     border-color: var(--color-warning-warm);
   }
 
@@ -213,12 +212,12 @@
   }
 
   .radioInput {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
+    width: 1.15rem;
+    height: 1.15rem;
     margin: 0;
-    pointer-events: none;
+    accent-color: var(--color-warning-warm);
+    cursor: pointer;
+    flex: none;
   }
 
   .activeBadge {
@@ -231,12 +230,8 @@
   }
 
   @media (max-width: 420px) {
-    .stepBtn {
-      width: 2.85rem;
-      height: 2.85rem;
-    }
-
     .currentBtn {
+      gap: var(--space-2);
       padding: var(--space-2) var(--space-3);
     }
   }

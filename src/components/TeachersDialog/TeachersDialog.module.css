@@ -5,8 +5,10 @@
   .dialog {
     border: 2.5px solid var(--color-border-card);
     border-radius: var(--radius-xl);
+    margin: auto;
     padding: 0;
     width: min(47.5rem, calc(100vw - 2rem));
+    max-block-size: calc(100vh - 2rem);
     max-block-size: calc(100dvh - 2rem);
     overflow: auto;
     overscroll-behavior: contain;
@@ -54,8 +56,8 @@
   .closeBtn {
     display: inline-grid;
     place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--tap-target-min);
+    height: var(--tap-target-min);
     flex: none;
     border-radius: var(--radius-pill);
     background-color: var(--color-surface-elevated);
@@ -103,19 +105,14 @@
     color: var(--color-ink-muted);
   }
 
-  /* Tabela BNCC responsiva com sticky headers e modo cards empilhados < 640px */
+  /* Tabela BNCC responsiva com cabeçalhos fixos e cartões em telas estreitas. */
   .tableWrapper {
-    overflow: auto;
     max-inline-size: 100%;
-    container-type: inline-size;
     border-radius: var(--radius-lg);
     border: 1.5px solid var(--color-border-card);
   }
 
   .bnccTable {
-    --label-1: 'Código';
-    --label-2: 'Resumo da habilidade';
-    --label-3: 'Onde aparece';
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
@@ -124,7 +121,7 @@
 
   .bnccTable thead {
     position: sticky;
-    inset-block-start: 0;
+    inset-block-start: calc(var(--tap-target-min) + var(--space-3) + 2px);
     z-index: 2;
   }
 
@@ -156,51 +153,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  @container (width < 640px) {
-    .bnccTable,
-    .bnccTable thead,
-    .bnccTable tbody,
-    .bnccTable tr,
-    .bnccTable th,
-    .bnccTable td {
-      display: block;
-    }
-
-    .bnccTable thead {
-      display: none;
-    }
-
-    .bnccTable tr {
-      margin: var(--space-2);
-      border: 2px solid var(--color-border-card);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      background-color: var(--color-surface-card);
-    }
-
-    .bnccTable tbody th {
-      position: sticky;
-      inset-block-start: 0;
-      z-index: 2;
-      background-color: var(--color-hour-soft);
-      color: var(--color-hour-ledge);
-      border-bottom: 1.5px solid var(--color-border-card);
-    }
-
-    .bnccTable tbody td:nth-child(2)::before {
-      content: var(--label-2) ': ';
-      font-weight: 700;
-      color: var(--color-ink);
-    }
-
-    .bnccTable tbody td:nth-child(3)::before {
-      content: var(--label-3) ': ';
-      font-weight: 700;
-      color: var(--color-ink);
-    }
-  }
-
-  @media (max-width: 639.98px) {
+  @media (max-width: 45rem) {
     .tableWrapper {
       border: 0;
     }
@@ -236,13 +189,13 @@
     }
 
     .bnccTable tbody td:nth-child(2)::before {
-      content: var(--label-2) ': ';
+      content: 'Resumo da habilidade: ';
       font-weight: 700;
       color: var(--color-ink);
     }
 
     .bnccTable tbody td:nth-child(3)::before {
-      content: var(--label-3) ': ';
+      content: 'Onde aparece: ';
       font-weight: 700;
       color: var(--color-ink);
     }

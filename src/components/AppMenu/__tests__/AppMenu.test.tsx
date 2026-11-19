@@ -62,6 +62,7 @@ describe('AppMenu', () => {
     await user.click(screen.getByRole('button', { name: /Para educadores/i }));
     expect(onOpenTeachers).toHaveBeenCalledTimes(1);
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveFocus();
   });
 
   it('exibe botao Instalar quando canInstall e dica iOS Safari quando showIosInstallTip', async () => {

@@ -38,13 +38,14 @@ describe('LevelSelector', () => {
     const radios = screen.getAllByRole('radio');
     expect(radios).toHaveLength(4);
     expect(radios[1]).toBeChecked();
+    expect(radios[1]).toHaveFocus();
 
     const resultsOpen = await axe(container);
     expect(resultsOpen.violations).toHaveLength(0);
 
     await user.click(radios[3]!);
     expect(onChange).toHaveBeenCalledWith(4);
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('fecha o popover com Escape e desabilita Proximo nivel no nivel 4', async () => {

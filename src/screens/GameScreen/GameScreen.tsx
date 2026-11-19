@@ -193,8 +193,21 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
   const showMinuteLabels =
     (question.mode === 'hands' && question.minuteLabels) || view.minuteLabels;
 
-  const slotGlowSeq = (slotId: string): number =>
-    view.slotGlow?.slotId === slotId ? view.slotGlow.seq : 0;
+  const renderSlot = (slot: SlotSpec): ReactElement => {
+    const filledWith = getFilledTileValue(question, filled, slot);
+    const glowSeq = view.slotGlow?.slotId === slot.id ? view.slotGlow.seq : 0;
+    return (
+      <Slot
+        key={slot.id}
+        slot={slot}
+        filledWith={filledWith}
+        over={overSlotId === slot.id && filledWith === null}
+        {...(glowSeq > 0 ? { glowSeq } : {})}
+      />
+    );
+  };
+
+  const stimulusPeriod = question.mode === 'numbers' ? question.period : undefined;
 
   return (
     <section
@@ -239,15 +252,15 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
       ) : null}
 
       <div className={styles.stage}>
-        {/* Estímulo */}
+        {/* Estímulo unificado por tipo (analógico ou digital) */}
         <div className={styles.stimulus} data-game-stimulus={question.stimulus}>
-          {question.mode === 'numbers' ? (
+          {question.stimulus === 'analog' ? (
             <>
               <div className={styles.clockBox}>
                 <AnalogClock
                   time={question.time}
                   label={describeAnalogStimulus(question.time, {
-                    period: question.period,
+                    period: stimulusPeriod,
                     minuteLabels: showMinuteLabels,
                   })}
                   minuteLabels={showMinuteLabels}
@@ -255,46 +268,20 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                   size="md"
                 />
               </div>
-              {question.period !== undefined ? (
-                <PeriodBadge period={question.period} />
-              ) : null}
+              {stimulusPeriod !== undefined ? <PeriodBadge period={stimulusPeriod} /> : null}
             </>
-          ) : null}
-
-          {question.mode === 'words' ? (
-            question.stimulus === 'analog' ? (
-              <div className={styles.clockBox}>
-                <AnalogClock
-                  time={question.time}
-                  label={describeAnalogStimulus(question.time, {
-                    minuteLabels: showMinuteLabels,
-                  })}
-                  minuteLabels={showMinuteLabels}
-                  highlight={view.handHighlight}
-                  size="md"
-                />
-              </div>
-            ) : (
-              <DigitalClock
-                hours={question.displayH}
-                minutes={question.time.m}
-                glow={view.digitalGlow}
-              />
-            )
-          ) : null}
-
-          {question.mode === 'hands' ? (
+          ) : (
             <>
               <DigitalClock
                 hours={question.displayH}
                 minutes={question.time.m}
                 glow={view.digitalGlow}
               />
-              {question.phrase !== undefined ? (
+              {question.mode === 'hands' && question.phrase !== undefined ? (
                 <p className={styles.stimulusPhrase}>{question.phrase}</p>
               ) : null}
             </>
-          ) : null}
+          )}
         </div>
 
         {/* Região de Resposta (role="group") */}
@@ -309,25 +296,16 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                 minutes={question.time.m}
                 label="Visor do relógio digital para encaixar horas e minutos"
               >
-                {question.slots.map((slot, idx) => {
-                  const filledWith = getFilledTileValue(question, filled, slot);
-                  const gSeq = slotGlowSeq(slot.id);
-                  return (
-                    <span key={slot.id}>
-                      {idx === 1 ? (
-                        <span className={styles.digitalColon} aria-hidden="true">
-                          :
-                        </span>
-                      ) : null}
-                      <Slot
-                        slot={slot}
-                        filledWith={filledWith}
-                        over={overSlotId === slot.id && filledWith === null}
-                        {...(gSeq > 0 ? { glowSeq: gSeq } : {})}
-                      />
-                    </span>
-                  );
-                })}
+                {question.slots.map((slot, idx) => (
+                  <span key={slot.id}>
+                    {idx === 1 ? (
+                      <span className={styles.digitalColon} aria-hidden="true">
+                        :
+                      </span>
+                    ) : null}
+                    {renderSlot(slot)}
+                  </span>
+                ))}
               </DigitalClock>
             ) : null}
 
@@ -342,20 +320,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                     );
                   }
                   const slot = question.slots.find((sl) => sl.group === part.group);
-                  if (slot === undefined) {
-                    return null;
-                  }
-                  const filledWith = getFilledTileValue(question, filled, slot);
-                  const gSeq = slotGlowSeq(slot.id);
-                  return (
-                    <Slot
-                      key={slot.id}
-                      slot={slot}
-                      filledWith={filledWith}
-                      over={overSlotId === slot.id && filledWith === null}
-                      {...(gSeq > 0 ? { glowSeq: gSeq } : {})}
-                    />
-                  );
+                  return slot === undefined ? null : renderSlot(slot);
                 })}
               </p>
             ) : null}

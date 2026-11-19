@@ -67,13 +67,13 @@
   .panel {
     position: fixed;
     z-index: 80;
-    inset: auto;
-    top: var(--menu-top, 4rem);
-    left: var(--menu-left, auto);
-    right: var(--menu-right, 1rem);
+    inset: var(--menu-top, 4rem) auto auto var(--menu-left, 1rem);
     margin: 0;
-    min-width: 17.5rem;
+    width: max-content;
+    min-width: min(17.5rem, calc(100vw - 1rem));
     max-width: calc(100vw - 1rem);
+    max-block-size: calc(100vh - 1rem);
+    overflow: auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { useCallback, useId, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 
 import { Button } from '@/components/Button';
 import { APP_COPY } from '@/content/copy';
@@ -28,25 +28,16 @@ if (typeof HTMLDialogElement !== 'undefined') {
 }
 
 function extractCommitFromSourceUrl(sourceUrl: string): string {
-  const treeMarker = '/tree/';
-  const idx = sourceUrl.indexOf(treeMarker);
-  if (idx !== -1) {
-    const candidate = sourceUrl.slice(idx + treeMarker.length).trim();
-    if (candidate.length > 0 && candidate !== 'unknown') {
-      return candidate;
-    }
-  }
-  const definedCommit = typeof __APP_COMMIT__ !== 'undefined' ? String(__APP_COMMIT__).trim() : '';
-  if (definedCommit.length > 0 && definedCommit !== 'unknown') {
-    return definedCommit;
-  }
-  return '1c8594a';
+  const idx = sourceUrl.indexOf('/tree/');
+  const candidate = idx !== -1 ? sourceUrl.slice(idx + 6).trim() : '';
+  if (candidate.length > 0 && candidate !== 'unknown') return candidate;
+  const defined = typeof __APP_COMMIT__ !== 'undefined' ? String(__APP_COMMIT__).trim() : '';
+  return defined.length > 0 && defined !== 'unknown' ? defined : '1c8594a';
 }
 
 function resolveAppVersion(): string {
-  const definedVersion =
-    typeof __APP_VERSION__ !== 'undefined' ? String(__APP_VERSION__).trim() : '';
-  return definedVersion.length > 0 ? definedVersion : '0.1.0';
+  const defined = typeof __APP_VERSION__ !== 'undefined' ? String(__APP_VERSION__).trim() : '';
+  return defined.length > 0 ? defined : '0.1.0';
 }
 
 export function TeachersDialog({
@@ -59,16 +50,31 @@ export function TeachersDialog({
   const baseId = useId();
   const titleId = `${baseId}-teachers-title`;
   const bnccHeadingId = `${baseId}-bncc-heading`;
+  const confirmTextId = `${baseId}-confirm-reset`;
 
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetAnnounced, setResetAnnounced] = useState(false);
+  const resetSectionRef = useRef<HTMLDivElement>(null);
+  const restoreResetFocus = useRef(false);
 
   const handleClose = useCallback(() => {
+    restoreResetFocus.current = false;
     setConfirmingReset(false);
     onClose();
   }, [onClose]);
 
   const dialogRef = useModalDialog(open, handleClose);
+
+  const showConfirmBox = open && confirmingReset;
+
+  useEffect(() => {
+    if (!open || !restoreResetFocus.current) return;
+    const nextButton = resetSectionRef.current?.querySelector<HTMLButtonElement>(
+      showConfirmBox ? '[data-reset-step="2-confirm"]' : '[data-reset-step="1"]',
+    );
+    nextButton?.focus();
+    if (!showConfirmBox) restoreResetFocus.current = false;
+  }, [open, showConfirmBox]);
 
   const commit = extractCommitFromSourceUrl(sourceUrl);
   const agplNotice = buildAgplNotice({
@@ -82,15 +88,13 @@ export function TeachersDialog({
     setResetAnnounced(true);
   };
 
-  const showConfirmBox = open && confirmingReset;
-
   return (
     <dialog
       ref={dialogRef}
       className={styles.dialog}
       aria-labelledby={titleId}
       data-teachers-dialog="true"
-      {...({ closedby: 'any' } as Record<string, unknown>)}
+      closedby="any"
     >
       <div className={styles.body}>
         <header className={styles.header}>
@@ -128,7 +132,7 @@ export function TeachersDialog({
           role="region"
           aria-labelledby={bnccHeadingId}
         >
-          <table className={styles.bnccTable}>
+          <table className={styles.bnccTable} role="table">
             <thead>
               <tr>
                 <th scope="col">Código</th>
@@ -136,12 +140,16 @@ export function TeachersDialog({
                 <th scope="col">Onde aparece</th>
               </tr>
             </thead>
-            <tbody>
+            {/* Os papéis explícitos preservam a tabela empilhada no WebKit antigo (bug 257458). */}
+            {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
+            <tbody role="rowgroup">
               {EDUCATORS_CONTENT.bnccSkills.map((entry) => (
-                <tr key={entry.code} data-bncc-row={entry.code}>
-                  <th scope="row">{entry.code}</th>
-                  <td>{entry.summary}</td>
-                  <td>{entry.where}</td>
+                <tr key={entry.code} role="row" data-bncc-row={entry.code}>
+                  <th scope="row" role="rowheader">{entry.code}</th>
+                  {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
+                  <td role="cell">{entry.summary}</td>
+                  {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
+                  <td role="cell">{entry.where}</td>
                 </tr>
               ))}
             </tbody>
@@ -182,12 +190,13 @@ export function TeachersDialog({
           ))}
         </ul>
 
-        <div className={styles.resetSection}>
+        <div ref={resetSectionRef} className={styles.resetSection}>
           {!showConfirmBox ? (
             <div>
               <Button
                 variant="soft"
                 onClick={() => {
+                  restoreResetFocus.current = true;
                   setConfirmingReset(true);
                   setResetAnnounced(false);
                 }}
@@ -197,11 +206,18 @@ export function TeachersDialog({
               </Button>
             </div>
           ) : (
-            <div className={styles.confirmBox} role="group" aria-label={APP_COPY.resetProgress.title}>
-              <p className={styles.paragraph}>{APP_COPY.resetProgress.confirm}</p>
+            <div
+              className={styles.confirmBox}
+              role="group"
+              aria-label={APP_COPY.resetProgress.title}
+            >
+              <p id={confirmTextId} className={styles.paragraph}>
+                {APP_COPY.resetProgress.confirm}
+              </p>
               <div className={styles.confirmActions}>
                 <Button
                   variant="primary"
+                  aria-describedby={confirmTextId}
                   onClick={handleConfirmReset}
                   data-reset-step="2-confirm"
                 >

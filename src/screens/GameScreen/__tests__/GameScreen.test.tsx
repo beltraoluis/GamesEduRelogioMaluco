@@ -249,6 +249,15 @@ describe('GameScreen', () => {
     expect(stimulusClock).toBeInTheDocument();
     unmountNumbers();
 
+    const { Wrapper: WordsL2 } = createSessionHarness('words', 2, 2);
+    const { unmount: unmountWords } = render(<WordsL2 />);
+    expect(
+      screen.getByRole('group', {
+        name: 'Relógio analógico do desafio: ponteiro curto das horas entre os números 9 e 10; ponteiro longo dos minutos apontando para o número 3.',
+      }),
+    ).toBeInTheDocument();
+    unmountWords();
+
     // Modo hands nível 1 (lockMinute = true)
     const { Wrapper: HandsL1 } = createSessionHarness('hands', 1, 88);
     const { unmount: unmountHands } = render(<HandsL1 />);

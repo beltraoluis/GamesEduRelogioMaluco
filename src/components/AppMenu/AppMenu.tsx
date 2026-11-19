@@ -8,20 +8,17 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactElement,
 } from 'react';
 
 import { APP_COPY } from '@/content/copy';
 import type { AppMenuProps } from '@/contracts';
-import { UiIcon } from '@/ui/icons/UiIcons';
+import { UiIcon, type UiIconName } from '@/ui/icons/UiIcons';
 
 import styles from './AppMenu.module.css';
 
-interface FallbackCoords {
-  readonly top: number;
-  readonly left: number;
-}
+const supportsPopover =
+  typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
 
 export function AppMenu({
   sound,
@@ -38,51 +35,42 @@ export function AppMenu({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<FallbackCoords | null>(null);
 
   const offlineReady =
     'offlineReady' in pwa &&
     Boolean((pwa as { readonly offlineReady?: boolean }).offlineReady);
 
   const computeFallbackPosition = useCallback(() => {
-    if (typeof window === 'undefined') return;
     const trigger = triggerRef.current;
     const panel = panelRef.current;
-    if (!trigger) return;
+    if (!trigger || !panel) return;
+    if (
+      globalThis.CSS?.supports('position-area', 'block-end') &&
+      panel.matches(':popover-open')
+    ) return;
 
     const triggerRect = trigger.getBoundingClientRect();
-    const panelRect = panel?.getBoundingClientRect();
-    const panelWidth = panelRect && panelRect.width > 0 ? panelRect.width : 280;
-    const panelHeight = panelRect && panelRect.height > 0 ? panelRect.height : 240;
+    const panelRect = panel.getBoundingClientRect();
     const margin = 8;
-    const viewportW = window.innerWidth || 360;
-    const viewportH = window.innerHeight || 640;
+    const left = Math.max(
+      margin,
+      Math.min(triggerRect.right - panelRect.width, window.innerWidth - panelRect.width - margin),
+    );
+    const belowTop = triggerRect.bottom + margin;
+    const aboveTop = triggerRect.top - panelRect.height - margin;
+    const maxTop = window.innerHeight - panelRect.height - margin;
+    const top = belowTop > maxTop && aboveTop >= margin ? aboveTop : Math.min(belowTop, maxTop);
 
-    let left = triggerRect.right - panelWidth;
-    if (left + panelWidth > viewportW - margin) {
-      left = viewportW - panelWidth - margin;
-    }
-    if (left < margin) {
-      left = margin;
-    }
-
-    let top = triggerRect.bottom + margin;
-    if (top + panelHeight > viewportH - margin && triggerRect.top - panelHeight - margin >= margin) {
-      top = triggerRect.top - panelHeight - margin;
-    }
-
-    setCoords({ top: Math.round(top), left: Math.round(left) });
+    panel.style.setProperty('--menu-top', `${Math.max(margin, top)}px`);
+    panel.style.setProperty('--menu-left', `${left}px`);
   }, []);
 
   const closeMenu = useCallback((restoreFocus: boolean) => {
     setOpen(false);
-    const panel = panelRef.current;
-    if (panel && typeof panel.hidePopover === 'function') {
-      try {
-        panel.hidePopover();
-      } catch {
-        // Ignora
-      }
+    try {
+      panelRef.current?.hidePopover?.();
+    } catch {
+      // Ignora
     }
     if (restoreFocus) {
       triggerRef.current?.focus();
@@ -92,80 +80,61 @@ export function AppMenu({
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
-    if (open) {
-      if (typeof panel.showPopover === 'function') {
-        try {
-          panel.showPopover();
-        } catch {
-          // Fallback JSDOM
-        }
-      }
-      computeFallbackPosition();
-    } else if (typeof panel.hidePopover === 'function') {
-      try {
-        panel.hidePopover();
-      } catch {
-        // Ignora
-      }
+    try {
+      if (open) panel.showPopover?.();
+      else panel.hidePopover?.();
+    } catch {
+      // O painel também pode ser posicionado fora da camada nativa.
     }
+    if (open) computeFallbackPosition();
   }, [open, computeFallbackPosition]);
 
   useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const handleToggle = (event: Event) => {
-      const toggleEvent = event as Event & { readonly newState?: string };
-      if (toggleEvent.newState === 'closed') {
-        setOpen(false);
-      } else if (toggleEvent.newState === 'open') {
-        setOpen(true);
-        computeFallbackPosition();
-      }
-    };
-    panel.addEventListener('toggle', handleToggle);
-    return () => panel.removeEventListener('toggle', handleToggle);
-  }, [computeFallbackPosition]);
-
-  useEffect(() => {
     if (!open) return;
-
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (target && containerRef.current && !containerRef.current.contains(target)) {
         closeMenu(false);
       }
     };
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
         closeMenu(true);
       }
     };
-
-    const handleResize = () => computeFallbackPosition();
-
     document.addEventListener('click', handleOutsideClick);
     document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', computeFallbackPosition);
     return () => {
       document.removeEventListener('click', handleOutsideClick);
       document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', computeFallbackPosition);
     };
   }, [open, closeMenu, computeFallbackPosition]);
 
-  const panelStyle: CSSProperties & Record<string, string> =
-    coords === null
-      ? {
-          display: open ? 'flex' : 'none',
-        }
-      : {
-          display: open ? 'flex' : 'none',
-          '--menu-top': `${coords.top}px`,
-          '--menu-left': `${coords.left}px`,
-          '--menu-right': 'auto',
-        };
+  const switches: readonly {
+    readonly key: 'sound' | 'voice';
+    readonly checked: boolean;
+    readonly icon: UiIconName;
+    readonly label: string;
+    readonly onToggle: () => void;
+  }[] = [
+    {
+      key: 'sound',
+      checked: sound,
+      icon: sound ? 'BellOn' : 'BellOff',
+      label: sound ? APP_COPY.menu.soundOn : APP_COPY.menu.soundOff,
+      onToggle: onToggleSound,
+    },
+    {
+      key: 'voice',
+      checked: voice,
+      icon: voice ? 'VoiceOn' : 'VoiceOff',
+      label: voice ? APP_COPY.menu.voiceOn : APP_COPY.menu.voiceOff,
+      onToggle: onToggleVoice,
+    },
+  ];
 
   return (
     <nav ref={containerRef} className={styles.menu} aria-label="Menu principal" data-app-menu="true">
@@ -192,46 +161,34 @@ export function AppMenu({
         className={styles.panel}
         hidden={!open}
         data-open={String(open)}
-        style={panelStyle}
-        {...({ popover: 'auto' } as Record<string, unknown>)}
+        popover={supportsPopover ? 'auto' : undefined}
+        onToggle={(event) => {
+          if (event.newState === 'closed') setOpen(false);
+        }}
       >
-        <button
-          type="button"
-          role="switch"
-          aria-checked={sound}
-          className={styles.menuItem}
-          onClick={onToggleSound}
-          data-menu-item="sound"
-        >
-          <span className={styles.itemIcon} aria-hidden="true">
-            <UiIcon name={sound ? 'BellOn' : 'BellOff'} size={22} />
-          </span>
-          <span className={styles.itemLabel}>
-            {sound ? APP_COPY.menu.soundOn : APP_COPY.menu.soundOff}
-          </span>
-          <span className={styles.switchTrack} data-checked={String(sound)} aria-hidden="true">
-            <span className={styles.switchThumb} />
-          </span>
-        </button>
-
-        <button
-          type="button"
-          role="switch"
-          aria-checked={voice}
-          className={styles.menuItem}
-          onClick={onToggleVoice}
-          data-menu-item="voice"
-        >
-          <span className={styles.itemIcon} aria-hidden="true">
-            <UiIcon name={voice ? 'VoiceOn' : 'VoiceOff'} size={22} />
-          </span>
-          <span className={styles.itemLabel}>
-            {voice ? APP_COPY.menu.voiceOn : APP_COPY.menu.voiceOff}
-          </span>
-          <span className={styles.switchTrack} data-checked={String(voice)} aria-hidden="true">
-            <span className={styles.switchThumb} />
-          </span>
-        </button>
+        {switches.map((sw) => (
+          <button
+            key={sw.key}
+            type="button"
+            role="switch"
+            aria-checked={sw.checked}
+            className={styles.menuItem}
+            onClick={sw.onToggle}
+            data-menu-item={sw.key}
+          >
+            <span className={styles.itemIcon} aria-hidden="true">
+              <UiIcon name={sw.icon} size={22} />
+            </span>
+            <span className={styles.itemLabel}>{sw.label}</span>
+            <span
+              className={styles.switchTrack}
+              data-checked={String(sw.checked)}
+              aria-hidden="true"
+            >
+              <span className={styles.switchThumb} />
+            </span>
+          </button>
+        ))}
 
         <hr className={styles.divider} />
 
@@ -239,7 +196,7 @@ export function AppMenu({
           type="button"
           className={styles.menuItem}
           onClick={() => {
-            closeMenu(false);
+            closeMenu(true);
             onOpenTeachers();
           }}
           data-menu-item="teachers"
