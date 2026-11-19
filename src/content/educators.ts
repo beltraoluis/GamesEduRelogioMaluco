@@ -170,7 +170,10 @@ export const EDUCATORS_CONTENT: EducatorsContent = {
 export interface AgplNoticeParams {
   /** Versão do pacote (ex.: `0.1.0`). */
   readonly version: string;
-  /** Commit curto ou completo do build; vazio/`unknown` usa o repositório raiz. */
+  /**
+   * Commit curto ou completo do build (obrigatório).
+   * Vazio ou `"unknown"` faz `buildSourceUrl` lançar (ADR-004 §1).
+   */
   readonly commit: string;
 }
 
@@ -179,7 +182,7 @@ export interface AgplNoticeParams {
  *
  * Explicitamente:
  * - os arquivos servidos são compilados/minificados a partir do TypeScript/React;
- * - Corresponding Source no GitHub em `tree/{commit}` (ou raiz se commit desconhecido);
+ * - Corresponding Source no GitHub em `tree/{commit}` (commit exato do build);
  * - build reproduzível: `npm ci && npm run build` gerando `dist/`;
  * - `LICENSE.txt` e `THIRD_PARTY_LICENSES.txt` precacheados offline;
  * - sem qualquer garantia.

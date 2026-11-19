@@ -2,14 +2,14 @@
 
 Casos que quebram com facilidade em relógios, pointer events, storage e PWA. Cada item sugere asserção mínima para Playwright (F2d) ou checklist manual (F4).
 
-## 1. Transição 11:59 ↔ 12:00
+## 1. Transição 11:59 <-> 12:00
 
 | Campo | Detalhe |
 |---|---|
 | Contexto | Modo Explorar com `linkHands: true`; também nível 4 / ponteiros perto do meio-dia |
 | Risco | Hora não avança/recua ao cruzar o 12; período/atmosfera errados; `to12` vs 24 h |
-| Passos | 1) Explorar: arrastar minuto de 59 → 0 e de 0 → 59. 2) Conferir hora digital e frase. 3) Repetir no modo Ponteiros nível 4 em 11:59 / 12:00 / 00:00 |
-| Esperado | Cruzar 59→0 avança 1 hora; 0→59 recua 1 hora. Período e atmosfera coerentes (`periodOf` / `atmosphereOf`). Meio-dia e meia-noite nas frases 24 h |
+| Passos | 1) Explorar: arrastar minuto de 59 -> 0 e de 0 -> 59. 2) Conferir hora digital e frase. 3) Repetir no modo Ponteiros nível 4 em 11:59 / 12:00 / 00:00 |
+| Esperado | Cruzar 59->0 avança 1 hora; 0->59 recua 1 hora. Período e atmosfera coerentes (`periodOf` / `atmosphereOf`). Meio-dia e meia-noite nas frases 24 h |
 | Automação | E2E: `withMinute` / drag simulado; assert `h` e texto da frase |
 
 ## 2. `pointercancel` durante arraste de ficha
@@ -50,7 +50,7 @@ Casos que quebram com facilidade em relógios, pointer events, storage e PWA. Ca
 | Risco | Aba A reseta; aba B termina rodada e regrava uma chave; UI da A desatualizada |
 | Passos | 1) Duas abas com estrelas. 2) Aba A: "Apagar progresso" (2 etapas). 3) Aba B: terminar rodada depois. 4) Observar evento `storage` na A |
 | Esperado | Reset grava `stars: {}` preservando nível/som/voz. Aba B pode gravar só a chave da rodada após o reset (comportamento documentado). Aba A atualiza memória no `storage` sem loop de regravação. Confirmação anuncia "Progresso apagado." |
-| Automação | Dois contextos Playwright; ordenar reset → finish; ler `localStorage` |
+| Automação | Dois contextos Playwright; ordenar reset -> finish; ler `localStorage` |
 
 ## 6. 1ª instalação SW + atualização posterior na mesma aba (`hadControllerRef`)
 
@@ -68,7 +68,7 @@ Casos que quebram com facilidade em relógios, pointer events, storage e PWA. Ca
 |---|---|
 | Contexto | `AudioContext` suspenso; `speechSynthesis` intermitente; sem `beforeinstallprompt` |
 | Risco | Som silencioso até gesto; voz engasga; dica de instalação ausente |
-| Passos | 1) Abrir na Safari iOS (não standalone). 2) Verificar tip "Compartilhar → Adicionar à Tela de Início". 3) Ativar Som/Voz e jogar uma ficha (gesto). 4) Ouvir frase; pedir Dica (não deve falar sozinha) |
+| Passos | 1) Abrir na Safari iOS (não standalone). 2) Verificar tip "Compartilhar > Adicionar à Tela de Início". 3) Ativar Som/Voz e jogar uma ficha (gesto). 4) Ouvir frase; pedir Dica (não deve falar sozinha) |
 | Esperado | `showIosInstallTip` true fora de standalone. `SoundApi.unlock()` no gesto. Voz só em elogio/frase/"Ouvir". Dicas só no balão `aria-live` |
 | Automação | Limitada em CI; checklist F4 em dispositivo real ou simulador |
 

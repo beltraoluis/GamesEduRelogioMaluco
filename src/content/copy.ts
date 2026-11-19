@@ -15,13 +15,18 @@ export const SOURCE_REPO_URL =
   'https://github.com/beltraoluis/GamesEduRelogioMaluco' as const;
 
 /**
- * Monta a URL `tree/{commit}` do Corresponding Source.
- * Commit vazio, só espaços ou `"unknown"` cai no repositório raiz.
+ * Monta a URL `tree/{commit}` do Corresponding Source (ADR-004 §1).
+ *
+ * Exige commit não vazio e diferente de `"unknown"`. Apontar para a raiz do
+ * repositório (branch padrão) é alternativa rejeitada pelo ADR; builds sem
+ * commit injetado devem falhar em vez de publicar um link não reproduzível.
  */
 export function buildSourceUrl(commit: string): string {
   const trimmed = commit.trim();
   if (trimmed.length === 0 || trimmed === 'unknown') {
-    return SOURCE_REPO_URL;
+    throw new Error(
+      'Corresponding Source exige commit exato (ADR-004): informe o SHA do build para montar tree/{commit}.',
+    );
   }
   return `${SOURCE_REPO_URL}/tree/${trimmed}`;
 }
@@ -46,7 +51,7 @@ export const APP_COPY = {
     install: 'Instalar',
     offlineReady: 'Funciona sem internet',
     iosInstallTip:
-      'No iPhone/iPad: Compartilhar → Adicionar à Tela de Início',
+      'No iPhone/iPad: Compartilhar > Adicionar à Tela de Início',
   },
   game: {
     prompts: {

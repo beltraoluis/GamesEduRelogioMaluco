@@ -61,7 +61,7 @@ Critérios objetivos e verificáveis. Cada item deve poder ser marcado com evid�
 | ID | Critério | Como verificar | Passa quando |
 |---|---|---|---|
 | F5.1.1 | Offline após 1º acesso | DevTools offline + reload | App carrega; selo "Funciona sem internet" só com cache `workbox-precache-v2-*` válido |
-| F5.1.2 | Migração 2 abas | Duas abas legado → deploy React + `registration.update()` | Zero reload automático; ambas jogáveis após ativação |
+| F5.1.2 | Migração 2 abas | Duas abas legado -> deploy React + `registration.update()` | Zero reload automático; ambas jogáveis após ativação |
 | F5.1.3 | Cleanup legado | `caches.keys()` | `relogio-maluco-v*` removidos; Workbox intacto |
 | F5.1.4 | Toast update | HomeScreen | "Nova versão pronta" / "Atualizar agora" / "Agora não"; ausente durante rodada |
 | F5.1.5 | Reload só explícito | Clique "Atualizar agora" | Único `location.reload()` do app |

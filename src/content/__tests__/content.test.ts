@@ -16,12 +16,12 @@ import {
 } from '../educators';
 
 /**
- * Glifos e emojis proibidos em `src/content/**`.
- * Lista explícita do F1d (`★☆✔✕➜‹›▾←`) + blocos Unicode de emoji/pictograma.
- * A seta tipográfica `→` da dica iOS é permitida (não está na lista).
+ * Glifos e emojis proibidos em `src/content/**` (alinhado ao gate F1c).
+ * Lista F1d e blocos de setas/dingbats via escapes Unicode (sem glifos crus
+ * no fonte do teste, para o `check-no-emoji` passar na arvore combinada).
  */
 const FORBIDDEN_GLYPHS =
-  /[★☆✔✕➜‹›▾←]|[\p{Extended_Pictographic}\u{FE0E}\u{FE0F}\u{200D}\u{20E3}]/gu;
+  /[\u{2605}\u{2606}\u{2714}\u{2715}\u{279C}\u{2039}\u{203A}\u{25BE}\u{2190}]|[\p{Extended_Pictographic}\u{FE0E}\u{FE0F}\u{200D}\u{20E3}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2460}-\u{24FF}\u{2500}-\u{27BF}\u{2B00}-\u{2BFF}]/gu;
 
 /** Fontes de `src/content/**` (exclui `__tests__`) como texto bruto. */
 const CONTENT_SOURCES = import.meta.glob('../*.{ts,tsx}', {
@@ -81,10 +81,10 @@ describe('buildSourceUrl', () => {
     );
   });
 
-  it('faz fallback seguro para o repositório quando commit é vazio ou unknown', () => {
-    expect(buildSourceUrl('')).toBe(SOURCE_REPO_URL);
-    expect(buildSourceUrl('   ')).toBe(SOURCE_REPO_URL);
-    expect(buildSourceUrl('unknown')).toBe(SOURCE_REPO_URL);
+  it('recusa commit vazio ou unknown (ADR-004: sem link para a branch padrao)', () => {
+    expect(() => buildSourceUrl('')).toThrow(/commit exato|ADR-004/i);
+    expect(() => buildSourceUrl('   ')).toThrow(/commit exato|ADR-004/i);
+    expect(() => buildSourceUrl('unknown')).toThrow(/commit exato|ADR-004/i);
   });
 });
 
@@ -103,10 +103,10 @@ describe('AGPL §13 notice', () => {
     expect(notice).toContain('dist/');
   });
 
-  it('usa fallback de Corresponding Source quando o commit é desconhecido', () => {
-    const notice = buildAgplNotice({ version: '0.1.0', commit: 'unknown' });
-    expect(notice).toContain(SOURCE_REPO_URL);
-    expect(notice).not.toContain('/tree/unknown');
+  it('propaga a exigencia de commit exato no aviso AGPL', () => {
+    expect(() =>
+      buildAgplNotice({ version: '0.1.0', commit: 'unknown' }),
+    ).toThrow(/commit exato|ADR-004/i);
   });
 });
 
@@ -158,7 +158,9 @@ describe('copy estrutural mínima', () => {
     expect(APP_COPY.resetProgress.cancelButton).toBe('Cancelar');
     expect(APP_COPY.resetProgress.liveMessage).toBe('Progresso apagado.');
     expect(APP_COPY.persistence.unavailable.length).toBeGreaterThan(20);
-    expect(APP_COPY.menu.iosInstallTip).toContain('Tela de Início');
+    expect(APP_COPY.menu.iosInstallTip).toBe(
+      'No iPhone/iPad: Compartilhar > Adicionar à Tela de Início',
+    );
   });
 
   it('mantém 4 níveis, 4 modos e competências com redundância de cor', () => {

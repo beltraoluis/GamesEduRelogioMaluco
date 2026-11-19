@@ -28,9 +28,9 @@ Fonte canônica dos códigos: `src/domain/types.ts` (`BnccSkill`) e `src/content
 
 | Modo | Estímulo / ação | Legado | React | Paridade |
 |---|---|---|---|---|
-| Números | Analógico → fichas no digital | `startGame('numbers')` | `GameMode: 'numbers'` | Mantida |
+| Números | Analógico -> fichas no digital | `startGame('numbers')` | `GameMode: 'numbers'` | Mantida |
 | Palavras | Completar frase por extenso | `startGame('words')` | `GameMode: 'words'` | Mantida |
-| Ponteiros | Digital → girar analógico + Pronto! | `startGame('hands')` | `GameMode: 'hands'` | Mantida |
+| Ponteiros | Digital -> girar analógico + Pronto! | `startGame('hands')` | `GameMode: 'hands'` | Mantida |
 | Explorar | Livre, agora com segundos | `openExplore()` | `ModeId: 'explore'` (sem estrelas) | Mantida |
 
 Prompts pt-BR (sem emoji): `APP_COPY.game.prompts` em `src/content/copy.ts`.
@@ -114,6 +114,6 @@ Isso **muda a distribuição de fichas** em relação ao legado e é **mudança 
 - [ ] Diálogo educadores lista as 6 habilidades na ordem canônica.
 - [ ] Competências mencionam cores **e** formas de redundância.
 - [ ] AGPL §13 pós-build com commit exato e aviso sem garantia.
-- [ ] Nenhuma string de `src/content/**` com `★☆✔✕➜‹›▾←` ou emoji Unicode.
+- [ ] Nenhuma string de `src/content/**` com glifos de UI proibidos (estrelas, check, setas tipograficas U+2190-21FF) ou emoji Unicode.
 - [ ] Distratores 12 h usam wrap; documentado como mudança intencional.
 - [ ] Confirmação de apagar progresso em 2 etapas (sem `confirm()`).
