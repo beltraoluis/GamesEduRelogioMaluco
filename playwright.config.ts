@@ -2,16 +2,8 @@
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { defineConfig, devices } from '@playwright/test';
 
-/** Isolado por worktree: evita colidir com preview alheio na 4173. */
-const PREVIEW_HOST = '127.0.0.1';
-const PREVIEW_PORT = Number(process.env.E2E_PORT ?? 4177);
-const PREVIEW_ORIGIN = `http://${PREVIEW_HOST}:${PREVIEW_PORT}`;
+import { PREVIEW_ORIGIN } from './e2e/helpers/paths';
 
-/**
- * F2d harness. Build isolado em `e2e/.runtime-dist` (não reutiliza dist alheio).
- * Projetos: chromium (SW/PWA), webkit (Safari real).
- * Ver `e2e/DEPENDENCIES.md`.
- */
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -44,12 +36,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: [
-      'npx vite build --outDir e2e/.runtime-dist --emptyOutDir',
-      `npx vite preview --outDir e2e/.runtime-dist --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
-    ].join(' && '),
-    url: PREVIEW_ORIGIN,
-    // Sempre sobe o preview deste worktree (não reusa servidor alheio).
+    command: 'node e2e/build-preview.mjs',
+    wait: { stdout: /^F2D_PREVIEW_READY$/m },
     reuseExistingServer: false,
     timeout: 180_000,
   },

@@ -33,7 +33,6 @@ test.describe('F2d harness (G1)', () => {
     expect(existsSync(path.join(REPO_ROOT, 'public', 'LICENSE.txt'))).toBe(true);
     expect(existsSync(path.join(REPO_ROOT, 'legacy', 'sw.js'))).toBe(true);
     expect(existsSync(path.join(RUNTIME_DIST, 'index.html'))).toBe(true);
-    // Não depende de ../f2c-pwa/dist nem de ./dist da raiz.
     expect(RUNTIME_DIST.includes(`${path.sep}e2e${path.sep}.runtime-dist`)).toBe(true);
   });
 });

@@ -4,10 +4,9 @@ import { expect, test } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { ensureF2cDist, ensureRuntimeDist } from './helpers/build.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
 import { homeHeading, offlineReadyBadge } from './helpers/locators.ts';
-import { REPO_ROOT, RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
+import { F2C_DIST, F2C_SHA, REPO_ROOT, RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
 import {
   cacheHasUrl,
   listCacheNames,
@@ -18,7 +17,6 @@ import { registerServiceWorker, waitForWorkboxPrecache } from './helpers/sw.ts';
 
 test.describe('Offline + licenças', () => {
   test('LICENSE.txt no runtime-dist isolado responde 200 (G1)', async ({ page }) => {
-    ensureRuntimeDist();
     await page.goto('/');
     await expect(homeHeading(page)).toBeVisible();
 
@@ -29,8 +27,9 @@ test.describe('Offline + licenças', () => {
     expect(existsSync(path.join(RUNTIME_DIST, 'LICENSE.txt'))).toBe(true);
   });
 
-  test('composição F2c 21c1648: LICENSE + THIRD_PARTY offline (ignoreSearch)', async ({ browser }) => {
-    const distDir = ensureF2cDist();
+  test('composição F2c: LICENSE + THIRD_PARTY offline (ignoreSearch)', async ({ browser }) => {
+    test.skip(!F2C_SHA, 'requer E2E_F2C_SHA explícito');
+    const distDir = F2C_DIST;
     expect(existsSync(path.join(distDir, 'THIRD_PARTY_LICENSES.txt'))).toBe(true);
 
     const server = await startSwitchableServer({ distDir });
@@ -84,7 +83,8 @@ test.describe('Offline + licenças', () => {
   });
 
   test('composição F2c: licenças offline no subpath GitHub Pages', async ({ browser }) => {
-    const distDir = ensureF2cDist();
+    test.skip(!F2C_SHA, 'requer E2E_F2C_SHA explícito');
+    const distDir = F2C_DIST;
     const server = await startSwitchableServer({ distDir });
     server.setRoot('dist');
     server.setSubpath(SUBPATH);
@@ -127,7 +127,6 @@ test.describe('Offline + licenças', () => {
 
   test('[F3] selo offlineReady na UI após precache válido', async ({ page }, testInfo) => {
     requiresF3Composition(testInfo, 'PwaApi.offlineReady + badge no menu (F2b/F2c)');
-    ensureRuntimeDist();
 
     await page.goto('/');
     await expect(homeHeading(page)).toBeVisible();

@@ -1,83 +1,54 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { expect, test } from '@playwright/test';
-
+import { ROUND_LENGTH } from '../src/contracts/index.ts';
 import { openHome, openMode, selectLevel } from './helpers/app.ts';
+import { solveLevelOneNumbers } from './helpers/clock.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
-import { APP_COPY, confettiParticles, readyButton, tileButtons } from './helpers/locators.ts';
+import { APP_COPY, nextButton } from './helpers/locators.ts';
 
-/**
- * Resolve a pergunta de números encaixando a ficha cujo valor bate a lacuna,
- * evitando cliques às cegas (falso verde Opus).
- */
-async function seatCorrectTiles(page: import('@playwright/test').Page): Promise<void> {
-  const slots = page.locator('[data-slot-id]:not([data-filled])');
-  const n = await slots.count();
-  for (let i = 0; i < n; i++) {
-    const slot = slots.nth(i);
-    const group = await slot.getAttribute('data-group');
-    const label = await slot.getAttribute('aria-label');
-    // Lacuna vazia: "…: vazia" — após F3 o valor alvo pode estar em data-answer se exposto;
-    // fallback: tenta fichas do mesmo grupo até preencher.
-    const tiles = page.getByRole('button', {
-      name: group === 'minute' ? /^Minutos:/ : group === 'period' ? /^Período:/ : /^Horas:/,
-    });
-    const count = await tiles.count();
-    for (let t = 0; t < count; t++) {
-      const tile = tiles.nth(t);
-      if (await tile.isDisabled()) continue;
-      await tile.click();
-      if (await slot.getAttribute('data-filled') !== null) break;
-    }
-    void label;
-  }
-  if (await readyButton(page).isVisible().catch(() => false)) {
-    await readyButton(page).click();
-  }
-}
+const particleSelector = '[data-motion="particle"], [data-confetti-seq], [data-confetti-particle="true"]';
 
 test.describe('prefers-reduced-motion [F3]', () => {
-  test('[F3] controle positivo: sem reduce, partículas aparecem no acerto', async ({ page }, testInfo) => {
-    requiresF3Composition(testInfo, 'Confetti monta partículas quando motion permitido (F2a/F2b)');
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    test(`[F3] ${reducedMotion}: rodada de acertos e presença/ausência de partículas`, async ({ page }, testInfo) => {
+      requiresF3Composition(testInfo, 'GameScreen e Confetti no acerto e no resultado');
 
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await openHome(page);
-    await selectLevel(page, 1);
-    await openMode(page, 'numbers');
-    await seatCorrectTiles(page);
+      await page.emulateMedia({ reducedMotion });
+      await openHome(page);
+      expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches))
+        .toBe(reducedMotion === 'reduce');
+      await selectLevel(page, 1);
+      await openMode(page, 'numbers');
 
-    await expect(
-      page.getByText(/Muito bem|acert|Próxima|estrelas/i).or(page.getByRole('button', { name: APP_COPY.game.next })),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(confettiParticles(page)).not.toHaveCount(0);
-  });
+      // Guarda até os nós removidos antes da próxima asserção do Playwright.
+      const particles = await page.evaluateHandle((selector) => {
+        let count = 0;
+        const observer = new MutationObserver((records) => {
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (node instanceof Element && (node.matches(selector) || node.querySelector(selector))) count++;
+            }
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        return { count: () => count };
+      }, particleSelector);
 
-  test('[F3] com reduce: após acerto e resultado, zero partículas', async ({ page }, testInfo) => {
-    requiresF3Composition(testInfo, 'Chegar ao acerto/resultado com reduced motion; Confetti retorna null');
-
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await openHome(page);
-    await selectLevel(page, 1);
-    await openMode(page, 'numbers');
-    await seatCorrectTiles(page);
-
-    await expect(
-      page.getByText(/Muito bem|acert|Próxima|estrelas/i).or(page.getByRole('button', { name: APP_COPY.game.next })),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(confettiParticles(page)).toHaveCount(0);
-    await expect(page.locator('[data-motion="particle"]')).toHaveCount(0);
-    await expect(page.locator('[data-confetti-seq]')).toHaveCount(0);
-
-    for (let q = 0; q < 7; q++) {
-      const next = page.getByRole('button', { name: APP_COPY.game.next });
-      if (await next.isVisible().catch(() => false)) await next.click();
-      await seatCorrectTiles(page);
-    }
-
-    await expect(
-      page.getByRole('button', { name: APP_COPY.result.home }).or(page.getByRole('button', { name: APP_COPY.result.playAgain })),
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(confettiParticles(page)).toHaveCount(0);
-    await expect(tileButtons(page)).toHaveCount(0);
-  });
+      await expect(page.locator(particleSelector)).toHaveCount(0);
+      for (let q = 0; q < ROUND_LENGTH; q++) {
+        await solveLevelOneNumbers(page);
+        if (q === 0 && reducedMotion === 'no-preference') {
+          await expect.poll(() => particles.evaluate((probe) => probe.count())).toBeGreaterThan(0);
+        }
+        await nextButton(page).click();
+      }
+      await expect(page.getByRole('button', { name: APP_COPY.result.playAgain })).toBeVisible();
+      if (reducedMotion === 'reduce') {
+        expect(await particles.evaluate((probe) => probe.count())).toBe(0);
+        await expect(page.locator(particleSelector)).toHaveCount(0);
+      }
+      await particles.dispose();
+    });
+  }
 });

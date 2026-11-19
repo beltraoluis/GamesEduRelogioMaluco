@@ -11,81 +11,72 @@ export function trackMainFrameNavigations(page: Page): { readonly count: () => n
   return { count: () => n };
 }
 
-/**
- * Dispara `registration.update()` e espera ativação/controllerchange sem sleep fixo.
- * Resolve quando o controller ativo serve um SW Workbox (ou o script deixa de ser o legado v6 puro).
- */
-export async function updateAndWaitForWorkboxControl(page: Page, timeoutMs = 25_000): Promise<string> {
-  const scriptURL = await page.evaluate(async (timeout) => {
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) throw new Error('no service worker registration');
-
-    const isWorkbox = async (url: string | undefined): Promise<boolean> => {
-      if (!url) return false;
-      try {
-        const text = await fetch(url, { cache: 'no-store' }).then((r) => r.text());
-        return /workbox|precacheAndRoute|importScripts\(["']sw-legacy-cleanup/.test(text);
-      } catch {
-        return false;
-      }
-    };
-
-    const waitControllerChange = new Promise<void>((resolve) => {
-      navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
+/** Arma todas as abas enquanto a versão anterior ainda está sendo servida. */
+export async function watchControllerChanges(pages: readonly Page[]): Promise<() => Promise<void>> {
+  const watches = await Promise.all(pages.map((page) => page.evaluateHandle(() => {
+    const workers = navigator.serviceWorker;
+    const previous = workers.controller;
+    if (!previous) throw new Error('A página precisa estar controlada antes da atualização');
+    const changed = new Promise<ServiceWorker>((resolve) => {
+      workers.addEventListener('controllerchange', () => {
+        const current = workers.controller;
+        if (current && current !== previous) resolve(current);
+      });
     });
+    return { previous, changed };
+  })));
 
-    const waitActiveWorkbox = (async () => {
-      const start = Date.now();
-      while (Date.now() - start < timeout) {
-        const current = await navigator.serviceWorker.getRegistration();
-        const candidate =
-          current?.active?.scriptURL ??
-          navigator.serviceWorker.controller?.scriptURL ??
-          current?.waiting?.scriptURL ??
-          current?.installing?.scriptURL;
-        if (await isWorkbox(candidate)) {
-          // Garante claim: se ainda não há controller, espera o evento.
-          if (!navigator.serviceWorker.controller) {
-            await waitControllerChange;
+  return async () => {
+    const [first] = pages;
+    if (!first) throw new Error('Nenhuma página observada');
+    try {
+      await first.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) throw new Error('Registro do service worker ausente');
+        await registration.update();
+      });
+      await Promise.all(watches.map(async (watch) => {
+        const evidence = await watch.evaluate(async ({ previous, changed }) => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            const current = await Promise.race([
+              changed,
+              new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error('controllerchange não substituiu o controller')), 20_000);
+              }),
+            ]);
+            const registration = await navigator.serviceWorker.getRegistration();
+            return {
+              changedIdentity: current !== previous,
+              controlsPage: current === navigator.serviceWorker.controller,
+              isActive: current === registration?.active,
+              sameScriptURL: current.scriptURL === previous.scriptURL,
+            };
+          } finally {
+            clearTimeout(timer);
           }
-          return navigator.serviceWorker.controller?.scriptURL ?? candidate ?? '';
-        }
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      throw new Error('timed out waiting for Workbox SW');
-    })();
-
-    await reg.update();
-    return waitActiveWorkbox;
-  }, timeoutMs);
-
-  expect(scriptURL).toMatch(/sw\.js/);
-  return scriptURL;
+        });
+        expect(evidence).toEqual({
+          changedIdentity: true,
+          controlsPage: true,
+          isActive: true,
+          sameScriptURL: true,
+        });
+      }));
+    } finally {
+      await Promise.all(watches.map((watch) => watch.dispose()));
+    }
+  };
 }
 
-/** Espera o cache legado `relogio-maluco-v*` desaparecer após o cleanup. */
-export async function waitForLegacyCachesGone(page: Page, timeoutMs = 20_000): Promise<string[]> {
-  await page.waitForFunction(
-    async () => {
-      const keys = await caches.keys();
-      return !keys.some((k) => /^relogio-maluco-v\d+$/.test(k));
-    },
-    undefined,
-    { timeout: timeoutMs },
-  );
-  return page.evaluate(async () => (await caches.keys()).slice().sort());
+export async function waitForLegacyCachesGone(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 20_000 })
+    .not.toEqual(expect.arrayContaining([expect.stringMatching(/^relogio-maluco-v\d+$/)]));
 }
 
-export async function waitForWorkboxPrecache(page: Page, timeoutMs = 20_000): Promise<string[]> {
-  await page.waitForFunction(
-    async () => {
-      const keys = await caches.keys();
-      return keys.some((k) => k.startsWith('workbox-precache-v2-'));
-    },
-    undefined,
-    { timeout: timeoutMs },
-  );
-  return page.evaluate(async () => (await caches.keys()).slice().sort());
+export async function waitForWorkboxPrecache(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 20_000 })
+    .toEqual(expect.arrayContaining([expect.stringMatching(/^workbox-precache-v2-/)]));
 }
 
 export async function registerServiceWorker(page: Page, script = './sw.js'): Promise<string | null> {

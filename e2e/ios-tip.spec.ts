@@ -88,10 +88,10 @@ test.describe('Dica iOS', () => {
     });
   });
 
-  test.describe('WebKit / Safari real (projeto webkit)', () => {
+  test.describe('WebKit Playwright (UA e standalone simulados)', () => {
     test.skip(({ browserName }) => browserName !== 'webkit', 'requer projeto Playwright webkit');
 
-    test('[F3] tip em iPhone Safari WebKit não-standalone', async ({ browser }, testInfo) => {
+    test('[F3] tip no WebKit com perfil iOS não-standalone simulado', async ({ browser }, testInfo) => {
       requiresF3Composition(
         testInfo,
         'Mesma asserção da simulação, mas no motor WebKit (capacidade distinta do Chromium UA spoof)',

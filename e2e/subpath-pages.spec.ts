@@ -4,17 +4,18 @@ import { expect, test } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { ensureF2cDist, ensureRuntimeDist } from './helpers/build.ts';
+import { openMode, selectLevel } from './helpers/app.ts';
+import { solveLevelOneNumbers } from './helpers/clock.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
 import { homeHeading } from './helpers/locators.ts';
-import { RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
+import { F2C_DIST, F2C_SHA, RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
 import { listCacheNames, waitForServiceWorkerControl } from './helpers/preferences.ts';
 import { startSwitchableServer } from './helpers/static-server.ts';
 import { registerServiceWorker, waitForWorkboxPrecache } from './helpers/sw.ts';
 
 test.describe('Subpath GitHub Pages (base: ./)', () => {
   test('runtime-dist isolado responde 200 em / e no subpath (G1)', async () => {
-    const distDir = ensureRuntimeDist();
+    const distDir = RUNTIME_DIST;
     expect(existsSync(path.join(distDir, 'index.html'))).toBe(true);
     expect(distDir).toBe(RUNTIME_DIST);
 
@@ -66,7 +67,7 @@ test.describe('Subpath GitHub Pages (base: ./)', () => {
       'UI completa + offlineReady no subpath (F2c/F3); HTTP/SW/assets já verdes sem F3',
     );
 
-    const distDir = ensureRuntimeDist();
+    const distDir = RUNTIME_DIST;
     const server = await startSwitchableServer({ distDir });
     server.setRoot('dist');
     server.setSubpath(SUBPATH);
@@ -85,8 +86,13 @@ test.describe('Subpath GitHub Pages (base: ./)', () => {
       const caches = await listCacheNames(page);
       expect(caches.some((name) => name.includes('workbox-precache-v2-'))).toBe(true);
       await context.setOffline(true);
-      await page.reload();
+      const response = await page.reload();
+      expect(response?.fromServiceWorker()).toBe(true);
+      expect(await page.evaluate(() => navigator.onLine)).toBe(false);
       await expect(homeHeading(page)).toBeVisible();
+      await selectLevel(page, 1);
+      await openMode(page, 'numbers');
+      await solveLevelOneNumbers(page);
     } finally {
       await context.close();
       await server.close();
@@ -94,7 +100,8 @@ test.describe('Subpath GitHub Pages (base: ./)', () => {
   });
 
   test('F2c composition: SW + precache no subpath (sem UI F3)', async ({ browser }) => {
-    const distDir = ensureF2cDist();
+    test.skip(!F2C_SHA, 'requer E2E_F2C_SHA explícito');
+    const distDir = F2C_DIST;
     const server = await startSwitchableServer({ distDir });
     server.setRoot('dist');
     server.setSubpath(SUBPATH);

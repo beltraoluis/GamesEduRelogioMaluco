@@ -2,7 +2,6 @@
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { expect, test, type Page } from '@playwright/test';
 
-import { ensureRuntimeDist } from './helpers/build.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
 import { playLegacyNumbersOnce } from './helpers/legacy-play.ts';
 import { homeHeading, modeCard } from './helpers/locators.ts';
@@ -10,6 +9,7 @@ import {
   LEGACY_SEEDED_PREFS,
   PREFERENCES_STORAGE_KEY,
   assertPreferencesPreserved,
+  listCacheNames,
   listLocalStorageKeys,
   readPreferences,
   seedPreferencesOnPage,
@@ -18,7 +18,7 @@ import {
 import { startSwitchableServer } from './helpers/static-server.ts';
 import {
   trackMainFrameNavigations,
-  updateAndWaitForWorkboxControl,
+  watchControllerChanges,
   waitForLegacyCachesGone,
   waitForWorkboxPrecache,
 } from './helpers/sw.ts';
@@ -28,14 +28,10 @@ async function openLegacyControlled(page: Page): Promise<void> {
   await page.waitForFunction(() => document.title.includes('Relógio Maluco'));
   const script = await waitForServiceWorkerControl(page, 25_000);
   expect(script).toMatch(/sw\.js/);
-  await page.waitForFunction(async () => (await caches.keys()).includes('relogio-maluco-v6'));
+  await expect.poll(() => listCacheNames(page)).toContain('relogio-maluco-v6');
 }
 
 test.describe('Migração legado v6 → React', () => {
-  test.beforeAll(() => {
-    ensureRuntimeDist();
-  });
-
   test('1 aba: seed evaluate uma vez, sync SW, prefs reais, cleanup', async ({ browser }) => {
     const migrationToken = `mig-1tab-${Date.now()}`;
     const server = await startSwitchableServer();
@@ -55,8 +51,9 @@ test.describe('Migração legado v6 → React', () => {
       assertPreferencesPreserved(await readPreferences(page), expected);
 
       const navBeforeUpdate = nav.count();
+      const update = await watchControllerChanges([page]);
       server.setRoot('dist');
-      await updateAndWaitForWorkboxControl(page);
+      await update();
       expect(nav.count(), 'zero navegação automática após clientsClaim').toBe(navBeforeUpdate);
 
       await playLegacyNumbersOnce(page);
@@ -71,10 +68,8 @@ test.describe('Migração legado v6 → React', () => {
       assertPreferencesPreserved(afterReload, expected);
       expect(await listLocalStorageKeys(page)).toContain(PREFERENCES_STORAGE_KEY);
 
-      const caches = await waitForLegacyCachesGone(page);
+      await waitForLegacyCachesGone(page);
       await waitForWorkboxPrecache(page);
-      expect(caches.some((name) => /^relogio-maluco-v\d+$/.test(name))).toBe(false);
-      expect(caches.some((name) => name.startsWith('workbox-precache-v2-'))).toBe(true);
     } finally {
       await context.close();
       await server.close();
@@ -102,24 +97,26 @@ test.describe('Migração legado v6 → React', () => {
       });
       assertPreferencesPreserved(await readPreferences(pageB), expected);
 
-      const baseline = navA.count() + navB.count();
+      const baseline = [navA.count(), navB.count()];
+      const update = await watchControllerChanges([pageA, pageB]);
       server.setRoot('dist');
-      await Promise.all([updateAndWaitForWorkboxControl(pageA), updateAndWaitForWorkboxControl(pageB)]);
-      expect(navA.count() + navB.count()).toBe(baseline);
+      await update();
+      expect([navA.count(), navB.count()]).toEqual(baseline);
 
       await playLegacyNumbersOnce(pageA);
       await playLegacyNumbersOnce(pageB);
-      expect(navA.count() + navB.count()).toBe(baseline);
+      expect([navA.count(), navB.count()]).toEqual(baseline);
 
       await pageA.reload();
       await pageB.reload();
+      expect([navA.count(), navB.count()]).toEqual(baseline.map((count) => count + 1));
       await expect(homeHeading(pageA)).toBeVisible();
       await expect(homeHeading(pageB)).toBeVisible();
 
       for (const page of [pageA, pageB]) {
         assertPreferencesPreserved(await readPreferences(page), expected);
-        const caches = await waitForLegacyCachesGone(page);
-        expect(caches.some((name) => name.startsWith('workbox-precache-v2-'))).toBe(true);
+        await waitForLegacyCachesGone(page);
+        await waitForWorkboxPrecache(page);
       }
     } finally {
       await context.close();
@@ -129,7 +126,6 @@ test.describe('Migração legado v6 → React', () => {
 
   test('[F3] após reload React, ModeCard Números jogável nas 2 abas', async ({ browser }, testInfo) => {
     requiresF3Composition(testInfo, 'ModeCard/GameScreen React pós-migração (F2a+F2b+F3)');
-    ensureRuntimeDist();
 
     const server = await startSwitchableServer();
     server.setRoot('legacy');
@@ -140,8 +136,9 @@ test.describe('Migração legado v6 → React', () => {
       await openLegacyControlled(pageA);
       await openLegacyControlled(pageB);
       await seedPreferencesOnPage(pageA, LEGACY_SEEDED_PREFS, { themeHint: LEGACY_SEEDED_PREFS.themeHint });
+      const update = await watchControllerChanges([pageA, pageB]);
       server.setRoot('dist');
-      await Promise.all([updateAndWaitForWorkboxControl(pageA), updateAndWaitForWorkboxControl(pageB)]);
+      await update();
       await pageA.reload();
       await pageB.reload();
 
@@ -158,10 +155,9 @@ test.describe('Migração legado v6 → React', () => {
     }
   });
 
-  test('rollback v7: SW legado v7 remove Workbox e volta offline (spike F0a / F5.1.9)', async ({
+  test('rollback v7: legado volta offline e nova tentativa React remove o v7', async ({
     browser,
   }) => {
-    ensureRuntimeDist();
     const server = await startSwitchableServer();
     server.setRoot('dist');
     const context = await browser.newContext({ baseURL: server.origin, serviceWorkers: 'allow' });
@@ -174,27 +170,15 @@ test.describe('Migração legado v6 → React', () => {
         await navigator.serviceWorker.register('./sw.js');
         await navigator.serviceWorker.ready;
       });
+      await waitForServiceWorkerControl(page);
       await waitForWorkboxPrecache(page);
 
+      const rollback = await watchControllerChanges([page]);
       server.setRoot('legacy');
       server.setLegacyCacheVersion('v7');
-      await page.evaluate(async () => {
-        const reg = await navigator.serviceWorker.getRegistration();
-        const changed = new Promise<void>((resolve) => {
-          navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
-        });
-        await reg?.update();
-        await Promise.race([changed, new Promise<void>((r) => setTimeout(r, 8_000))]);
-      });
+      await rollback();
 
-      await page.waitForFunction(
-        async () => {
-          const keys = await caches.keys();
-          return keys.includes('relogio-maluco-v7') && !keys.some((k) => k.startsWith('workbox-precache-v2-'));
-        },
-        undefined,
-        { timeout: 25_000 },
-      );
+      await expect.poll(() => listCacheNames(page)).toEqual(['relogio-maluco-v7']);
 
       await page.reload();
       await page.waitForFunction(() => document.title.includes('Relógio Maluco'));
@@ -206,6 +190,17 @@ test.describe('Migração legado v6 → React', () => {
       await page.reload();
       expect(await page.evaluate(() => navigator.onLine)).toBe(false);
       await playLegacyNumbersOnce(page);
+
+      await context.setOffline(false);
+      const retry = await watchControllerChanges([page]);
+      server.setRoot('dist');
+      await retry();
+      await waitForLegacyCachesGone(page);
+      await waitForWorkboxPrecache(page);
+      await page.reload();
+      await expect(homeHeading(page)).toBeVisible();
+      await expect(page.locator('#root')).toBeVisible();
+      expect(await listCacheNames(page)).not.toContain('relogio-maluco-v7');
     } finally {
       await context.close();
       await server.close();

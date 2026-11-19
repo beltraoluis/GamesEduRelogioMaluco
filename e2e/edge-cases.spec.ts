@@ -59,10 +59,10 @@ test.describe('Edge cases P0 [F3]', () => {
     await expect(page.getByRole('group', { name: /Relógio digital/i })).toBeVisible();
   });
 
-  test('[F3] #5 reset concorrente 2 abas preserva nível/som/voz e zera stars', async ({ browser }, testInfo) => {
+  test('[F3] #5 reset concorrente 2 abas preserva nível/som/voz e zera stars', async ({ browser, baseURL }, testInfo) => {
     requiresF3Composition(testInfo, 'TeachersDialog reset + storage event (F2b/F1a); edge-cases.md #5');
 
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL });
     const pageA = await context.newPage();
     const pageB = await context.newPage();
     try {
