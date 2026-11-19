@@ -11,7 +11,7 @@ import { homeHeading } from './helpers/locators.ts';
 import { F2C_DIST, F2C_SHA, RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
 import { listCacheNames, waitForServiceWorkerControl } from './helpers/preferences.ts';
 import { startSwitchableServer } from './helpers/static-server.ts';
-import { registerServiceWorker, waitForWorkboxPrecache } from './helpers/sw.ts';
+import { waitForWorkboxPrecache } from './helpers/sw.ts';
 
 test.describe('Subpath GitHub Pages (base: ./)', () => {
   test('runtime-dist isolado responde 200 em / e no subpath (G1)', async () => {
@@ -113,7 +113,6 @@ test.describe('Subpath GitHub Pages (base: ./)', () => {
     try {
       await page.goto('./');
       await expect(homeHeading(page)).toBeVisible();
-      await registerServiceWorker(page);
       const controller = await waitForServiceWorkerControl(page, 20_000);
       expect(controller).toContain(`${SUBPATH}/sw.js`);
       await waitForWorkboxPrecache(page);

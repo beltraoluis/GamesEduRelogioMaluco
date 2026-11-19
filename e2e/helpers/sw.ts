@@ -78,11 +78,3 @@ export async function waitForWorkboxPrecache(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 20_000 })
     .toEqual(expect.arrayContaining([expect.stringMatching(/^workbox-precache-v2-/)]));
 }
-
-export async function registerServiceWorker(page: Page, script = './sw.js'): Promise<string | null> {
-  await page.evaluate(async (sw) => {
-    await navigator.serviceWorker.register(sw);
-    await navigator.serviceWorker.ready;
-  }, script);
-  return page.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? null);
-}

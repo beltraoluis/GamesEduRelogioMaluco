@@ -13,7 +13,7 @@ import {
   waitForServiceWorkerControl,
 } from './helpers/preferences.ts';
 import { startSwitchableServer } from './helpers/static-server.ts';
-import { registerServiceWorker, waitForWorkboxPrecache } from './helpers/sw.ts';
+import { waitForWorkboxPrecache } from './helpers/sw.ts';
 
 test.describe('Offline + licenças', () => {
   test('LICENSE.txt no runtime-dist isolado responde 200 (G1)', async ({ page }) => {
@@ -40,7 +40,7 @@ test.describe('Offline + licenças', () => {
     try {
       await page.goto('/');
       await expect(homeHeading(page)).toBeVisible();
-      await registerServiceWorker(page);
+      await waitForServiceWorkerControl(page);
       await waitForWorkboxPrecache(page);
 
       // Workbox revisiona com ?__WB_REVISION__= — match exige ignoreSearch.
@@ -59,7 +59,7 @@ test.describe('Offline + licenças', () => {
         };
       });
       expect(scopeOk.scope).toBe(`${scopeOk.origin}/`);
-      expect(scopeOk.script).toContain('/sw.js');
+      expect(scopeOk.script).toBe(`${scopeOk.origin}/sw.js`);
 
       await context.setOffline(true);
       const licenses = await page.evaluate(async () => {
@@ -98,7 +98,6 @@ test.describe('Offline + licenças', () => {
     try {
       await page.goto('./');
       await expect(homeHeading(page)).toBeVisible();
-      await registerServiceWorker(page);
       const controller = await waitForServiceWorkerControl(page, 20_000);
       expect(controller).toContain(`${SUBPATH}/sw.js`);
       await waitForWorkboxPrecache(page);
@@ -106,7 +105,7 @@ test.describe('Offline + licenças', () => {
       expect(await cacheHasUrl(page, './THIRD_PARTY_LICENSES.txt')).toBe(true);
 
       await context.setOffline(true);
-      await page.reload();
+      expect((await page.reload())?.fromServiceWorker()).toBe(true);
       await expect(homeHeading(page)).toBeVisible();
 
       const licenses = await page.evaluate(async () => {
