@@ -14,26 +14,35 @@ import {
 } from './helpers/locators.ts';
 import type { GameMode } from '../src/domain/types.ts';
 
-test.describe('4 modos [F3]', () => {
-  for (const modeId of MODE_IDS) {
-    test(`[F3] abre o modo ${modeTitle(modeId)} a partir da Home`, async ({ page }, testInfo) => {
+const LEVELS = [1, 2, 3, 4] as const;
+/** Amostra da matriz 4×4: todo modo × nível 1, e nível 4 nos modos pontuados. */
+const MATRIX: ReadonlyArray<{ mode: (typeof MODE_IDS)[number]; level: (typeof LEVELS)[number] }> = [
+  ...MODE_IDS.map((mode) => ({ mode, level: 1 as const })),
+  { mode: 'numbers', level: 4 },
+  { mode: 'words', level: 4 },
+  { mode: 'hands', level: 4 },
+];
+
+test.describe('Matriz modos × níveis [F3]', () => {
+  for (const { mode, level } of MATRIX) {
+    test(`[F3] ${modeTitle(mode)} no nível ${level}`, async ({ page }, testInfo) => {
       requiresF3Composition(
         testInfo,
-        'HomeScreen ModeCard + rotas de tela (F2a/F2b) só existem após composição F3',
+        'HomeScreen ModeCard + Game/Explore + LevelSelector (F2a/F2b) após composição F3',
       );
 
       await openHome(page);
-      await selectLevel(page, 1);
-      await expect(modeCard(page, modeId)).toBeVisible();
-      await expect(modeCard(page, modeId)).toContainText(APP_COPY.modes[modeId].description);
+      await selectLevel(page, level);
+      await expect(modeCard(page, mode)).toBeVisible();
+      await expect(modeCard(page, mode)).toContainText(APP_COPY.modes[mode].description);
 
-      await openMode(page, modeId);
+      await openMode(page, mode);
 
-      if (modeId === 'explore') {
+      if (mode === 'explore') {
         await expect(page.getByRole('heading', { name: APP_COPY.explore.title })).toBeVisible();
         await expect(page.getByText(APP_COPY.explore.dragTip)).toBeVisible();
       } else {
-        const gameMode = modeId as GameMode;
+        const gameMode = mode as GameMode;
         await expect(answerRegion(page, gameMode)).toBeVisible();
         await expect(answerRegion(page, gameMode)).toHaveAttribute(
           'aria-label',

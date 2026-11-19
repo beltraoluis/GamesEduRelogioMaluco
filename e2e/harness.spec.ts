@@ -3,15 +3,13 @@
 import { expect, test } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { APP_COPY, homeHeading } from './helpers/locators.ts';
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+import { REPO_ROOT, RUNTIME_DIST } from './helpers/paths.ts';
 
 /**
- * Provas de harness na base G1 — devem passar sem composição F3.
- * Validam descoberta Playwright, preview pós-build e artefatos mínimos.
+ * Provas de harness — devem passar sem composição F3.
+ * Validam descoberta Playwright, preview pós-build isolado e artefatos mínimos.
  */
 test.describe('F2d harness (G1)', () => {
   test('preview serve o stub React com título Relógio Maluco', async ({ page }) => {
@@ -19,24 +17,23 @@ test.describe('F2d harness (G1)', () => {
     await expect(page).toHaveTitle(/Relógio Maluco/);
     await expect(homeHeading(page)).toBeVisible();
     await expect(page.getByText(APP_COPY.home.subtitle).or(page.getByText(/aprender as horas/i))).toBeVisible();
-    // Fallback estático de boot some após o hydrate do React.
     await expect(page.locator('#root')).not.toContainText('Carregando o Relógio Maluco');
   });
 
-  test('LICENSE.txt do build responde 200 text/plain com AGPL', async ({ request }) => {
+  test('LICENSE.txt do build isolado responde 200 text/plain com AGPL', async ({ request }) => {
     const response = await request.get('/LICENSE.txt');
     expect(response.status()).toBe(200);
-    const contentType = response.headers()['content-type'] ?? '';
-    expect(contentType).toMatch(/text\/plain/);
-    const body = await response.text();
-    expect(body).toMatch(/GNU AFFERO GENERAL PUBLIC LICENSE/i);
+    expect(response.headers()['content-type'] ?? '').toMatch(/text\/plain/);
+    expect(await response.text()).toMatch(/GNU AFFERO GENERAL PUBLIC LICENSE/i);
   });
 
-  test('artefatos locais do harness existem no repositório', () => {
+  test('artefatos locais do harness isolado existem', () => {
     expect(existsSync(path.join(REPO_ROOT, 'playwright.config.ts'))).toBe(true);
     expect(existsSync(path.join(REPO_ROOT, 'e2e', 'DEPENDENCIES.md'))).toBe(true);
     expect(existsSync(path.join(REPO_ROOT, 'public', 'LICENSE.txt'))).toBe(true);
     expect(existsSync(path.join(REPO_ROOT, 'legacy', 'sw.js'))).toBe(true);
-    expect(existsSync(path.join(REPO_ROOT, 'dist', 'index.html'))).toBe(true);
+    expect(existsSync(path.join(RUNTIME_DIST, 'index.html'))).toBe(true);
+    // Não depende de ../f2c-pwa/dist nem de ./dist da raiz.
+    expect(RUNTIME_DIST.includes(`${path.sep}e2e${path.sep}.runtime-dist`)).toBe(true);
   });
 });

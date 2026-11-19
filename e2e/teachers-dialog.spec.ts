@@ -6,44 +6,59 @@ import { openHome, openTeachersDialog } from './helpers/app.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
 import {
   APP_COPY,
+  menuButton,
   resetCancelButton,
   resetConfirmButton,
   resetProgressButton,
   teachersDialog,
+  teachersMenuItem,
 } from './helpers/locators.ts';
 import {
   LEGACY_SEEDED_PREFS,
   PREFERENCES_STORAGE_KEY,
+  listLocalStorageKeys,
   readPreferences,
-  seedPreferences,
+  seedPreferencesOnPage,
 } from './helpers/preferences.ts';
 
 test.describe('TeachersDialog confirmação [F3]', () => {
-  test('[F3] diálogo nativo abre, Esc fecha e não trava overflow no root', async ({ page }, testInfo) => {
-    requiresF3Composition(testInfo, 'TeachersDialog + AppMenu (F2b)');
+  test('[F3] diálogo nativo: foco inicial, Esc fecha, foco retorna, sem overflow hidden no root', async ({
+    page,
+  }, testInfo) => {
+    requiresF3Composition(testInfo, 'TeachersDialog + AppMenu + useModalDialog (F2b/F1b)');
 
     await openHome(page);
-    await openTeachersDialog(page);
+    await menuButton(page).click();
+    const opener = teachersMenuItem(page);
+    await opener.click();
 
     const dialog = teachersDialog(page);
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveJSProperty('open', true);
-    // closedby="any" (com fallback) — atributo esperado no contrato useModalDialog.
     await expect(dialog).toHaveAttribute('closedby', 'any');
 
-    const rootOverflow = await page.evaluate(() => {
-      const root = document.documentElement;
-      const body = document.body;
-      return {
-        root: getComputedStyle(root).overflow,
-        body: getComputedStyle(body).overflow,
-      };
+    // Foco preso no diálogo nativo.
+    const focusInside = await page.evaluate(() => {
+      const active = document.activeElement;
+      const dlg = document.querySelector('dialog[open]');
+      return Boolean(dlg && active && dlg.contains(active));
     });
+    expect(focusInside).toBe(true);
+
+    const rootOverflow = await page.evaluate(() => ({
+      root: getComputedStyle(document.documentElement).overflow,
+      body: getComputedStyle(document.body).overflow,
+    }));
     expect(rootOverflow.root).not.toBe('hidden');
     expect(rootOverflow.body).not.toBe('hidden');
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+
+    // Foco devolve ao controle que abriu (menu item / botão educadores).
+    await expect
+      .poll(async () => page.evaluate(() => document.activeElement?.textContent ?? document.activeElement?.getAttribute('aria-label') ?? ''))
+      .toMatch(/educadores|Menu|Para educadores/i);
   });
 
   test('[F3] apagar progresso exige confirmação em 2 etapas e preserva nível/som/voz', async ({
@@ -51,20 +66,20 @@ test.describe('TeachersDialog confirmação [F3]', () => {
   }, testInfo) => {
     requiresF3Composition(testInfo, 'TeachersDialog reset + preferencesStore (F2b/F1a)');
 
-    await seedPreferences(page, {
+    await openHome(page);
+    await seedPreferencesOnPage(page, {
       level: LEGACY_SEEDED_PREFS.level,
       sound: LEGACY_SEEDED_PREFS.sound,
       voice: LEGACY_SEEDED_PREFS.voice,
       stars: LEGACY_SEEDED_PREFS.stars,
       passthrough: { themeHint: LEGACY_SEEDED_PREFS.themeHint },
     });
-    await openHome(page);
     await openTeachersDialog(page);
 
     await resetProgressButton(page).click();
     await expect(page.getByText(APP_COPY.resetProgress.confirm)).toBeVisible();
+    await expect(resetConfirmButton(page)).toBeFocused();
 
-    // Cancelar na 2ª etapa não apaga estrelas.
     await resetCancelButton(page).click();
     let prefs = await readPreferences(page);
     expect(prefs?.stars).toMatchObject(LEGACY_SEEDED_PREFS.stars);
@@ -80,6 +95,8 @@ test.describe('TeachersDialog confirmação [F3]', () => {
     expect(prefs?.sound).toBe(LEGACY_SEEDED_PREFS.sound);
     expect(prefs?.voice).toBe(LEGACY_SEEDED_PREFS.voice);
     expect(prefs?.themeHint).toBe(LEGACY_SEEDED_PREFS.themeHint);
-    expect(PREFERENCES_STORAGE_KEY).toBe('relogio-maluco-v1');
+    const keys = await listLocalStorageKeys(page);
+    expect(keys.filter((k) => k.startsWith('relogio-maluco'))).toEqual([PREFERENCES_STORAGE_KEY]);
   });
 });
+

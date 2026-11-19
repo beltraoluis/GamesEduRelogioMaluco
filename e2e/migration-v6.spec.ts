@@ -1,42 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { expect, test, type Page } from '@playwright/test';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { ensureRuntimeDist } from './helpers/build.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
+import { playLegacyNumbersOnce } from './helpers/legacy-play.ts';
 import { homeHeading, modeCard } from './helpers/locators.ts';
 import {
   LEGACY_SEEDED_PREFS,
   PREFERENCES_STORAGE_KEY,
-  listCacheNames,
+  assertPreferencesPreserved,
+  listLocalStorageKeys,
   readPreferences,
+  seedPreferencesOnPage,
   waitForServiceWorkerControl,
 } from './helpers/preferences.ts';
 import { startSwitchableServer } from './helpers/static-server.ts';
+import {
+  trackMainFrameNavigations,
+  updateAndWaitForWorkboxControl,
+  waitForLegacyCachesGone,
+  waitForWorkboxPrecache,
+} from './helpers/sw.ts';
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-async function seedLegacyPrefs(page: Page): Promise<void> {
-  await page.addInitScript(
-    ({ key, value }) => {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    },
-    {
-      key: PREFERENCES_STORAGE_KEY,
-      value: {
-        level: LEGACY_SEEDED_PREFS.level,
-        sound: LEGACY_SEEDED_PREFS.sound,
-        voice: LEGACY_SEEDED_PREFS.voice,
-        stars: LEGACY_SEEDED_PREFS.stars,
-        themeHint: LEGACY_SEEDED_PREFS.themeHint,
-      },
-    },
-  );
-}
-
-async function awaitLegacyControl(page: Page): Promise<void> {
+async function openLegacyControlled(page: Page): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(() => document.title.includes('Relógio Maluco'));
   const script = await waitForServiceWorkerControl(page, 25_000);
@@ -45,52 +32,47 @@ async function awaitLegacyControl(page: Page): Promise<void> {
 }
 
 test.describe('Migração legado v6 → React', () => {
-  test('1 aba: prefs sobrevivem à troca SW e caches v6 são limpos', async ({ browser }) => {
-    expect(existsSync(path.join(REPO_ROOT, 'dist', 'index.html'))).toBe(true);
+  test.beforeAll(() => {
+    ensureRuntimeDist();
+  });
 
+  test('1 aba: seed evaluate uma vez, sync SW, prefs reais, cleanup', async ({ browser }) => {
+    const migrationToken = `mig-1tab-${Date.now()}`;
     const server = await startSwitchableServer();
     server.setRoot('legacy');
     const context = await browser.newContext({ baseURL: server.origin, serviceWorkers: 'allow' });
     const page = await context.newPage();
-    const navigations: string[] = [];
-    page.on('framenavigated', (frame) => {
-      if (frame === page.mainFrame()) navigations.push(frame.url());
-    });
+    const nav = trackMainFrameNavigations(page);
 
     try {
-      await seedLegacyPrefs(page);
-      await awaitLegacyControl(page);
-
-      const before = await readPreferences(page);
-      expect(before?.level).toBe(3);
-      expect(before?.stars).toMatchObject(LEGACY_SEEDED_PREFS.stars);
-      expect(before?.themeHint).toBe('keep-me');
-
-      const navCountBefore = navigations.length;
-      server.setRoot('dist');
-      await page.evaluate(async () => {
-        const reg = await navigator.serviceWorker.getRegistration();
-        await reg?.update();
+      await openLegacyControlled(page);
+      // Seed UMA vez após o goto — não sobrevive a clear() no reload (anti-tautologia Opus).
+      // Prova de sensibilidade: mutante localStorage.clear() pós-update → FALHOU (prefs ausentes).
+      const expected = await seedPreferencesOnPage(page, LEGACY_SEEDED_PREFS, {
+        themeHint: LEGACY_SEEDED_PREFS.themeHint,
+        migrationToken,
       });
+      assertPreferencesPreserved(await readPreferences(page), expected);
 
-      // Política "A sem reload": zero navegação automática enquanto a aba permanece aberta.
-      await page.waitForTimeout(2500);
-      expect(navigations.length).toBe(navCountBefore);
+      const navBeforeUpdate = nav.count();
+      server.setRoot('dist');
+      await updateAndWaitForWorkboxControl(page);
+      expect(nav.count(), 'zero navegação automática após clientsClaim').toBe(navBeforeUpdate);
 
+      await playLegacyNumbersOnce(page);
+      expect(nav.count()).toBe(navBeforeUpdate);
+
+      const navBeforeReload = nav.count();
       await page.reload();
+      expect(nav.count()).toBe(navBeforeReload + 1);
       await expect(homeHeading(page)).toBeVisible();
 
-      const prefs = await readPreferences(page);
-      expect(prefs?.level).toBe(LEGACY_SEEDED_PREFS.level);
-      expect(prefs?.sound).toBe(LEGACY_SEEDED_PREFS.sound);
-      expect(prefs?.voice).toBe(LEGACY_SEEDED_PREFS.voice);
-      expect(prefs?.stars).toMatchObject(LEGACY_SEEDED_PREFS.stars);
-      expect(prefs?.themeHint).toBe(LEGACY_SEEDED_PREFS.themeHint);
+      const afterReload = await readPreferences(page);
+      assertPreferencesPreserved(afterReload, expected);
+      expect(await listLocalStorageKeys(page)).toContain(PREFERENCES_STORAGE_KEY);
 
-      // Segundo reload para o Workbox/clientsClaim + cleanup legado estabilizarem.
-      await page.reload();
-      await page.waitForTimeout(500);
-      const caches = await listCacheNames(page);
+      const caches = await waitForLegacyCachesGone(page);
+      await waitForWorkboxPrecache(page);
       expect(caches.some((name) => /^relogio-maluco-v\d+$/.test(name))).toBe(false);
       expect(caches.some((name) => name.startsWith('workbox-precache-v2-'))).toBe(true);
     } finally {
@@ -99,49 +81,35 @@ test.describe('Migração legado v6 → React', () => {
     }
   });
 
-  test('[F3] 2 abas: zero reload automático e ambas jogáveis após ativação', async ({
+  test('2 abas: seed uma vez na origem, jogáveis antes do reload, prefs/cleanup depois', async ({
     browser,
-  }, testInfo) => {
-    requiresF3Composition(testInfo, 'Jogabilidade pós-migração exige ModeCard/GameScreen compostos (F3)');
-    expect(existsSync(path.join(REPO_ROOT, 'dist', 'index.html'))).toBe(true);
-
+  }) => {
+    const migrationToken = `mig-2tab-${Date.now()}`;
     const server = await startSwitchableServer();
     server.setRoot('legacy');
     const context = await browser.newContext({ baseURL: server.origin, serviceWorkers: 'allow' });
+    const pageA = await context.newPage();
+    const pageB = await context.newPage();
+    const navA = trackMainFrameNavigations(pageA);
+    const navB = trackMainFrameNavigations(pageB);
 
     try {
-      const pageA = await context.newPage();
-      const pageB = await context.newPage();
-      await seedLegacyPrefs(pageA);
-      await seedLegacyPrefs(pageB);
+      await openLegacyControlled(pageA);
+      await openLegacyControlled(pageB);
+      const expected = await seedPreferencesOnPage(pageA, LEGACY_SEEDED_PREFS, {
+        themeHint: LEGACY_SEEDED_PREFS.themeHint,
+        migrationToken,
+      });
+      assertPreferencesPreserved(await readPreferences(pageB), expected);
 
-      let autoNav = 0;
-      const bump = (page: Page) => {
-        page.on('framenavigated', (frame) => {
-          if (frame === page.mainFrame()) autoNav += 1;
-        });
-      };
-      bump(pageA);
-      bump(pageB);
-
-      await awaitLegacyControl(pageA);
-      await awaitLegacyControl(pageB);
-      const baseline = autoNav;
-
+      const baseline = navA.count() + navB.count();
       server.setRoot('dist');
-      await Promise.all([
-        pageA.evaluate(async () => {
-          const reg = await navigator.serviceWorker.getRegistration();
-          await reg?.update();
-        }),
-        pageB.evaluate(async () => {
-          const reg = await navigator.serviceWorker.getRegistration();
-          await reg?.update();
-        }),
-      ]);
+      await Promise.all([updateAndWaitForWorkboxControl(pageA), updateAndWaitForWorkboxControl(pageB)]);
+      expect(navA.count() + navB.count()).toBe(baseline);
 
-      await pageA.waitForTimeout(2500);
-      expect(autoNav).toBe(baseline);
+      await playLegacyNumbersOnce(pageA);
+      await playLegacyNumbersOnce(pageB);
+      expect(navA.count() + navB.count()).toBe(baseline);
 
       await pageA.reload();
       await pageB.reload();
@@ -149,14 +117,95 @@ test.describe('Migração legado v6 → React', () => {
       await expect(homeHeading(pageB)).toBeVisible();
 
       for (const page of [pageA, pageB]) {
-        const prefs = await readPreferences(page);
-        expect(prefs?.stars).toMatchObject(LEGACY_SEEDED_PREFS.stars);
+        assertPreferencesPreserved(await readPreferences(page), expected);
+        const caches = await waitForLegacyCachesGone(page);
+        expect(caches.some((name) => name.startsWith('workbox-precache-v2-'))).toBe(true);
+      }
+    } finally {
+      await context.close();
+      await server.close();
+    }
+  });
+
+  test('[F3] após reload React, ModeCard Números jogável nas 2 abas', async ({ browser }, testInfo) => {
+    requiresF3Composition(testInfo, 'ModeCard/GameScreen React pós-migração (F2a+F2b+F3)');
+    ensureRuntimeDist();
+
+    const server = await startSwitchableServer();
+    server.setRoot('legacy');
+    const context = await browser.newContext({ baseURL: server.origin, serviceWorkers: 'allow' });
+    const pageA = await context.newPage();
+    const pageB = await context.newPage();
+    try {
+      await openLegacyControlled(pageA);
+      await openLegacyControlled(pageB);
+      await seedPreferencesOnPage(pageA, LEGACY_SEEDED_PREFS, { themeHint: LEGACY_SEEDED_PREFS.themeHint });
+      server.setRoot('dist');
+      await Promise.all([updateAndWaitForWorkboxControl(pageA), updateAndWaitForWorkboxControl(pageB)]);
+      await pageA.reload();
+      await pageB.reload();
+
+      for (const page of [pageA, pageB]) {
+        await expect(homeHeading(page)).toBeVisible();
         await modeCard(page, 'numbers').click();
         await expect(page.getByRole('group', { name: /Relógio digital/i })).toBeVisible();
-        const tile = page.getByRole('button', { name: /^Horas:/ }).first();
-        await tile.click();
+        await page.getByRole('button', { name: /^Horas:/ }).first().click();
         await expect(page.locator('[data-slot-id][data-filled]').first()).toBeVisible();
       }
+    } finally {
+      await context.close();
+      await server.close();
+    }
+  });
+
+  test('rollback v7: SW legado v7 remove Workbox e volta offline (spike F0a / F5.1.9)', async ({
+    browser,
+  }) => {
+    ensureRuntimeDist();
+    const server = await startSwitchableServer();
+    server.setRoot('dist');
+    const context = await browser.newContext({ baseURL: server.origin, serviceWorkers: 'allow' });
+    const page = await context.newPage();
+
+    try {
+      await page.goto('/');
+      await expect(homeHeading(page)).toBeVisible();
+      await page.evaluate(async () => {
+        await navigator.serviceWorker.register('./sw.js');
+        await navigator.serviceWorker.ready;
+      });
+      await waitForWorkboxPrecache(page);
+
+      server.setRoot('legacy');
+      server.setLegacyCacheVersion('v7');
+      await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const changed = new Promise<void>((resolve) => {
+          navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
+        });
+        await reg?.update();
+        await Promise.race([changed, new Promise<void>((r) => setTimeout(r, 8_000))]);
+      });
+
+      await page.waitForFunction(
+        async () => {
+          const keys = await caches.keys();
+          return keys.includes('relogio-maluco-v7') && !keys.some((k) => k.startsWith('workbox-precache-v2-'));
+        },
+        undefined,
+        { timeout: 25_000 },
+      );
+
+      await page.reload();
+      await page.waitForFunction(() => document.title.includes('Relógio Maluco'));
+      expect(await page.evaluate(async () => (await caches.keys()).slice().sort())).toEqual([
+        'relogio-maluco-v7',
+      ]);
+
+      await context.setOffline(true);
+      await page.reload();
+      expect(await page.evaluate(() => navigator.onLine)).toBe(false);
+      await playLegacyNumbersOnce(page);
     } finally {
       await context.close();
       await server.close();

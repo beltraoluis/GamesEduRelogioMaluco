@@ -1,51 +1,52 @@
-# F2d — Dependências de execução da suíte E2E
+# F2d — Dependências e evidências
 
-Suíte independente em `e2e/`. Asserções reais contra fluxos de produção (copy
-`APP_COPY`, contratos `ANSWER_REGION_LABELS` / `PREFERENCES_STORAGE_KEY`,
-semântica tile-first). **Sem `test.skip` / `test.fix` para mascarar
-pendências de F2/F3.**
+Suíte em `e2e/`. Asserções reais; **sem skip/fix para mascarar F3**.
+Skips só distinguem browser (Chromium UA-sim vs WebKit).
 
-## Harness na base G1 (`1c8594a`)
+- Build isolado: `e2e/.runtime-dist` (porta `E2E_PORT`/`4177`, `reuseExistingServer: false`)
+- F2c composition: `../f2c-pwa/dist` @ `21c1648` para precache/licenças
+- Seed de prefs na migração: `page.evaluate` **após** goto (não `addInitScript`)
 
-| Verificação | Comando | Esperado na G1 |
+## Correções Opus (8ed44ec → este commit)
+
+| Bloqueante | Status |
+|---|---|
+| `workers: undefined` TS2769 | Corrigido com spread condicional |
+| Mutante `localStorage.clear()` verde | **Provado vermelho** com seed evaluate; revertido antes do commit |
+| `cache.match` sem `ignoreSearch` | `cacheHasUrl(..., { ignoreSearch: true })` |
+| reduced-motion falso verde | Controle positivo + assento determinístico + resultado |
+| Porta/build alheios | `.runtime-dist` + porta 4177 + sem reuse |
+| P0 edge-cases / Som-Voz / tree commit / rollback | Specs adicionados; ver matriz |
+
+## Matriz
+
+| Spec | Evidência executada | F3? | Notas |
+|---|---|---|---|
+| `harness.spec.ts` | Verde G1 | Não | |
+| `migration-v6.spec.ts` 1/2 abas + v7 | Verde (prefs reais; mutante falhou; jogável pré-reload; rollback) | ModeCard React sim | |
+| `offline-licenses.spec.ts` F2c | Verde ignoreSearch + subpath | Selo UI sim | |
+| `subpath-pages.spec.ts` HTTP/assets/SW | Verde (assets 200 raiz+subpath) | UI offline F3 | Label F3 só na UI |
+| `modes.spec.ts` matriz | Vermelho honesto até F3 | **Sim** | |
+| `levels-keyboard.spec.ts` Enter/Espaço/setas | Vermelho até F3 | **Sim** | chave runtime via `Object.keys` |
+| `teachers-dialog.spec.ts` foco/Esc/reset | Vermelho até F3 | **Sim** | |
+| `speech-cancel.spec.ts` rotas + eventos isolados + resultado | Vermelho até F3 | **Sim** | |
+| `reduced-motion.spec.ts` +/− reduce | Vermelho até F3 | **Sim** | |
+| `update-toast.spec.ts` + edge #6 | Vermelho até F3 | **Sim** | |
+| `edge-cases.spec.ts` P0 #1,#4,#5,#6 | Vermelho até F3 | **Sim** | P1: evidência F1b files |
+| `menu-a11y.spec.ts` Som/Voz + tree/{commit} + tip− | Vermelho até F3 | **Sim** | |
+| `ios-tip.spec.ts` Chromium sim vs WebKit | Vermelho até F3 | **Sim** | |
+
+## P0 edge-cases.md
+
+| # | Caso | Onde |
 |---|---|---|
-| Descoberta | `npx playwright test --list` | Lista todos os specs abaixo |
-| Preview + stub | `npx playwright test e2e/harness.spec.ts` | Verde (App stub + `LICENSE.txt`) |
-| Fluxos de produção | `npm run test:e2e` | Falham até a composição F3 (asserções reais) |
+| 1 | 11:59→12:00 | `edge-cases.spec.ts` [F3]; unitário `clockMath` F1a |
+| 4 | storage indisponível | `edge-cases.spec.ts` [F3] |
+| 5 | reset 2 abas | `edge-cases.spec.ts` [F3] |
+| 6 | hadControllerRef / toast | `edge-cases.spec.ts` + `update-toast.spec.ts` [F3] |
+| — | rollback v7 | `migration-v6.spec.ts` (verde) |
+| P1 #2/#3 | pointercancel / multitoque | unitários F1b presentes; E2E residual F4 |
 
-Anotação Playwright em cada prova F3: `requires-f3-composition` (também no
-título como `[F3]`).
+## SHA antigo (Opus @ 8ed44ec)
 
-## Matriz de provas
-
-| Spec | Cobre | Corre na G1? | Precisa composição F3? | Outras deps |
-|---|---|---|---|---|
-| `harness.spec.ts` | Descoberta, preview, título, `LICENSE.txt` | **Sim (verde)** | Não | — |
-| `modes.spec.ts` | 4 modos (Números, Palavras, Ponteiros, Explorar) | Descoberta sim; execução falha | **Sim** | F2a + F2b |
-| `levels-keyboard.spec.ts` | Níveis via `radio`, teclado tile-first | Idem | **Sim** | F2a + F2b |
-| `teachers-dialog.spec.ts` | `<dialog>` + confirmação 2 etapas + reset | Idem | **Sim** | F2b |
-| `speech-cancel.spec.ts` | `speechSynthesis.cancel` em saídas (jogo/explorar/resultado) | Idem | **Sim** | F2a (rotas) + F2b |
-| `reduced-motion.spec.ts` | Sem confete/`data-confetti-particle` com `prefers-reduced-motion` | Idem | **Sim** | F2a + F2b |
-| `offline-licenses.spec.ts` | Offline + licenças | **Parcial G1:** `LICENSE.txt` HTTP 200 no preview | **Sim** para precache offline + selo `offlineReady` + `THIRD_PARTY_LICENSES.txt` | **F2c** deve precachear `LICENSE.txt`/`THIRD_PARTY_LICENSES.txt` (hoje `LICENSE.txt` está em `dist/` mas fora do precache Workbox na G1) |
-| `migration-v6.spec.ts` | Legado v6 → React, 1 e 2 abas, prefs preservadas | Parcial: chave `relogio-maluco-v1` + cleanup de cache | **Sim** para jogabilidade pós-migração | F2c (SW) |
-| `subpath-pages.spec.ts` | Mesmo `dist/` em `/` e `/GamesEduRelogioMaluco/` | Parcial: assets 200 na G1 | **Sim** para UI completa offline | F2c |
-| `ios-tip.spec.ts` | Dica iOS no menu (`showIosInstallTip`) | Descoberta sim; execução falha | **Sim** | F2b + F2c (`usePwa`) |
-
-## Contrato de seletores (estável para F2/F3)
-
-Os specs usam nomes acessíveis de `APP_COPY` / contratos — não `data-testid`
-proprietários. F2b/F3 devem preservar:
-
-- Cards de modo: botão/link cujo nome acessível contém `APP_COPY.modes.*.title`
-- Níveis: `input[type=radio]` (ou `role="radio"`) com nome de `APP_COPY.levels.*.name`
-- Menu: interruptor Som/Voz (`role="switch"`), item "Para educadores", "Código-fonte", dica iOS
-- Jogo: `AnswerRegion` com `ANSWER_REGION_LABELS[mode]`; fichas focáveis; `Slot` sem Tab
-- Educadores: `<dialog>` nativo; reset em 2 etapas com `APP_COPY.resetProgress.*`
-- Confete: ausente sob reduced motion (`[data-confetti-particle]` não aparece)
-- Persistência: única chave `relogio-maluco-v1`
-
-## O que falta após F2d
-
-1. Composição F3 (F2a+F2b+F2c) para tornar verdes as provas `[F3]`.
-2. F2c: `THIRD_PARTY_LICENSES.txt` precacheado + hooks PWA/registro SW na UI.
-3. F4: VoiceOver/TalkBack e smoke em aparelho (fora do escopo F2d).
+Independiente: **7 verdes / 16 vermelhos**; migração antiga **não** comprovava preservação (initScript tautológico); subpath:50 rotulado F3 mas passava no stub.

@@ -3,18 +3,18 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+import { REPO_ROOT, RUNTIME_DIST } from './paths.ts';
 
 export type ServeRoot = 'legacy' | 'dist';
 
 export interface SwitchableServer {
   readonly origin: string;
   readonly port: number;
+  readonly distDir: string;
   setRoot(root: ServeRoot): void;
   setSubpath(prefix: string | null): void;
-  /** Serve legacy SW with CACHE rewritten to v7 (rollback). */
+  /** Serve legacy SW with CACHE rewritten to v6/v7 (rollback). */
   setLegacyCacheVersion(version: 'v6' | 'v7'): void;
   close(): Promise<void>;
 }
@@ -30,6 +30,7 @@ const MIME: Record<string, string> = {
   '.webp': 'image/webp',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
   '.map': 'application/json',
 };
 
@@ -47,11 +48,17 @@ function safeJoin(rootDir: string, urlPath: string): string | null {
 /**
  * Servidor HTTP local no estilo do spike F0a: mesma origem, troca legado ↔ dist,
  * opcionalmente sob `/GamesEduRelogioMaluco/`.
+ * `distDir` padrão = `e2e/.runtime-dist` (isolado; não usa dist de outro worktree).
  */
 export async function startSwitchableServer(
-  options: { readonly host?: string; readonly port?: number } = {},
+  options: {
+    readonly host?: string;
+    readonly port?: number;
+    readonly distDir?: string;
+  } = {},
 ): Promise<SwitchableServer> {
   const host = options.host ?? '127.0.0.1';
+  const distDir = options.distDir ?? RUNTIME_DIST;
   let root: ServeRoot = 'dist';
   let subpath: string | null = null;
   let legacyCacheVersion: 'v6' | 'v7' = 'v6';
@@ -70,15 +77,13 @@ export async function startSwitchableServer(
         const prefix = subpath.endsWith('/') ? subpath.slice(0, -1) : subpath;
         if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
           pathname = pathname.slice(prefix.length) || '/';
-        } else if (pathname === '/LICENSE' || pathname === '/LICENSE.txt') {
-          // allow
         } else {
           res.writeHead(404).end('not in subpath');
           return;
         }
       }
 
-      const rootDir = path.join(REPO_ROOT, root === 'legacy' ? 'legacy' : 'dist');
+      const rootDir = root === 'legacy' ? path.join(REPO_ROOT, 'legacy') : distDir;
 
       if (root === 'legacy' && (pathname === '/LICENSE' || pathname === '/LICENSE.txt')) {
         const licensePath = path.join(REPO_ROOT, 'LICENSE');
@@ -100,7 +105,6 @@ export async function startSwitchableServer(
       }
 
       if (!existsSync(filePath) && root === 'dist' && !path.extname(pathname)) {
-        // SPA navigateFallback
         filePath = path.join(rootDir, 'index.html');
       }
 
@@ -128,6 +132,7 @@ export async function startSwitchableServer(
   return {
     origin: `http://${host}:${address.port}`,
     port: address.port,
+    distDir,
     setRoot(next) {
       root = next;
     },
