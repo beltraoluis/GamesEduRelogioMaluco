@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
@@ -104,5 +105,39 @@ describe('ExploreScreen', () => {
     );
     expect(document.documentElement).toHaveAttribute('data-atmosphere', 'tarde');
     unmountTarde();
+  });
+
+  it('sob React StrictMode emite exatamente 1 unlock e 1 tick por gesto de seta no relogio', () => {
+    const sound = createFakeSound();
+    const speech = createFakeSpeech();
+
+    const { unmount } = render(
+      <StrictMode>
+        <ExploreScreen
+          sound={sound}
+          speech={speech}
+          onHome={() => {}}
+          initialTime={{ h: 9, m: 0 }}
+        />
+      </StrictMode>,
+    );
+
+    const clockSvg = screen.getByRole('group', {
+      name: /Relógio analógico para explorar\. Use as setas ou arraste os ponteiros\. Posição atual:/i,
+    });
+
+    // 1º gesto: seta para cima (+1 minuto -> 09:01)
+    fireEvent.keyDown(clockSvg, { key: 'ArrowUp' });
+    expect(sound.unlock).toHaveBeenCalledTimes(1);
+    expect(sound.play).toHaveBeenCalledTimes(1);
+    expect(sound.play).toHaveBeenLastCalledWith('tick');
+
+    // 2º gesto: seta para a direita (+1 hora -> 10:01)
+    fireEvent.keyDown(clockSvg, { key: 'ArrowRight' });
+    expect(sound.unlock).toHaveBeenCalledTimes(2);
+    expect(sound.play).toHaveBeenCalledTimes(2);
+    expect(sound.play).toHaveBeenLastCalledWith('tick');
+
+    unmount();
   });
 });

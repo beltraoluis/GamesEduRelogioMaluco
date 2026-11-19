@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { useCallback, useEffect, useId, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
 
 import { AnalogClock } from '@/components/AnalogClock';
 import { Button } from '@/components/Button';
@@ -18,6 +26,7 @@ import {
   type SpeechApi,
 } from '@/contracts';
 import { clockMath } from '@/domain/clockMath';
+import { describeAnalogHandPositions } from '@/screens/GameScreen';
 import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './ExploreScreen.module.css';
@@ -49,6 +58,11 @@ export function ExploreScreen({
 
   const [time, setTime] = useState<ClockTime>(() => initialTime ?? { h: 9, m: 0 });
   const [isLive, setIsLive] = useState(false);
+
+  const timeRef = useRef<ClockTime>(time);
+  useLayoutEffect(() => {
+    timeRef.current = time;
+  }, [time]);
 
   const period = clockMath.periodOf(time.h);
   const atmosphere = clockMath.atmosphereOf(time.h);
@@ -99,28 +113,38 @@ export function ExploreScreen({
 
   const stopLive = useCallback(() => {
     setIsLive(false);
-    setTime((prev) => (prev.s === undefined ? prev : { h: prev.h, m: prev.m }));
+    const cur = timeRef.current;
+    if (cur.s !== undefined) {
+      const clean: ClockTime = { h: cur.h, m: cur.m };
+      timeRef.current = clean;
+      setTime(clean);
+    }
   }, []);
 
   const handleClockChange = useCallback(
     (nextTime: ClockTime) => {
+      const prev = timeRef.current;
+      const changed = prev.h !== nextTime.h || prev.m !== nextTime.m;
+      const clean: ClockTime = { h: nextTime.h, m: nextTime.m };
+      timeRef.current = clean;
       setIsLive(false);
-      setTime((prev) => {
-        if (prev.h !== nextTime.h || prev.m !== nextTime.m) {
-          sound.unlock();
-          sound.play('tick');
-        }
-        return { h: nextTime.h, m: nextTime.m };
-      });
+      setTime(clean);
+      if (changed) {
+        sound.unlock();
+        sound.play('tick');
+      }
     },
     [sound],
   );
 
   const handleTogglePeriod = useCallback(() => {
     setIsLive(false);
+    const prev = timeRef.current;
+    const next: ClockTime = { h: (prev.h + 12) % 24, m: prev.m };
+    timeRef.current = next;
+    setTime(next);
     sound.unlock();
     sound.play('pick');
-    setTime((prev) => ({ h: (prev.h + 12) % 24, m: prev.m }));
   }, [sound]);
 
   const handleToggleNow = useCallback(() => {
@@ -128,7 +152,10 @@ export function ExploreScreen({
     sound.play('pick');
     if (isLive) {
       setIsLive(false);
-      setTime((prev) => ({ h: prev.h, m: prev.m }));
+      const prev = timeRef.current;
+      const clean: ClockTime = { h: prev.h, m: prev.m };
+      timeRef.current = clean;
+      setTime(clean);
       return;
     }
     const now = new Date();
@@ -137,6 +164,7 @@ export function ExploreScreen({
       m: now.getMinutes(),
       s: now.getSeconds(),
     };
+    timeRef.current = nowTime;
     setTime(nowTime);
     setIsLive(true);
     const nowPhrase = clockMath.phraseText(
@@ -182,7 +210,7 @@ export function ExploreScreen({
         <div className={styles.clockColumn}>
           <AnalogClock
             time={time}
-            label="Relógio analógico para explorar. Use as setas ou arraste os ponteiros."
+            label={`Relógio analógico para explorar. Use as setas ou arraste os ponteiros. Posição atual: ${describeAnalogHandPositions(time)}.`}
             interactive
             minuteStep={1}
             linkHands

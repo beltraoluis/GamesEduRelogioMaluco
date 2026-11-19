@@ -19,6 +19,7 @@ import { VisuallyHidden } from '@/components/VisuallyHidden';
 import { APP_COPY } from '@/content/copy';
 import {
   ANSWER_REGION_LABELS,
+  type ClockTime,
   type Feedback,
   type GameControllerApi,
   type GameMode,
@@ -28,9 +29,11 @@ import {
   type LevelId,
   type MascotMood,
   type Message,
+  type Period,
   type Question,
   type SlotSpec,
 } from '@/contracts';
+import { clockMath } from '@/domain/clockMath';
 import { renderMessage } from '@/domain/hints';
 import { GROUP_NAMES } from '@/domain/question';
 import { perfectCount } from '@/domain/scoring';
@@ -44,6 +47,68 @@ if (
   typeof HTMLElement.prototype.setPointerCapture !== 'function'
 ) {
   HTMLElement.prototype.setPointerCapture = function setPointerCaptureFallback() {};
+}
+
+export interface AnalogDescriptionOptions {
+  readonly period?: Period | undefined;
+  readonly minuteLabels?: boolean | undefined;
+}
+
+/**
+ * Descreve geometricamente as posições e a identidade dos ponteiros no mostrador
+ * (ponteiro curto das horas e ponteiro longo dos minutos, incluindo posições
+ * intermediárias e período quando visível), permitindo resolver o desafio com
+ * leitor de tela sem anunciar a resposta numérica/por extenso pronta.
+ */
+export function describeAnalogHandPositions(time: ClockTime): string {
+  const h12 = clockMath.to12(time.h);
+  const nextH12 = (h12 % 12) + 1;
+
+  const hourDesc =
+    time.m === 0
+      ? `ponteiro curto das horas apontando para o número ${h12}`
+      : `ponteiro curto das horas entre os números ${h12} e ${nextH12}`;
+
+  let minuteDesc: string;
+  if (time.m % 5 === 0) {
+    const dialNum = time.m === 0 ? 12 : time.m / 5;
+    minuteDesc = `ponteiro longo dos minutos apontando para o número ${dialNum}`;
+  } else {
+    const prevMark = Math.floor(time.m / 5);
+    const prevDialNum = prevMark === 0 ? 12 : prevMark;
+    const nextDialNum = (prevDialNum % 12) + 1;
+    const ticksAfter = time.m % 5;
+    const ticksText = ticksAfter === 1 ? '1 tracinho' : `${ticksAfter} tracinhos`;
+    minuteDesc = `ponteiro longo dos minutos entre os números ${prevDialNum} e ${nextDialNum}, ${ticksText} depois do número ${prevDialNum}`;
+  }
+
+  return `${hourDesc}; ${minuteDesc}`;
+}
+
+export function describeAnalogStimulus(
+  time: ClockTime,
+  options: AnalogDescriptionOptions = {},
+): string {
+  const parts: string[] = [
+    `Relógio analógico do desafio: ${describeAnalogHandPositions(time)}`,
+  ];
+  if (options.period !== undefined) {
+    parts.push(`período ${options.period}`);
+  }
+  if (options.minuteLabels) {
+    parts.push('marcadores de 5 em 5 minutos visíveis no mostrador');
+  }
+  return `${parts.join('; ')}.`;
+}
+
+export function describeInteractiveAnalogClock(
+  time: ClockTime,
+  lockMinute: boolean,
+): string {
+  const controlHint = lockMinute
+    ? 'Use as setas esquerda e direita ou arraste o ponteiro curto das horas (ponteiro longo dos minutos travado no 12).'
+    : 'Use as setas ou arraste os ponteiros.';
+  return `Relógio analógico interativo. ${controlHint} Posição atual: ${describeAnalogHandPositions(time)}.`;
 }
 
 export interface MascotSignal {
@@ -181,7 +246,10 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
               <div className={styles.clockBox}>
                 <AnalogClock
                   time={question.time}
-                  label="Relógio analógico do desafio"
+                  label={describeAnalogStimulus(question.time, {
+                    period: question.period,
+                    minuteLabels: showMinuteLabels,
+                  })}
                   minuteLabels={showMinuteLabels}
                   highlight={view.handHighlight}
                   size="md"
@@ -198,7 +266,9 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
               <div className={styles.clockBox}>
                 <AnalogClock
                   time={question.time}
-                  label="Relógio analógico do desafio"
+                  label={describeAnalogStimulus(question.time, {
+                    minuteLabels: showMinuteLabels,
+                  })}
                   minuteLabels={showMinuteLabels}
                   highlight={view.handHighlight}
                   size="md"
@@ -295,7 +365,10 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                 <div className={styles.clockBoxLg}>
                   <AnalogClock
                     time={current.hands ?? question.start}
-                    label="Relógio analógico interativo. Use as setas ou arraste os ponteiros."
+                    label={describeInteractiveAnalogClock(
+                      current.hands ?? question.start,
+                      question.lockMinute,
+                    )}
                     interactive={!done}
                     minuteStep={question.minuteStep}
                     lockMinute={question.lockMinute}

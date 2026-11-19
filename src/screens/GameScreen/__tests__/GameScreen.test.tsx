@@ -11,6 +11,9 @@ import type { ClockTime, GameMode, GameState, LevelId } from '@/contracts';
 import { gameReducer, initGame } from '@/domain/gameReducer';
 import { renderMessage } from '@/domain/hints';
 import {
+  describeAnalogHandPositions,
+  describeAnalogStimulus,
+  describeInteractiveAnalogClock,
   GameScreen,
   type GameSessionApi,
   type GameView,
@@ -189,5 +192,70 @@ describe('GameScreen', () => {
 
     const results = await axe(container);
     expect(results.violations).toHaveLength(0);
+  });
+
+  it('descreve geometricamente os ponteiros (curto/horas, longo/minutos, posicoes intermediarias e periodo) sem vazar a resposta pronta', () => {
+    // 1) Hora exata (Nível 1 - 03:00): ambos em números exatos
+    const descExact = describeAnalogStimulus({ h: 3, m: 0 });
+    expect(descExact).toContain('ponteiro curto das horas apontando para o número 3');
+    expect(descExact).toContain('ponteiro longo dos minutos apontando para o número 12');
+    expect(descExact).not.toMatch(/03:00|3 horas/);
+
+    // 2) Múltiplo de 5 com posição intermediária das horas (Níveis 2/3 - 07:45)
+    const descQuarter = describeAnalogStimulus({ h: 7, m: 45 });
+    expect(descQuarter).toContain('ponteiro curto das horas entre os números 7 e 8');
+    expect(descQuarter).toContain('ponteiro longo dos minutos apontando para o número 9');
+    expect(descQuarter).not.toMatch(/45 minutos|07:45/);
+
+    // 3) Minuto a minuto em 24h com período visual e dicas (Nível 4 - 15:23 da tarde)
+    const descMinute24 = describeAnalogStimulus(
+      { h: 15, m: 23 },
+      { period: 'da tarde', minuteLabels: true },
+    );
+    expect(descMinute24).toContain('ponteiro curto das horas entre os números 3 e 4');
+    expect(descMinute24).toContain(
+      'ponteiro longo dos minutos entre os números 4 e 5, 3 tracinhos depois do número 4',
+    );
+    expect(descMinute24).toContain('período da tarde');
+    expect(descMinute24).toContain('marcadores de 5 em 5 minutos visíveis no mostrador');
+    expect(descMinute24).not.toMatch(/15:23|23 minutos|15 horas/);
+
+    // 4) Caso 1 tracinho depois do 12 (00:01 da madrugada)
+    const descMidnightPlus1 = describeAnalogHandPositions({ h: 0, m: 1 });
+    expect(descMidnightPlus1).toContain('ponteiro curto das horas entre os números 12 e 1');
+    expect(descMidnightPlus1).toContain(
+      'ponteiro longo dos minutos entre os números 12 e 1, 1 tracinho depois do número 12',
+    );
+
+    // 5) Relógio interativo preserva instruções de controle e informa posição atual
+    const descInteractiveLock = describeInteractiveAnalogClock({ h: 5, m: 0 }, true);
+    expect(descInteractiveLock).toContain('Relógio analógico interativo.');
+    expect(descInteractiveLock).toContain('Use as setas esquerda e direita ou arraste o ponteiro curto das horas');
+    expect(descInteractiveLock).toContain('Posição atual: ponteiro curto das horas apontando para o número 5');
+
+    const descInteractiveFree = describeInteractiveAnalogClock({ h: 10, m: 30 }, false);
+    expect(descInteractiveFree).toContain('Relógio analógico interativo. Use as setas ou arraste os ponteiros.');
+    expect(descInteractiveFree).toContain('ponteiro curto das horas entre os números 10 e 11');
+    expect(descInteractiveFree).toContain('ponteiro longo dos minutos apontando para o número 6');
+  });
+
+  it('expoe descricao acessivel dos ponteiros no DOM da GameScreen nos modos numbers, words (analog) e hands', () => {
+    // Modo numbers nível 4 (com período)
+    const { Wrapper: NumbersL4 } = createSessionHarness('numbers', 4, 77);
+    const { unmount: unmountNumbers } = render(<NumbersL4 />);
+    const stimulusClock = screen.getByRole('group', {
+      name: /Relógio analógico do desafio: ponteiro curto das horas.*; ponteiro longo dos minutos.*; período da /i,
+    });
+    expect(stimulusClock).toBeInTheDocument();
+    unmountNumbers();
+
+    // Modo hands nível 1 (lockMinute = true)
+    const { Wrapper: HandsL1 } = createSessionHarness('hands', 1, 88);
+    const { unmount: unmountHands } = render(<HandsL1 />);
+    const interactiveClock = screen.getByRole('group', {
+      name: /Relógio analógico interativo\..*Posição atual: ponteiro curto das horas/i,
+    });
+    expect(interactiveClock).toBeInTheDocument();
+    unmountHands();
   });
 });
