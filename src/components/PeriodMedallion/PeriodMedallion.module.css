@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .medallion {
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+    border-radius: var(--radius-pill, 9999px);
+  }
+
+  .sm {
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+
+  .md {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .lg {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}

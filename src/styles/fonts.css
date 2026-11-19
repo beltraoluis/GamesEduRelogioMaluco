@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer base {
+  @font-face {
+    font-family: 'Oficina Rounded';
+    src: url('../assets/fonts/fredoka-latin-wght-normal.woff2') format('woff2');
+    font-weight: 300 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Oficina Rounded Fallback';
+    src: local('Arial Rounded MT Bold'), local('Trebuchet MS'), local('Segoe UI');
+    size-adjust: 103.5%;
+    ascent-override: 94%;
+    descent-override: 24%;
+    line-gap-override: 0%;
+  }
+}

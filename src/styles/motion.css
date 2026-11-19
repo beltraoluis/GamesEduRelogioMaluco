@@ -1,0 +1,90 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer base {
+  @keyframes mascot-bounce {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+    35% {
+      transform: translateY(-6px) scale(1.04, 0.97);
+    }
+    65% {
+      transform: translateY(1px) scale(0.98, 1.02);
+    }
+  }
+
+  @keyframes mascot-bell-ring {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(-7deg);
+    }
+    75% {
+      transform: rotate(7deg);
+    }
+  }
+
+  @keyframes star-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.45) rotate(-12deg);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1.14) rotate(4deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  @keyframes colon-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+
+  @keyframes hint-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(255, 183, 3, 0);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(255, 183, 3, 0.45);
+    }
+  }
+
+  /*
+   * Tratamento caso a caso para movimento reduzido (WCAG 2.2 / ADR-004).
+   * Nunca usar reset global agressivo com animation-duration: 0.01ms !important.
+   * Transições espaciais de deslocamento e partículas decorativas são desativadas,
+   * preservando feedback instantâneo por opacidade/borda/cor.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    body {
+      transition: none;
+    }
+
+    [data-motion='decorative'],
+    [data-motion='particle'] {
+      animation: none;
+      transition: none;
+    }
+
+    [data-motion='bounce'],
+    [data-motion='spring'] {
+      animation: none;
+      transition: opacity var(--duration-fast) ease-out, border-color var(--duration-fast) ease-out,
+        background-color var(--duration-fast) ease-out;
+    }
+  }
+}

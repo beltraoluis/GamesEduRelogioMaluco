@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
+    min-height: 2.75rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: var(--radius-pill, 9999px);
+    background-color: var(--color-period-soft, #f3eafa);
+    color: var(--color-period, #7b2cbf);
+    border: 2.5px solid var(--color-period, #7b2cbf);
+    box-shadow: 0 3px 0 var(--color-period-ledge, #561d87);
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: var(--font-size-md, 1rem);
+    line-height: 1.2;
+  }
+
+  .label {
+    white-space: nowrap;
+  }
+
+  .toggleBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    min-height: 2rem;
+    border-radius: var(--radius-pill, 9999px);
+    background-color: #ffffff;
+    color: var(--color-period, #7b2cbf);
+    border: 1.5px solid var(--color-period, #7b2cbf);
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: var(--font-size-sm, 0.875rem);
+    transition: transform var(--duration-fast, 150ms) var(--ease-standard),
+      background-color var(--duration-fast, 150ms) ease-out;
+  }
+
+  .toggleBtn:active {
+    transform: translateY(1px);
+  }
+}

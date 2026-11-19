@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .progressDots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: var(--radius-pill, 9999px);
+    background-color: var(--color-surface-card, #ffffff);
+    border: 2px solid var(--color-border-ledge, #cbbd9f);
+    transition: transform var(--duration-fast, 150ms) var(--ease-standard),
+      background-color var(--duration-fast, 150ms) ease-out,
+      border-color var(--duration-fast, 150ms) ease-out;
+  }
+
+  .current {
+    width: 1.625rem;
+    background-color: var(--color-hour-soft, #e8f1fc);
+    border-color: var(--color-hour, #1560bd);
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--color-hour, #1560bd);
+  }
+
+  .perfect {
+    background-color: var(--color-success, #2e7d32);
+    border-color: var(--color-success-ledge, #1b5e20);
+    color: #ffffff;
+  }
+
+  .completed {
+    background-color: var(--color-warning-accent, #ffb703);
+    border-color: var(--color-warning-warm, #fb8500);
+    color: var(--color-ink, #1e2832);
+  }
+
+  .glyph {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+}

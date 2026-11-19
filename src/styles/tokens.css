@@ -1,0 +1,224 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer tokens {
+  :root {
+    /* Superfícies Internas Invariantes (Isolamento Pedagógico) */
+    --color-surface-card: #ffffff;
+    --color-surface-dial: #fffdf5;
+    --color-surface-elevated: #fff9e6;
+    --color-border-card: #e2d9c5;
+    --color-border-ledge: #cbbd9f;
+
+    /* Tipografia Interna (sobre #ffffff e #fffdf5) */
+    --color-ink: #1e2832;
+    --color-ink-muted: #475569;
+
+    /* Visor Digital Escuro */
+    --color-visor-bg: #1e2832;
+    --color-visor-bezel: #263238;
+    --color-hour-on-dark: #8ec5ff;
+    --color-minute-on-dark: #ff9aa2;
+    --color-colon-on-dark: #ffb703;
+
+    /* Tokens Pedagógicos Travados (CCR) */
+    --color-hour: #1560bd;
+    --color-hour-soft: #e8f1fc;
+    --color-hour-ledge: #0d4285;
+
+    --color-minute: #d62839;
+    --color-minute-soft: #fff5f6;
+    --color-minute-ledge: #9b1826;
+
+    --color-period: #7b2cbf;
+    --color-period-soft: #f3eafa;
+    --color-period-ledge: #561d87;
+
+    --color-second: #0f766e;
+    --color-second-soft: #e6f4f2;
+    --color-second-ledge: #0a524c;
+
+    /* Feedback Semântico (Desacoplado de --color-second) */
+    --color-success: #2e7d32;
+    --color-success-soft: #e9f5ea;
+    --color-success-ledge: #1b5e20;
+
+    --color-warning-accent: #ffb703;
+    --color-warning-warm: #fb8500;
+    --color-warning-ink: #7c2d12;
+
+    /* Atmosfera padrão (manhã) */
+    --ambient-bg-start: #e0f2fe;
+    --ambient-bg-mid: #fef3c7;
+    --ambient-bg-end: #fffbeb;
+    --ambient-bg: linear-gradient(160deg, #e0f2fe 0%, #fef3c7 60%, #fffbeb 100%);
+    --ambient-ink: #0f172a;
+    --ambient-ink-muted: #334155;
+    --ambient-pill-bg: rgba(255, 255, 255, 0.86);
+    --ambient-pill-border: #93c5fd;
+
+    /* Tipografia */
+    --font-sans: 'Oficina Rounded', 'Oficina Rounded Fallback', ui-rounded, system-ui, -apple-system, sans-serif;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+    --font-size-2xl: 2rem;
+    --font-size-3xl: 2.5rem;
+
+    /* Espaçamento e Dimensões Táteis */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --tap-target-min: 3.25rem;
+
+    /* Raios de Borda */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-pill: 9999px;
+
+    /* Chanfros e Sombras Táteis (Oficina 3D) */
+    --ledge-sm: 0 3px 0;
+    --ledge-md: 0 4px 0;
+    --shadow-card: 0 4px 0 var(--color-border-ledge), 0 10px 24px rgba(30, 40, 50, 0.12);
+    --shadow-floating: 0 12px 28px rgba(15, 23, 42, 0.2);
+
+    /* Foco Acessível WCAG 2.2 AA */
+    --focus-ring: 0 0 0 3px #ffffff, 0 0 0 6px var(--color-hour);
+
+    /* Curvas de Animação: fallback cubic-bezier() + aprimoramento linear() */
+    --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.4, 0.64, 1);
+    --duration-fast: 150ms;
+    --duration-normal: 260ms;
+    --duration-atmosphere: 600ms;
+  }
+
+  @supports (transition-timing-function: linear(0, 1)) {
+    :root {
+      --ease-spring: linear(
+        0,
+        0.009,
+        0.035 2.1%,
+        0.141 4.4%,
+        0.723 12.9%,
+        0.938 16.7%,
+        1.017,
+        1.077,
+        1.121,
+        1.149 24.3%,
+        1.159,
+        1.163,
+        1.161,
+        1.154 29.9%,
+        1.129 32.8%,
+        1.051 39.6%,
+        1.017 43.1%,
+        0.991,
+        0.977 51%,
+        0.974 53.8%,
+        0.975 57.1%,
+        0.997 69.8%,
+        1.003 76.9%,
+        1
+      );
+      --ease-bounce: linear(
+        0,
+        0.004,
+        0.016,
+        0.035,
+        0.063,
+        0.098,
+        0.141 13.6%,
+        0.25,
+        0.391,
+        0.563,
+        0.765,
+        1,
+        0.891 40.9%,
+        0.848,
+        0.813,
+        0.785,
+        0.766,
+        0.754,
+        0.75,
+        0.754,
+        0.766,
+        0.785,
+        0.813,
+        0.848,
+        0.891 68.2%,
+        1 72.7%,
+        0.973,
+        0.953,
+        0.941,
+        0.938,
+        0.941,
+        0.953,
+        0.973,
+        1,
+        0.988,
+        0.984,
+        0.988,
+        1
+      );
+    }
+  }
+
+  /* 4 Atmosferas do Ciclo de 24 Horas (cards e mostrador permanecem claros) */
+  [data-atmosphere='madrugada'],
+  [data-ambient='madrugada'] {
+    --ambient-bg-start: #1b1947;
+    --ambient-bg-mid: #312e81;
+    --ambient-bg-end: #4c1d95;
+    --ambient-bg: linear-gradient(160deg, #1b1947 0%, #312e81 55%, #4c1d95 100%);
+    --ambient-ink: #f8fafc;
+    --ambient-ink-muted: #cbd5e1;
+    --ambient-pill-bg: rgba(15, 23, 42, 0.58);
+    --ambient-pill-border: #818cf8;
+  }
+
+  [data-atmosphere='manha'],
+  [data-ambient='manha'] {
+    --ambient-bg-start: #e0f2fe;
+    --ambient-bg-mid: #fef3c7;
+    --ambient-bg-end: #fffbeb;
+    --ambient-bg: linear-gradient(160deg, #e0f2fe 0%, #fef3c7 60%, #fffbeb 100%);
+    --ambient-ink: #0f172a;
+    --ambient-ink-muted: #334155;
+    --ambient-pill-bg: rgba(255, 255, 255, 0.86);
+    --ambient-pill-border: #93c5fd;
+  }
+
+  [data-atmosphere='tarde'],
+  [data-ambient='tarde'] {
+    --ambient-bg-start: #ffedd5;
+    --ambient-bg-mid: #fde68a;
+    --ambient-bg-end: #fed7aa;
+    --ambient-bg: linear-gradient(160deg, #ffedd5 0%, #fde68a 55%, #fed7aa 100%);
+    --ambient-ink: #1c1917;
+    --ambient-ink-muted: #44403c;
+    --ambient-pill-bg: rgba(255, 253, 245, 0.88);
+    --ambient-pill-border: #fb923c;
+  }
+
+  [data-atmosphere='noite'],
+  [data-ambient='noite'] {
+    --ambient-bg-start: #0f172a;
+    --ambient-bg-mid: #1e293b;
+    --ambient-bg-end: #1e1b4b;
+    --ambient-bg: linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #1e1b4b 100%);
+    --ambient-ink: #f8fafc;
+    --ambient-ink-muted: #cbd5e1;
+    --ambient-pill-bg: rgba(15, 23, 42, 0.64);
+    --ambient-pill-border: #64748b;
+  }
+}
