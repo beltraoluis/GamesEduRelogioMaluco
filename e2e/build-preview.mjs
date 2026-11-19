@@ -25,7 +25,7 @@ if (sha) {
   try {
     execFileSync('git', ['clone', '--shared', '--no-checkout', '.', checkout], { stdio: 'inherit' });
     execFileSync('git', ['checkout', '--detach', sha], { cwd: checkout, stdio: 'inherit' });
-    execFileSync('npm', ['ci'], { cwd: checkout, stdio: 'inherit' });
+    execFileSync('npm', ['ci', '--include=dev'], { cwd: checkout, stdio: 'inherit' });
     execFileSync('npm', ['run', 'build', '--', '--outDir', f2c, '--emptyOutDir'], {
       cwd: checkout,
       env: { ...process.env, GITHUB_SHA: sha },
