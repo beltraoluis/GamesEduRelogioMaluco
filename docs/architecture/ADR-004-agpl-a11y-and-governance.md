@@ -3,6 +3,7 @@
 - **Status:** Aceito (G0)
 - **Data:** 2026-11-19
 - **Decisores:** Coordenador Antigravity, Assessor Opus, Argon, Codex, Grok; aprovado pelo usuário
+- **Sincronização:** F0c `a6cdd25` (`design/specs/visual-system.md`)
 - **Contratos:** `PEDAGOGICAL_COLORS`, `AnswerRegionProps`, `SlotProps`, `TeachersDialogProps`, `AppMenuProps`
 
 ## Contexto
@@ -38,12 +39,23 @@ O código minificado não é a "forma preferida para modificação". Por isso, t
 
 ### 3. Cores e daltonismo
 
-- Cores pedagógicas fixas em `PEDAGOGICAL_COLORS` (horas `#1560bd`, minutos `#d62839`, período `#7b2cbf`, segundos `#0f766e`, sucesso `#2e7d32`; no escuro `#8ec5ff` / `#ff9aa2`), todas com contraste **WCAG 2.2 AA** contra os fundos de uso (≥ 4.5:1 para texto, ≥ 3:1 para elementos gráficos). Medição do G0: as cinco cores claras ficam entre 4.88:1 e 7.11:1 sobre `#fffdf5`/`#ffffff`; as variantes escuras ficam ≥ 6.68:1 sobre `#2b2d42`.
-- **Redundância geométrica obrigatória**: cor nunca é o único sinal. As formas abaixo são o mínimo proposto no G0. O desenho final sai de F0c (assets visuais) e, depois de aceito, fica sob CCR.
-  - ponteiro das horas: curto e largo, com ponta arredondada; ponteiro dos minutos: longo e fino, com ponta triangular;
-  - fichas e lacunas por grupo: horas com borda reta (retângulo), minutos com borda arredondada (pílula), período com chanfro (hexágono);
-  - selos (`HandBadge`) repetem a forma do ponteiro correspondente, e `PeriodMedallion` tem um símbolo por período;
-  - certo e errado são indicados também por ícone e texto, não só por verde e vermelho.
+Referência única deste projeto: **WCAG 2.2 nível AA** (≥ 4,5:1 para texto normal, ≥ 3:1 para texto grande e componentes gráficos, critério 1.4.1 *Use of Color*). Onde o F0c cita "WCAG 2.1 AA", leia-se 2.2 AA. Os limiares de contraste são os mesmos nas duas versões.
+
+- **Cores pedagógicas fixas** em `PEDAGOGICAL_COLORS` (horas `#1560bd`, minutos `#d62839`, período `#7b2cbf`, segundos `#0f766e`, sucesso `#2e7d32`), sempre sobre superfícies claras invariantes: card `#ffffff` e mostrador `#fffdf5`, que não mudam com a atmosfera. Medição do F0b: entre **4,88:1 e 7,11:1**.
+- **Superfície escura do visor digital** (F0c): fundo `#1e2832` e moldura `#263238`. Dígitos usam `hourOnDark` `#8ec5ff` e `minuteOnDark` `#ff9aa2`, com contraste **≥ 6,51:1 nas duas superfícies**. Medição do F0b: `#8ec5ff` dá 8,24:1 / 7,26:1 e `#ff9aa2` dá 7,40:1 / 6,51:1 (sobre `#1e2832` / `#263238`).
+  - Nota: a tabela 2.2 do `visual-system.md` (F0c) mostra valores deslocados uma coluna (ex.: lista 7,26:1 para `#8ec5ff` em `#1e2832`, que é o valor em `#263238`). Como o mínimo continua ≥ 6,51:1, a conclusão AA não muda. A correção da tabela fica para o F0c.
+- **Nota F0c, `--color-colon-on-dark` (`#ffb703`):** é o dourado dos dois-pontos (`ColonBadge`) no visor escuro (8,56:1 / 7,54:1). **Não faz parte dos tokens travados sob CCR** (`PEDAGOGICAL_COLORS`): é token de tema do F0c e pode ser ajustado sem CCR, desde que mantenha ≥ 4,5:1 no visor. O mesmo vale para `-soft`, `-ledge` e `--ambient-*`.
+- **Redundância geométrica obrigatória**, alinhada à especificação definitiva do F0c (`design/specs/visual-system.md` §3). Cor nunca é o único sinal:
+
+  | Grupo | Ficha / lacuna | Ponteiro | Selo |
+  |---|---|---|---|
+  | **Horas** | **bloco retangular com filete sólido lateral** (borda contínua sólida, cantos médios) | curto e largo, ponta em seta arredondada | `HandBadge` circular, rótulo `H` |
+  | **Minutos** | **borda tracejada / entalhe lateral** (tracejada vazia; sólida com friso duplo quando preenchida) | longo e esguio, com ilhós vazado perto da ponta | `HandBadge` em losango, rótulo `M` |
+  | **Período** | **formato pílula** (`border-radius: 9999px`) **+ medalhão ilustrado** (`PeriodMedallion`) | (não se aplica) | ícone celeste por período |
+  | Segundos (explorar) | (não se aplica) | agulha extrafina com contrapeso circular | (não se aplica) |
+
+  - certo e errado são indicados também por ícone (`CheckBadge`), texto e humor do mascote, não só por verde e vermelho;
+  - essas geometrias ficam sob CCR junto com as cores (seção 5).
 - Testes visuais rodam com simulação de protanopia, deuteranopia e tritanopia em F3.
 
 ### 4. Interação e semântica

@@ -22,7 +22,9 @@ import type {
   Atmosphere,
   BankSpec,
   ClockTime,
+  GameEventEnvelope,
   GameMode,
+  GameState,
   Group,
   HandName,
   HandTarget,
@@ -55,7 +57,9 @@ export type { BadgeKind, BadgeSegment, Message, MessageSegment, StrongSegment, T
  * toda informação codificada por cor tem redundância geométrica (ADR-004).
  *
  * - `hour`/`minute`/`period`/`second`/`success`: sobre fundo claro (WCAG AA);
- * - `hourOnDark`/`minuteOnDark`: variantes para o tema noturno.
+ * - `hourOnDark`/`minuteOnDark`: só para o visor digital escuro (`#1e2832`/`#263238`,
+ *   contraste >= 6,51:1); cards e mostrador ficam sempre claros (F0c).
+ * - `--color-colon-on-dark` e demais tokens de tema do F0c NÃO estão travados aqui.
  */
 export const PEDAGOGICAL_COLORS = {
   hour: '#1560bd',
@@ -91,14 +95,26 @@ export const ANSWER_REGION_LABELS: Readonly<Record<GameMode, string>> = {
 
 export type MascotMood = 'happy' | 'think' | 'celebrate' | 'hint';
 
+/** Derivado da atmosfera (`ATMOSPHERE_AMBIENT`), nunca escolhido à parte. */
 export type MascotAmbient = 'day' | 'night';
+
+/**
+ * Atmosfera -> ambiente do mascote. A atmosfera vai no DOM como
+ * `data-atmosphere="madrugada | manha | tarde | noite"` (ADR-001).
+ */
+export const ATMOSPHERE_AMBIENT: Readonly<Record<Atmosphere, MascotAmbient>> = {
+  madrugada: 'night',
+  manha: 'day',
+  tarde: 'day',
+  noite: 'night',
+};
 
 export type MascotSize = 'sm' | 'md' | 'lg';
 
 export interface MascotProps {
   readonly mood: MascotMood;
   readonly size: MascotSize;
-  /** Padrão: `day`. */
+  /** Padrão: `day`; derive de `ATMOSPHERE_AMBIENT[atmosphere]`. */
   readonly ambient?: MascotAmbient;
   /** Incrementar para repetir o pulinho (mesmo com o mesmo humor). */
   readonly bounceSeq?: number;
@@ -108,7 +124,58 @@ export interface MascotProps {
 /* Hooks                                                               */
 /* ------------------------------------------------------------------ */
 
-/** `usePreferences()`: escrita concorrente por operação (ADR-002). */
+/** Cursor de deduplicação do consumidor da fila de eventos. */
+export interface GameEventCursor {
+  readonly sessionId: string;
+  /** Maior `seq` já executado nesta sessão. */
+  readonly seq: number;
+}
+
+export interface GameControllerOptions {
+  /**
+   * Executa UM efeito (som, fala, confete, foco). Chamado no máximo uma vez
+   * por `(sessionId, seq)`, em ordem crescente de `seq`.
+   */
+  readonly onEvent: (envelope: GameEventEnvelope) => void;
+}
+
+/**
+ * `useGameController(options)`: dono do `useReducer(gameReducer)` E do
+ * cursor de deduplicação (um `useRef<GameEventCursor | null>` no mesmo hook,
+ * com o mesmo ciclo de vida do estado; nunca em componentes filhos).
+ *
+ * Num `useEffect` dependente de `state.pendingEvents`:
+ * 1. percorre `pendingEvents` em ordem de `seq`;
+ * 2. executa só envelopes com `sessionId` diferente do cursor, ou com
+ *    `seq > cursor.seq`, e avança o cursor ANTES do próximo;
+ * 3. se a fila não estava vazia, despacha
+ *    `{ type: 'events/ack', upToSeq: <maior seq da fila> }`.
+ *
+ * Isso cobre o automatic batching (várias ações -> vários envelopes numa
+ * renderização) e a remontagem simulada do StrictMode (o efeito roda de novo
+ * antes do `ack` ser aplicado; o cursor impede a repetição).
+ */
+export interface GameControllerApi {
+  /** `null` antes do primeiro `start`. */
+  readonly state: GameState | null;
+  /** Gera `sessionId` e `seed` fora do reducer e despacha `start`. */
+  start(mode: GameMode, levelId: LevelId): void;
+  dropTile(tileId: string, slotId: string): void;
+  tapTile(tileId: string): void;
+  moveHands(time: ClockTime): void;
+  checkHands(): void;
+  requestHelp(): void;
+  next(): void;
+}
+
+/**
+ * `usePreferences()`: API síncrona; cada setter vira uma `PreferencesWriteOp`
+ * aplicada sobre uma releitura imediata do `localStorage` (ADR-002).
+ *
+ * Best-effort: mitiga sobrescrita por abas com estado obsoleto, mas NÃO
+ * garante atomicidade nem exclusão mútua entre abas (o `localStorage` não é
+ * transacional; gravações simultâneas ainda podem perder uma operação).
+ */
 export interface PreferencesApi {
   readonly prefs: Preferences;
   /** `false` quando o `localStorage` está indisponível (modo privado etc.). */
@@ -116,9 +183,9 @@ export interface PreferencesApi {
   setLevel(level: LevelId): void;
   setSound(on: boolean): void;
   setVoice(on: boolean): void;
-  /** Mescla por máximo; retorna `true` se for um novo recorde. */
+  /** Máximo só nesta chave, sobre a releitura; `true` se gravou um novo recorde. */
   recordStars(key: StarsKey, stars: Stars): boolean;
-  /** Apaga só as estrelas (nível, som e voz são preservados). */
+  /** Ação explícita: grava `stars: {}` (nível, som e voz são preservados). */
   resetStars(): void;
 }
 
@@ -243,10 +310,21 @@ export interface PwaApi {
   readonly showIosInstallTip: boolean;
 }
 
-/** `useServiceWorkerUpdate()`: toast exibido só na `HomeScreen` (ADR-003). */
+/**
+ * `useServiceWorkerUpdate()` (ADR-003). Com `skipWaiting` + `clientsClaim` o
+ * SW novo nunca fica em espera, então a detecção é por troca de controlador:
+ * no mount guarda `hadController = navigator.serviceWorker.controller !== null`;
+ * um `controllerchange` (ou troca de `registration.active`) depois do mount,
+ * com `hadController === true`, marca `updateReady = true`. Na primeira
+ * instalação (`hadController === false`) não há toast.
+ *
+ * O toast é exibido só na `HomeScreen`. Nunca há reload automático.
+ */
 export interface ServiceWorkerUpdateApi {
   readonly updateReady: boolean;
+  /** Botão "Atualizar agora": `window.location.reload()`, só por clique na `HomeScreen`. */
   applyUpdate: () => void;
+  /** "Agora não": esconde o toast; a versão nova vale na próxima abertura natural. */
   dismissToast: () => void;
 }
 
@@ -273,6 +351,7 @@ export interface AnalogClockProps {
   readonly minuteLabels?: boolean;
   readonly highlight?: HandHighlight | null;
   readonly size?: 'md' | 'lg';
+  /** Padrão: `day`; derive de `ATMOSPHERE_AMBIENT`. O mostrador continua claro. */
   readonly ambient?: MascotAmbient;
   readonly onChange?: (time: ClockTime, hand: HandName) => void;
   readonly onGrab?: (hand: HandName) => void;

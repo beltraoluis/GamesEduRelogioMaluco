@@ -353,7 +353,8 @@ export type GameStatus = 'playing' | 'finished';
 
 /**
  * Efeitos colaterais descritos pelo reducer (som, fala, confete, foco...).
- * O reducer nunca executa efeitos: ele só os publica em `GameState.events`.
+ * O reducer nunca executa efeitos: ele só os anexa à fila
+ * `GameState.pendingEvents` (ver `GameEventEnvelope`).
  */
 export type GameEvent =
   | { readonly type: 'question-started'; readonly index: number }
@@ -372,13 +373,20 @@ export type GameEvent =
   | { readonly type: 'round-finished'; readonly summary: RoundSummary };
 
 /**
- * Evento com identificação para consumo idempotente.
- * O consumidor (efeito React) guarda o último `seq` processado por
- * `sessionId` e ignora repetições (StrictMode monta/efetua duas vezes).
+ * Evento na fila, com identificação para consumo idempotente.
+ *
+ * Protocolo (ADR-002):
+ * 1. cada ação que gera efeitos ANEXA envelopes a `pendingEvents`, com
+ *    `seq = lastEventSeq + 1, + 2, ...`; nada é substituído, então ações
+ *    agrupadas pelo automatic batching do React 19 não perdem eventos;
+ * 2. o consumidor (`useGameController`) executa os envelopes em ordem de
+ *    `seq`, pulando os que o seu cursor `{ sessionId, seq }` já viu, e então
+ *    despacha `{ type: 'events/ack', upToSeq }`;
+ * 3. só `events/ack` remove envelopes da fila (os de `seq <= upToSeq`).
  */
 export interface GameEventEnvelope {
   readonly sessionId: string;
-  /** Estritamente crescente dentro da sessão, começando em 1. */
+  /** Estritamente crescente; nunca reutilizado pelo mesmo reducer (ver `lastEventSeq`). */
   readonly seq: number;
   readonly event: GameEvent;
 }
@@ -415,10 +423,19 @@ export interface GameState {
   readonly usedTimes: readonly string[];
   readonly current: QuestionState;
   readonly feedback: Feedback;
-  /** Último `seq` emitido nesta sessão (0 antes do primeiro evento). */
-  readonly seq: number;
-  /** Eventos emitidos pela última ação (substituídos a cada ação). */
-  readonly events: readonly GameEventEnvelope[];
+  /**
+   * Fila de efeitos ainda não confirmados, em ordem crescente de `seq`.
+   * Ações anexam; só `events/ack` remove. `start` descarta a fila da sessão
+   * anterior (efeitos de uma sessão abandonada não são executados).
+   */
+  readonly pendingEvents: readonly GameEventEnvelope[];
+  /**
+   * Maior `seq` já emitido (0 antes do primeiro evento). Monotônico: nunca
+   * diminui, nem mesmo em `start` (a nova sessão continua a numeração), para
+   * que um `events/ack` atrasado da sessão anterior não confirme eventos
+   * novos.
+   */
+  readonly lastEventSeq: number;
   /** Presente quando `status === 'finished'`. */
   readonly summary?: RoundSummary;
 }
@@ -444,7 +461,13 @@ export type GameAction =
   /** Botão "Dica". */
   | { readonly type: 'request-help' }
   /** Botão "Próxima" (ou fim da rodada na última pergunta). */
-  | { readonly type: 'next' };
+  | { readonly type: 'next' }
+  /**
+   * Confirma o consumo dos efeitos: remove de `pendingEvents` os envelopes com
+   * `seq <= upToSeq`. Não emite eventos nem altera `lastEventSeq`; valores
+   * maiores que `lastEventSeq` são limitados a ele.
+   */
+  | { readonly type: 'events/ack'; readonly upToSeq: number };
 
 /* ------------------------------------------------------------------ */
 /* Preferências e progresso (localStorage `relogio-maluco-v1`)         */
@@ -475,18 +498,29 @@ export interface ParsedPreferences {
 }
 
 /**
- * Escrita concorrente por operação: cada mudança é uma operação aplicada
- * sobre a leitura MAIS RECENTE do armazenamento (não sobre a cópia em
- * memória), para que abas concorrentes não apaguem as estrelas umas das
- * outras.
+ * Escrita por operação (best-effort, síncrona): cada mudança é uma operação
+ * aplicada sobre uma releitura imediata do `localStorage` (não sobre a cópia
+ * em memória), seguida de gravação. Isso evita que uma aba com estado
+ * obsoleto sobrescreva estrelas gravadas por outra aba.
+ *
+ * NÃO há atomicidade nem exclusão mútua entre abas: o par leitura+gravação
+ * do `localStorage` não é atômico, então duas abas gravando no mesmo
+ * instante ainda podem perder uma das operações (a última gravação vence).
+ * O risco é aceito por ADR-002 (preferências infantis simples, sem Web Locks).
  */
 export type PreferencesWriteOp =
   | { readonly op: 'set-level'; readonly level: LevelId }
   | { readonly op: 'set-sound'; readonly on: boolean }
   | { readonly op: 'set-voice'; readonly on: boolean }
-  /** Mescla por máximo: nunca reduz uma estrela já salva. */
+  /**
+   * Mescla por máximo apenas em `key`, sobre a releitura: não reduz a
+   * estrela já lida para essa chave; as demais chaves vêm da releitura.
+   */
   | { readonly op: 'record-stars'; readonly key: StarsKey; readonly stars: Stars }
-  /** Remove todas as estrelas (preserva nível, som e voz). */
+  /**
+   * Ação explícita do educador: grava `stars: {}` (preserva nível, som e voz).
+   * Uma rodada terminada depois em outra aba volta a gravar a sua chave.
+   */
   | { readonly op: 'reset-stars' };
 
 export interface PreferencesWriteResult {

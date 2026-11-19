@@ -18,14 +18,24 @@ No legado, `app.js` mistura sorteio (`Math.random`), regras pedagógicas, DOM e 
 - Horas no domínio são sempre 0–23 (`ClockTime.h`). `to12` só entra na exibição e na leitura do analógico.
 - `ClockMathApi` (`contracts`) é a interface de `domain/clockMath.ts` (F1a). F1b codifica contra ela ou contra fakes.
 
-### 2. `gameReducer` e eventos idempotentes
+### 2. `gameReducer` e fila de eventos idempotente
 
-- `gameReducer(state: GameState, action: GameAction): GameState` é puro. Ações: `start`, `drop-tile`, `tap-tile`, `move-hands`, `check-hands`, `request-help`, `next`.
-- O reducer **não executa efeitos**. Ele os descreve em `state.events: readonly GameEventEnvelope[]`, e cada envelope tem `{ sessionId, seq, event }`:
-  - `sessionId` vem de fora do reducer (`crypto.randomUUID()` na UI) na ação `start`;
-  - `seq` é estritamente crescente dentro da sessão (`state.seq` é o último emitido);
-  - `events` contém só os eventos da última ação e é substituído a cada ação.
-- O consumidor (um único `useEffect` em F2) guarda numa `ref` o último `seq` processado por `sessionId` e **ignora repetições**. Assim, a segunda execução do `StrictMode`, re-renders e re-montagens não tocam som, falam ou soltam confete duas vezes.
+- `gameReducer(state: GameState, action: GameAction): GameState` é puro. Ações: `start`, `drop-tile`, `tap-tile`, `move-hands`, `check-hands`, `request-help`, `next` e `events/ack`.
+- O reducer **não executa efeitos**. Ele os descreve como envelopes `GameEventEnvelope = { sessionId, seq, event }` numa **fila explícita** no estado:
+  - `pendingEvents: readonly GameEventEnvelope[]`: efeitos ainda não confirmados, em ordem crescente de `seq`;
+  - `lastEventSeq: number`: maior `seq` já emitido. É monotônico na sessão e não volta a 0 num novo `start`, que continua a numeração. Assim um `ack` atrasado da sessão anterior nunca confirma eventos novos.
+- **Anexar, nunca substituir.** Cada ação que gera efeitos anexa envelopes com `seq = lastEventSeq + 1, + 2, ...`. Com o *automatic batching* do React 19, várias ações podem ser reduzidas antes de uma única renderização, e uma fila substituída a cada ação perderia os efeitos das primeiras.
+- **Só `{ type: 'events/ack', upToSeq }` remove** envelopes, os de `seq <= upToSeq`. O `ack` não emite eventos nem altera `lastEventSeq`, e um `upToSeq > lastEventSeq` é limitado a ele.
+- **`start` descarta a fila anterior.** Os efeitos ainda pendentes de uma sessão abandonada (ex.: a fanfarra de uma rodada que a criança trocou por outra) não são executados.
+- **Consumidor (`useGameController`, F2).** O mesmo hook é dono do `useReducer` e do cursor de deduplicação `useRef<GameEventCursor | null>` (`{ sessionId, seq }`), e os dois têm o mesmo ciclo de vida. O cursor nunca fica em componentes filhos. Num `useEffect` dependente de `state.pendingEvents`, o hook:
+  1. percorre `pendingEvents` em ordem de `seq`;
+  2. executa o efeito (`onEvent`) só quando o `sessionId` do envelope difere do cursor ou quando `seq > cursor.seq`, e avança o cursor antes do envelope seguinte;
+  3. se a fila não estava vazia, despacha `events/ack` com o maior `seq` da fila.
+- **Por que não perde nem duplica:**
+  - *Batching:* todos os envelopes das ações agrupadas estão na fila quando o efeito roda.
+  - *StrictMode:* na remontagem simulada, o efeito roda de novo sobre o mesmo estado, antes de o `ack` ser aplicado. O `ref` sobrevive à remontagem simulada e o cursor pula o que já foi executado.
+  - *Remontagem real:* estado e cursor nascem e morrem juntos. Um controlador novo começa com fila vazia, então não há eventos antigos para repetir.
+  - *`ack` atrasado ou duplicado:* `seq` nunca é reutilizado, e confirmar de novo uma faixa já removida não tem efeito.
 - `drop.group-mismatch` (ficha na lacuna de outra cor) gera `tile-rejected` com `counted: false` e não conta como erro, igual ao legado.
 - Estrelas da rodada: soma de erros `<= 1` dá 3, `<= 5` dá 2, senão 1 (`RoundSummary.stars`). Rodada de 8 perguntas (`ROUND_LENGTH`).
 
@@ -42,27 +52,35 @@ No legado, os distratores "hora vizinha" eram `displayH + 1` e `displayH - 1` se
 - Mensagens são dados (`Message` com segmentos). `toPlainText` gera o texto corrido do `aria-live` e da fala: omite selos sem `spokenAs`, normaliza espaços e pontuação, deixa uma única ocorrência de "dois pontos" e remove emojis e glifos.
 - `HintCode` lista todos os diagnósticos. O texto de cada código é montado a partir de `HintContext` por um gerador puro em `domain/` (F1).
 
-### 5. Preferências: escrita concorrente por operação
+### 5. Preferências: escrita por operação, síncrona e best-effort
+
+**Decisão do Coordenador:** `PreferencesApi` continua **síncrona**. Não usamos Web Locks nem outra coordenação assíncrona entre abas, porque não queremos essa complexidade numa preferência infantil simples.
 
 - Chave única do `localStorage`: `relogio-maluco-v1` (`PREFERENCES_STORAGE_KEY`), compatível com o legado `{ level, sound, voice, stars }`.
 - Leitura tolerante (`ParsedPreferences`): JSON inválido ou campos fora do tipo caem nos padrões (`source: 'corrupt' | 'repaired'`), e chaves desconhecidas são preservadas em `extra` e regravadas.
-- **Cada escrita é uma operação** (`PreferencesWriteOp`) aplicada sobre a leitura **mais recente** do armazenamento, nunca sobre a cópia em memória:
-  1. ler `localStorage[KEY]`;
-  2. aplicar a operação (função pura `applyPreferencesOp`);
-  3. gravar o resultado.
-- `record-stars` mescla pelo **máximo**: nunca rebaixa uma estrela. Duas abas que terminam rodadas diferentes preservam as duas estrelas.
-- `reset-stars` grava `stars: {}` e preserva nível, som e voz. O evento `storage` de outra aba atualiza o estado em memória e não é reescrito (não há loop).
+- **Cada escrita é uma operação** (`PreferencesWriteOp`) e é feita de forma síncrona, no mesmo handler:
+  1. **releitura imediata** de `localStorage[KEY]`, e não da cópia em memória;
+  2. aplicação da operação pela função pura `applyPreferencesOp`;
+  3. gravação do resultado.
+- `record-stars` aplica o **máximo apenas na chave atual** (`key`), sobre a releitura. As demais chaves vêm da releitura e não da memória da aba.
+- `reset-stars` é **explícito** (botão do educador): grava `stars: {}` e preserva nível, som e voz. Se outra aba terminar uma rodada depois do reset, ela volta a gravar a sua chave, e isso é o comportamento esperado.
+- O evento `storage` de outra aba só atualiza o estado em memória e não regrava nada (não há loop).
 - Se o armazenamento estiver indisponível (modo privado, cota), `persistent = false`: o jogo funciona em memória e o diálogo dos educadores avisa que o progresso não será salvo.
+
+**Garantia real (sem promessas de atomicidade).** A escrita por operação é **best-effort**. Ela mitiga o caso comum, que é uma aba aberta há muito tempo, com estado obsoleto, sobrescrever as estrelas que outra aba gravou. Ela **não** oferece atomicidade nem exclusão mútua entre abas. O par releitura + gravação do `localStorage` não é transacional: se duas abas fizerem leitura e gravação no mesmo instante, a última gravação vence e a operação da outra pode se perder (ex.: uma das duas estrelas novas). Aceitamos esse risco porque a janela de corrida é pequena (duas gravações praticamente simultâneas), o dado é de baixo valor e recuperável (basta jogar de novo), e a alternativa assíncrona complicaria toda a API.
 
 ## Consequências
 
 - Distratores, dicas, estrelas e preferências têm teste unitário sem DOM.
 - O formato salvo continua o mesmo: quem já tem estrelas do legado não perde nada.
+- Gravações simultâneas em abas diferentes ainda podem, raramente, perder uma operação (risco aceito; ver seção 5).
 - O fluxo de efeitos fica centralizado num só consumidor. Componentes não tocam som nem fala por conta própria durante o jogo.
 
 ## Alternativas rejeitadas
 
 - **`Math.random` no reducer:** quebra a pureza e a reprodutibilidade, e o `StrictMode` daria resultados diferentes nas duas execuções.
 - **Efeitos dentro de handlers de componentes:** espalham a regra pedagógica e duplicam som e fala sob `StrictMode`.
-- **Gravar o objeto inteiro de preferências a cada mudança:** a última aba a gravar apaga as estrelas das outras.
+- **Gravar o objeto inteiro de preferências (cópia em memória) a cada mudança:** uma aba obsoleta apaga as estrelas das outras.
+- **Web Locks (`navigator.locks`) ou `BroadcastChannel` com eleição de líder:** dariam exclusão mútua, mas tornariam `PreferencesApi` assíncrona, o que é desproporcional para preferências infantis.
+- **Fila única de efeitos substituída a cada ação (`events` da última ação):** perde efeitos com automatic batching e depende da ordem de renderização.
 - **Ler dicas em voz alta automaticamente:** atropela leitores de tela e cansa a criança. O `aria-live="polite"` já entrega a dica a quem precisa.
