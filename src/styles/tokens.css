@@ -174,8 +174,7 @@
   }
 
   /* 4 Atmosferas do Ciclo de 24 Horas (cards e mostrador permanecem claros) */
-  [data-atmosphere='madrugada'],
-  [data-ambient='madrugada'] {
+  [data-atmosphere='madrugada'] {
     --ambient-bg-start: #1b1947;
     --ambient-bg-mid: #312e81;
     --ambient-bg-end: #4c1d95;
@@ -186,8 +185,7 @@
     --ambient-pill-border: #818cf8;
   }
 
-  [data-atmosphere='manha'],
-  [data-ambient='manha'] {
+  [data-atmosphere='manha'] {
     --ambient-bg-start: #e0f2fe;
     --ambient-bg-mid: #fef3c7;
     --ambient-bg-end: #fffbeb;
@@ -198,8 +196,7 @@
     --ambient-pill-border: #93c5fd;
   }
 
-  [data-atmosphere='tarde'],
-  [data-ambient='tarde'] {
+  [data-atmosphere='tarde'] {
     --ambient-bg-start: #ffedd5;
     --ambient-bg-mid: #fde68a;
     --ambient-bg-end: #fed7aa;
@@ -210,8 +207,7 @@
     --ambient-pill-border: #fb923c;
   }
 
-  [data-atmosphere='noite'],
-  [data-ambient='noite'] {
+  [data-atmosphere='noite'] {
     --ambient-bg-start: #0f172a;
     --ambient-bg-mid: #1e293b;
     --ambient-bg-end: #1e1b4b;

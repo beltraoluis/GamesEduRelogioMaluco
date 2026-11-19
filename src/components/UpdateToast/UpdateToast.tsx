@@ -31,7 +31,7 @@ export function UpdateToast({
           size={22}
           {...(styles.icon === undefined ? {} : { className: styles.icon })}
         />
-        <span>Uma nova versão do Relógio Maluco está pronta.</span>
+        <span>Nova versão pronta.</span>
       </div>
       <div className={styles.actions}>
         <Button variant="primary" size="sm" onClick={onApply}>

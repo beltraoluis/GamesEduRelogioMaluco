@@ -41,7 +41,7 @@ export function TicMascot({
       data-mascot="tic"
       data-mood={mood}
       data-size={size}
-      data-ambient={ambient}
+      data-mascot-ambient={ambient}
       data-motion="bounce"
       {...(bounceSeq === undefined ? {} : { 'data-bounce-seq': String(bounceSeq) })}
     >

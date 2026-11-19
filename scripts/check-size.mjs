@@ -14,10 +14,11 @@ const LIMITS = {
   webpSingleMax: 28 * KB,
   webpTotalMax: 110 * KB,
   woff2TotalMax: 45 * KB,
+  svgInlineMax: 40 * KB,
   distJsGzipMax: 90 * KB,
   distCssGzipMax: 15 * KB,
   distImagesMax: 250 * KB,
-  distPrecacheMax: 700 * KB,
+  distPrecacheMax: 512 * KB,
 };
 
 const EXPECTED_WEBP_FILES = [
@@ -122,7 +123,39 @@ function main() {
     }
   }
 
-  // 3. Quando dist/ existir, validar orcamentos de bundle e precache
+  // 3. Validar teto de icones/mascote SVG inline em src/ (<= 40 KB conforme ADR-001)
+  const srcDir = join(ROOT_DIR, 'src');
+  if (statSync(srcDir, { throwIfNoEntry: false })?.isDirectory()) {
+    const srcFiles = collectFiles(srcDir).filter((filePath) => {
+      const rel = relative(ROOT_DIR, filePath).replaceAll('\\', '/');
+      return !rel.includes('/__tests__/') && (rel.endsWith('.tsx') || rel.endsWith('.ts') || rel.endsWith('.svg'));
+    });
+
+    let svgInlineBytes = 0;
+    for (const filePath of srcFiles) {
+      if (filePath.endsWith('.svg')) {
+        svgInlineBytes += statSync(filePath).size;
+      } else {
+        const content = readFileSync(filePath, 'utf8');
+        const matches = content.match(/<svg[\s\S]*?<\/svg>/gu);
+        if (matches) {
+          for (const svgBlock of matches) {
+            svgInlineBytes += Buffer.byteLength(svgBlock, 'utf8');
+          }
+        }
+      }
+    }
+
+    const svgInlineOk = svgInlineBytes <= LIMITS.svgInlineMax;
+    console.log(
+      `[${svgInlineOk ? 'PASS' : 'FAIL'}] Icones/mascote SVG inline: ${formatKB(svgInlineBytes)} (limite <= ${formatKB(LIMITS.svgInlineMax)})`,
+    );
+    if (!svgInlineOk) {
+      errors.push(`SVGs inline excedem 40 KB: ${formatKB(svgInlineBytes)}`);
+    }
+  }
+
+  // 4. Quando dist/ existir, validar orcamentos de bundle e precache
   const distDir = join(ROOT_DIR, 'dist');
   if (statSync(distDir, { throwIfNoEntry: false })?.isDirectory()) {
     const distFiles = collectFiles(distDir);

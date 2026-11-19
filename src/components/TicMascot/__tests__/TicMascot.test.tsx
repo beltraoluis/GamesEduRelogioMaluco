@@ -25,7 +25,7 @@ describe('TicMascot', () => {
           expect(svg).toHaveAttribute('aria-hidden', 'true');
           expect(svg).toHaveAttribute('data-mood', mood);
           expect(svg).toHaveAttribute('data-size', size);
-          expect(svg).toHaveAttribute('data-ambient', ambient);
+          expect(svg).toHaveAttribute('data-mascot-ambient', ambient);
           expect(svg).toHaveAttribute('data-bounce-seq', '2');
 
           const leftBell = container.querySelector('[data-bell="left"]');
