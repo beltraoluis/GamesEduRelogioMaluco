@@ -312,11 +312,14 @@ export interface PwaApi {
 
 /**
  * `useServiceWorkerUpdate()` (ADR-003). Com `skipWaiting` + `clientsClaim` o
- * SW novo nunca fica em espera, então a detecção é por troca de controlador:
- * no mount guarda `hadController = navigator.serviceWorker.controller !== null`;
- * um `controllerchange` (ou troca de `registration.active`) depois do mount,
- * com `hadController === true`, marca `updateReady = true`. Na primeira
- * instalação (`hadController === false`) não há toast.
+ * SW novo nunca fica em espera, então a detecção é por troca de controlador,
+ * e `controllerchange` é o único gatilho:
+ * - no mount: `hadControllerRef = useRef(navigator.serviceWorker.controller !== null)`;
+ * - em `controllerchange`: se `!hadControllerRef.current`, faz
+ *   `hadControllerRef.current = true` e retorna (suprime só a aquisição
+ *   inicial da 1ª instalação); senão, `updateReady = true`;
+ * - logo, 1ª instalação seguida de atualização na mesma aba sinaliza no
+ *   segundo `controllerchange` (o `ref` não fica congelado no mount).
  *
  * O toast é exibido só na `HomeScreen`. Nunca há reload automático.
  */

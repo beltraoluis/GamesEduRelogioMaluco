@@ -40,10 +40,25 @@ VitePWA({
 
 Com `skipWaiting: true` o SW novo **nunca fica em `waiting`**, então o `onNeedRefresh` do `registerType: 'prompt'` não serve de sinal. A detecção é por **troca de controlador**:
 
-1. **No mount** do hook, registrar `hadController = navigator.serviceWorker.controller !== null`.
-2. Ouvir `navigator.serviceWorker` → `controllerchange`. Quando ele disparar e `hadController === true`, marcar `updateReady = true` no estado do hook.
-3. Como reforço, quando `registration.active` mudar depois do mount (via `updatefound` → `statechange` para `activated`) e havia controlador prévio, marcar `updateReady = true` também.
-4. Com `hadController === false` (primeira instalação), o `controllerchange` causado pelo `clientsClaim` **não** é atualização. Ele só alimenta `offlineReady` (ver abaixo) e não mostra toast.
+1. **No mount** do hook: `hadControllerRef = useRef(navigator.serviceWorker.controller !== null)`. O `ref` sobrevive à remontagem simulada do StrictMode e só é inicializado uma vez.
+2. **Handler de `controllerchange`** (a única fonte do sinal):
+
+   ```ts
+   const onControllerChange = () => {
+     if (!hadControllerRef.current) {
+       // 1ª instalação: aquisição inicial via clientsClaim. Não é atualização.
+       hadControllerRef.current = true;
+       return;
+     }
+     setUpdateReady(true); // qualquer troca posterior na mesma aba
+   };
+   ```
+
+   - O `ref` **não fica congelado** no valor do mount. Na primeira instalação só a **primeira** troca (a aquisição inicial) é suprimida. Toda troca de controlador depois dela, na mesma aba aberta, marca `updateReady = true`.
+   - Aba que já tinha controlador no mount: a primeira troca já marca `updateReady = true`.
+   - A aquisição inicial da 1ª instalação não mostra toast. O `offlineReady` segue a validação de cache descrita abaixo, independente deste handler.
+3. **Sem sinal paralelo por `registration.active`/`statechange`.** Na 1ª instalação o `controllerchange` (via `clients.claim()` durante o `activate`) pode vir antes do `statechange` para `activated`. Um segundo detector que lesse o mesmo `ref` daria um toast falso, por isso `controllerchange` é o único gatilho.
+4. O listener é removido no cleanup do efeito. Na remontagem do StrictMode existe um único listener ativo por vez, e o `ref` preservado mantém a supressão já consumida.
 
 **Reload exclusivamente explícito:**
 
@@ -51,6 +66,18 @@ Com `skipWaiting: true` o SW novo **nunca fica em `waiting`**, então o `onNeedR
 - O botão **"Atualizar agora"** chama `applyUpdate()`, que executa `window.location.reload()`. É o único caminho de reload no código, e só por clique na `HomeScreen`.
 - **"Agora não"** (`dismissToast`) esconde o toast. A versão nova passa a valer na próxima abertura natural do app.
 - **Nunca há reload automático**: nenhum `reload()` em `controllerchange`, `onNeedRefresh`, `onOfflineReady` ou timers.
+
+### Testes obrigatórios (F2c, `useServiceWorkerUpdate`)
+
+Com `navigator.serviceWorker` simulado (controller + `EventTarget`) e `window.location.reload` espionado:
+
+1. **1ª instalação:** `controller === null` no mount, depois um `controllerchange`: `updateReady` continua `false` e não há toast.
+2. **1ª instalação + atualização posterior na mesma aba:** `controller === null` no mount, um `controllerchange` (suprimido) e depois um segundo `controllerchange`: `updateReady === true`. É o cenário que o `ref` congelado quebrava.
+3. **Aba já controlada:** `controller !== null` no mount, depois um `controllerchange`: `updateReady === true`.
+4. **Várias atualizações:** trocas seguidas mantêm `updateReady === true` sem efeito colateral extra. Depois de `dismissToast()`, o toast some e só volta numa nova troca de controlador.
+5. **Sem reload automático:** em todos os cenários acima, `reload` não é chamado. Só `applyUpdate()` (clique em "Atualizar agora") o chama, uma vez.
+6. **Toast só na `HomeScreen`:** com `updateReady === true` fora da `HomeScreen`, nenhum toast é renderizado. Ao voltar à `HomeScreen`, ele aparece.
+7. **StrictMode:** montar sob `<StrictMode>` e disparar os cenários 1 e 2 dá o mesmo resultado (um único listener ativo, supressão consumida uma só vez).
 
 ### Proibição de chunks dinâmicos
 
@@ -100,6 +127,8 @@ Se a versão React tiver defeito grave em produção:
 
 - **`registerType: 'autoUpdate'` com reload:** recarrega no meio da rodada e a criança perde o progresso.
 - **Toast baseado em `onNeedRefresh`:** com `skipWaiting: true`, ele nunca dispara.
+- **`hadController` congelado no mount:** depois da 1ª instalação, uma atualização seguinte na mesma aba nunca sinalizaria `updateReady`.
+- **Segundo detector por `registration.active`/`statechange`:** a ordem dos eventos na 1ª instalação permitiria toast falso.
 - **Nome de SW diferente (`service-worker.js`):** o SW legado continuaria ativo no escopo e servindo o cache velho.
 - **Code-splitting por tela:** risco de 404 offline descrito acima, e o ganho é irrelevante para quatro telas.
 - **Confiar só em `onOfflineReady`:** em alguns navegadores dispara antes de o precache estar íntegro.
