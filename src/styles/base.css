@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background: var(--ambient-bg);
+    color: var(--color-ink);
+    transition: background var(--duration-atmosphere) var(--ease-standard);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-hour);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+  }
+
+  /* Diálogos modais nativos sem overflow: hidden no :root (ADR-004) */
+  dialog:modal {
+    overscroll-behavior: contain;
+    max-height: min(90dvh, 42rem);
+    overflow-y: auto;
+  }
+
+  dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: rgba(15, 23, 42, 0.56);
+    backdrop-filter: blur(3px);
+  }
+
+  /* Alinhamento tabular obrigatório para relógios, fichas numéricas e contadores */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

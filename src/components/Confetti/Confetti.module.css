@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .confettiContainer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 60;
+  }
+
+  @keyframes confetti-fall {
+    0% {
+      opacity: 1;
+      transform: translate3d(0, -10%, 0) rotate(0deg);
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(var(--confetti-dx, 0px), 105dvh, 0) rotate(var(--confetti-rot, 360deg));
+    }
+  }
+
+  .particle {
+    position: absolute;
+    top: -1rem;
+    width: 0.65rem;
+    height: 1rem;
+    border-radius: 0.15rem;
+    animation: confetti-fall var(--confetti-duration, 1600ms) ease-out var(--confetti-delay, 0ms)
+      forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .confettiContainer {
+      display: none;
+    }
+
+    .particle {
+      animation: none;
+    }
+  }
+}
