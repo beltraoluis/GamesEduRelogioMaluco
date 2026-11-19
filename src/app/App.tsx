@@ -5,8 +5,9 @@
  * Raiz da aplicação: máquina de telas + serviços compartilhados.
  *
  * - um único `useSound`/`useSpeech` (ligados às preferências) para todas as
- *   telas; a fala é cancelada em TODA rota de volta ao início (botões e
- *   voltar do sistema) e ao começar uma partida;
+ *   telas; em TODA rota de volta ao início (botões e voltar do sistema) a
+ *   fala é cancelada e a sessão de jogo é abandonada (`toHome`); ao começar
+ *   uma partida, a fala é cancelada e a fila anterior é descartada;
  * - a sessão de jogo (`useGameSession`) vive aqui, então a fanfarra, o
  *   confete e a fala do fim da rodada sobrevivem à troca jogo -> resultado;
  * - `useServiceWorkerUpdate` fica montado entre telas; o toast só aparece
@@ -93,10 +94,19 @@ export function App({
   });
 
   const { cancel } = speech;
+  const { abandon } = session;
+  /**
+   * TODA saída para o início (botões, voltar do sistema): cala a fala,
+   * abandona a sessão (efeitos ainda não consumidos, mesmo do mesmo lote,
+   * nunca rodam: sem fala, fanfarra, estrelas ou navegação tardias) e limpa
+   * o confete. Um resultado já consumido (tela de resultado) fica salvo.
+   */
   const toHome = useCallback(() => {
     cancel();
+    abandon();
+    setBurst(null);
     dispatchScreen({ type: 'home' });
-  }, [cancel]);
+  }, [cancel, abandon]);
   const { goHome } = useBackToHome(isAwayFromHome(screen), toHome);
 
   const { start } = session;

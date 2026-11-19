@@ -23,7 +23,6 @@ import type {
   ClockTime,
   GameAction,
   GameControllerApi,
-  GameControllerOptions,
   GameEventCursor,
   GameEventEnvelope,
   GameMode,
@@ -56,9 +55,59 @@ export interface SessionSeed {
   readonly seed: number;
 }
 
-export interface GameControllerHookOptions extends GameControllerOptions {
+/**
+ * Opções do hook. Um `onEvent(envelope)` do contrato (`GameControllerOptions`)
+ * também serve: `origin` é um argumento extra que ele pode ignorar.
+ */
+export interface GameControllerHookOptions {
+  /**
+   * Executa UM efeito, no máximo uma vez por `(sessionId, seq)`, em ordem de
+   * `seq`. `origin` é o estado logo após a ação que emitiu o envelope (não o
+   * do commit em que ele é consumido): com o automatic batching, ações
+   * posteriores (ex.: `next` no mesmo lote do acerto) já podem ter trocado a
+   * pergunta atual.
+   */
+  readonly onEvent: (envelope: GameEventEnvelope, origin: GameState) => void;
   /** Injetável em testes; padrão: `crypto.randomUUID` + `crypto.getRandomValues`. */
   readonly createSession?: () => SessionSeed;
+  /**
+   * Só para testes de replay do consumidor: estado inicial com fila ainda
+   * não confirmada (o app sempre começa em `null`, ver `drainEvents`).
+   */
+  readonly initialState?: GameState;
+}
+
+/** Contrato + `abandon()` (delimita a sessão ao sair da partida). */
+export interface GameControllerHookApi extends GameControllerApi {
+  /**
+   * Abandona a sessão atual: descarta a fila pendente sem executar nada
+   * (ADR-002: efeitos de sessão abandonada não rodam). Estado volta a `null`.
+   */
+  abandon(): void;
+}
+
+/** Estado logo após a ação que emitiu o envelope `seq`. */
+export interface EventOrigin {
+  readonly seq: number;
+  readonly state: GameState;
+}
+
+/** Estado interno do hook: jogo + numeração + origem de cada envelope pendente. */
+export interface ControllerState {
+  readonly game: GameState | null;
+  /** Maior `seq` já emitido; sobrevive ao `abandon` (numeração monotônica). */
+  readonly lastEventSeq: number;
+  /** Uma entrada por envelope em `game.pendingEvents`, mesma ordem. */
+  readonly origins: readonly EventOrigin[];
+}
+
+export type ControllerAction = GameAction | { readonly type: 'controller/abandon' };
+
+export const INITIAL_CONTROLLER_STATE: ControllerState = Object.freeze({ game: null, lastEventSeq: 0, origins: Object.freeze([]) });
+
+/** Estado do hook a partir de um `GameState` já existente (testes de replay). */
+export function controllerStateFrom(game: GameState): ControllerState {
+  return { game, lastEventSeq: game.lastEventSeq, origins: game.pendingEvents.map((e) => ({ seq: e.seq, state: game })) };
 }
 
 const EMPTY_QUEUE: readonly GameEventEnvelope[] = Object.freeze([]);
@@ -81,10 +130,28 @@ export function createSessionSeed(): SessionSeed {
   return { sessionId, seed };
 }
 
-/** `gameReducer` estendido para o estado inicial `null` (antes do primeiro `start`). */
-export function controllerReducer(state: GameState | null, action: GameAction): GameState | null {
-  if (state === null) return action.type === 'start' ? initGame(action) : null;
-  return gameReducer(state, action);
+/**
+ * Reducer puro do hook: aplica `gameReducer` (estendido para `null` antes do
+ * primeiro `start`), registra a origem de cada envelope NOVO e descarta as
+ * origens de envelopes que saíram da fila (`ack`, `start`, `abandon`).
+ */
+export function controllerReducer(state: ControllerState, action: ControllerAction): ControllerState {
+  if (action.type === 'controller/abandon') {
+    return state.game === null ? state : { game: null, lastEventSeq: state.lastEventSeq, origins: [] };
+  }
+  let game: GameState;
+  if (state.game === null) {
+    if (action.type !== 'start') return state;
+    game = initGame(action, state.lastEventSeq);
+  } else {
+    game = gameReducer(state.game, action);
+    if (game === state.game) return state;
+  }
+  const previousLast = state.game?.lastEventSeq ?? state.lastEventSeq;
+  const pending = new Set(game.pendingEvents.map((e) => e.seq));
+  const origins: EventOrigin[] = state.origins.filter((o) => pending.has(o.seq));
+  for (const e of game.pendingEvents) if (e.seq > previousLast) origins.push({ seq: e.seq, state: game });
+  return { game, lastEventSeq: game.lastEventSeq, origins };
 }
 
 /** Envelope ainda não executado segundo o cursor. */
@@ -103,8 +170,14 @@ function reportEffectError(error: unknown): void {
  * Passo do consumidor: executa, em ordem, os envelopes que o cursor ainda
  * não viu (avançando o cursor ANTES de cada um, então um efeito que lança
  * não é repetido) e devolve o `upToSeq` do `ack` (maior `seq` da fila), ou
- * `null` com a fila vazia. Rodar de novo sobre a mesma fila (remontagem do
- * StrictMode antes do `ack`) não executa nada.
+ * `null` com a fila vazia.
+ *
+ * O que o runtime exercita: no app, o estado nasce `null`, então a
+ * remontagem simulada do StrictMode (só na montagem) encontra a fila vazia;
+ * depois disso o efeito roda uma vez por fila nova e o `ack` sai no mesmo
+ * efeito. A deduplicação protege a re-execução do efeito sobre uma fila
+ * ainda não confirmada: remontagem do StrictMode com fila pendente
+ * (coberta com `initialState` nos testes) ou reexibição por `<Activity>`.
  */
 export function drainEvents(
   cursorRef: { current: GameEventCursor | null },
@@ -125,23 +198,32 @@ export function drainEvents(
   return last.seq;
 }
 
-export function useGameController(options: GameControllerHookOptions): GameControllerApi {
-  const [state, dispatch] = useReducer(controllerReducer, null);
+function initControllerState(initial: GameState | undefined): ControllerState {
+  return initial === undefined ? INITIAL_CONTROLLER_STATE : controllerStateFrom(initial);
+}
+
+export function useGameController(options: GameControllerHookOptions): GameControllerHookApi {
+  const [inner, dispatch] = useReducer(controllerReducer, options.initialState, initControllerState);
   const cursorRef = useRef<GameEventCursor | null>(null);
-  const runEvent = useEffectEvent((envelope: GameEventEnvelope) => options.onEvent(envelope));
+  const runEvent = useEffectEvent((envelope: GameEventEnvelope, origin: GameState) => options.onEvent(envelope, origin));
   const createSessionRef = useRef(options.createSession ?? createSessionSeed);
   useLayoutEffect(() => {
     createSessionRef.current = options.createSession ?? createSessionSeed;
   });
 
+  const state = inner.game;
   const queue = state?.pendingEvents ?? EMPTY_QUEUE;
+  const { origins } = inner;
 
   useEffect(() => {
-    const upToSeq = drainEvents(cursorRef, queue, runEvent);
+    const upToSeq = drainEvents(cursorRef, queue, (envelope) => {
+      const origin = origins.find((o) => o.seq === envelope.seq)?.state;
+      if (origin !== undefined) runEvent(envelope, origin);
+    });
     if (upToSeq !== null) dispatch({ type: 'events/ack', upToSeq });
-  }, [queue]);
+  }, [queue, origins]);
 
-  return useMemo<GameControllerApi>(
+  return useMemo<GameControllerHookApi>(
     () => ({
       state,
       start(mode: GameMode, levelId: LevelId) {
@@ -154,6 +236,7 @@ export function useGameController(options: GameControllerHookOptions): GameContr
       checkHands: () => dispatch({ type: 'check-hands' }),
       requestHelp: () => dispatch({ type: 'request-help' }),
       next: () => dispatch({ type: 'next' }),
+      abandon: () => dispatch({ type: 'controller/abandon' }),
     }),
     [state],
   );
@@ -254,7 +337,10 @@ export interface GameEffects {
   readonly finished: (summary: RoundSummary, newRecord: boolean) => void;
 }
 
-/** Elogio + frase da hora da pergunta concluída (12 h ou 24 h conforme o nível). */
+/**
+ * Elogio + frase da hora da pergunta concluída (12 h ou 24 h conforme o nível).
+ * `state` deve ser a ORIGEM do `question-completed` (ver `EventOrigin`).
+ */
 export function praiseSpeech(state: GameState | null, index: number): string | null {
   if (state === null || state.index !== index || !state.current.done) return null;
   if (state.feedback.code === 'praise') return toPlainText(renderMessage('praise', state.feedback.context));
@@ -263,9 +349,11 @@ export function praiseSpeech(state: GameState | null, index: number): string | n
 
 /**
  * Executa os efeitos de UM envelope (já deduplicado pelo cursor).
- * `state` é o estado do mesmo commit em que o envelope foi consumido.
+ * `origin` é o estado logo após a ação que o emitiu: o contexto (pergunta,
+ * hora, nível, elogio) fica correto mesmo que ações posteriores do mesmo
+ * lote já tenham avançado o jogo.
  */
-export function runGameEffects(envelope: GameEventEnvelope, state: GameState | null, fx: GameEffects): void {
+export function runGameEffects(envelope: GameEventEnvelope, origin: GameState | null, fx: GameEffects): void {
   const { event } = envelope;
   switch (event.type) {
     case 'question-started':
@@ -284,7 +372,7 @@ export function runGameEffects(envelope: GameEventEnvelope, state: GameState | n
     case 'question-completed': {
       fx.sound.play('success');
       fx.confetti(event.perfect ? CONFETTI_COUNTS.perfect : CONFETTI_COUNTS.withMistakes);
-      const text = praiseSpeech(state, event.index);
+      const text = praiseSpeech(origin, event.index);
       if (text !== null) fx.speech.speak(text);
       return;
     }
@@ -313,9 +401,11 @@ export interface GameSessionOptions {
   /** `round-finished` consumido: estrelas já gravadas. */
   readonly onFinished: (summary: RoundSummary, newRecord: boolean) => void;
   readonly createSession?: () => SessionSeed;
+  /** Só testes de replay (ver `GameControllerHookOptions.initialState`). */
+  readonly initialState?: GameState;
 }
 
-export interface GameSessionApi extends GameControllerApi {
+export interface GameSessionApi extends GameControllerHookApi {
   /** Balão do Tic (`SpeechBubbleProps.message`); `null` antes do `start`. */
   readonly message: Message | null;
   readonly tone: Feedback['tone'];
@@ -342,10 +432,11 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
 
   const controller = useGameController({
     ...(options.createSession === undefined ? {} : { createSession: options.createSession }),
-    onEvent: (envelope) => {
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
+    onEvent: (envelope, origin) => {
       const o = optionsRef.current;
       dispatchView({ type: 'event', envelope });
-      runGameEffects(envelope, stateRef.current, {
+      runGameEffects(envelope, origin, {
         sound: o.sound,
         speech: o.speech,
         recordStars: o.recordStars,
@@ -355,7 +446,6 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
     },
   });
 
-  // Layout effects rodam antes do efeito consumidor do mesmo commit.
   const { state } = controller;
   useLayoutEffect(() => {
     stateRef.current = state;
@@ -376,6 +466,11 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
         optionsRef.current.speech.cancel();
         dispatchView({ type: 'reset' });
         controller.start(mode, levelId);
+      },
+      abandon() {
+        optionsRef.current.speech.cancel();
+        dispatchView({ type: 'reset' });
+        controller.abandon();
       },
       dropTile(tileId, slotId) {
         unlock();

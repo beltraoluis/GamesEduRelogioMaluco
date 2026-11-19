@@ -7,10 +7,11 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { GameEventEnvelope, GameMode, GameState, LevelId, RoundSummary } from '../../../contracts';
-import { initGame } from '../../../domain/gameReducer';
+import { gameReducer, initGame } from '../../../domain/gameReducer';
 import { RESULT_TITLES } from '../../../domain/scoring';
 import {
   CONFETTI_COUNTS,
+  INITIAL_CONTROLLER_STATE,
   INITIAL_GAME_VIEW,
   controllerReducer,
   createSessionSeed,
@@ -64,10 +65,11 @@ function wrongTile(state: GameState): { tileId: string; slotId: string } {
 
 describe('controllerReducer / cursor', () => {
   it('ignora ações antes do start e inicia sem estado prévio', () => {
-    expect(controllerReducer(null, { type: 'next' })).toBeNull();
-    const s = controllerReducer(null, { type: 'start', sessionId: 'a', seed: 1, mode: 'numbers', levelId: 1 });
-    expect(s?.sessionId).toBe('a');
-    expect(s?.pendingEvents.map((e) => e.event.type)).toEqual(['question-started']);
+    expect(controllerReducer(INITIAL_CONTROLLER_STATE, { type: 'next' })).toBe(INITIAL_CONTROLLER_STATE);
+    const s = controllerReducer(INITIAL_CONTROLLER_STATE, { type: 'start', sessionId: 'a', seed: 1, mode: 'numbers', levelId: 1 });
+    expect(s.game?.sessionId).toBe('a');
+    expect(s.game?.pendingEvents.map((e) => e.event.type)).toEqual(['question-started']);
+    expect(s.origins.map((o) => o.seq)).toEqual([1]);
   });
 
   it('isNewEnvelope: sessão diferente ou seq maior', () => {
@@ -259,12 +261,12 @@ describe('anúncio 12 h / 24 h por nível', () => {
     let s: GameState = initGame({ type: 'start', sessionId: 'x', seed, mode, levelId });
     const q = s.current.question;
     if (q.mode === 'hands') {
-      s = controllerReducer(s, { type: 'move-hands', time: q.time }) as GameState;
-      return controllerReducer(s, { type: 'check-hands' }) as GameState;
+      s = gameReducer(s, { type: 'move-hands', time: q.time });
+      return gameReducer(s, { type: 'check-hands' });
     }
     for (const slot of q.slots) {
       const tile = q.banks.flatMap((b) => b.tiles).find((tl) => tl.group === slot.group && tl.value === slot.answer);
-      s = controllerReducer(s, { type: 'tap-tile', tileId: tile?.id ?? '' }) as GameState;
+      s = gameReducer(s, { type: 'tap-tile', tileId: tile?.id ?? '' });
     }
     return s;
   }

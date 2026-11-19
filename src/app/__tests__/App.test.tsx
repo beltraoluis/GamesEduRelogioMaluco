@@ -210,6 +210,73 @@ describe('App', () => {
     expect(speech.cancel).toHaveBeenCalled();
   });
 
+  it('concluir a rodada e voltar pelo botão no mesmo lote: sem fanfarra, título, estrelas ou resultado', () => {
+    const { storage } = renderApp();
+    fireEvent.click(screen.getByRole('button', { name: 'Ponteiros' }));
+    for (let i = 0; i < 7; i++) {
+      solveCurrent();
+      act(() => current().next());
+    }
+    solveCurrent();
+    const before = { played: sfx.play.mock.calls.length, spoken: speech.speak.mock.calls.length };
+    const onHome = screen.getByRole('button', { name: 'Voltar' });
+    act(() => {
+      current().next();
+      onHome.click();
+    });
+    expect(screen.getByRole('heading', { name: 'Início' })).toBeInTheDocument();
+    expect(sfx.play.mock.calls.slice(before.played).map(([n]) => n as string)).toEqual([]);
+    expect(speech.speak.mock.calls.slice(before.spoken)).toEqual([]);
+    expect(storage.data.get(PREFERENCES_STORAGE_KEY)).toBeUndefined();
+  });
+
+  it('concluir a rodada e voltar do sistema no mesmo lote: nenhum efeito tardio nem navegação ao resultado', () => {
+    const { storage } = renderApp();
+    fireEvent.click(screen.getByRole('button', { name: 'Números' }));
+    for (let i = 0; i < 7; i++) {
+      solveCurrent();
+      act(() => current().next());
+    }
+    solveCurrent();
+    const before = { played: sfx.play.mock.calls.length, spoken: speech.speak.mock.calls.length };
+    act(() => {
+      current().next();
+      window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    });
+    expect(screen.getByRole('heading', { name: 'Início' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Resultado/ })).toBeNull();
+    expect(sfx.play.mock.calls.slice(before.played).map(([n]) => n as string)).not.toContain('fanfare');
+    expect(speech.speak.mock.calls.slice(before.spoken)).toEqual([]);
+    expect(storage.data.get(PREFERENCES_STORAGE_KEY)).toBeUndefined();
+  });
+
+  it('acertar, sair e começar outra partida: só a sessão nova gera efeitos', () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: 'Números' }));
+    const onHome = screen.getByRole('button', { name: 'Voltar' });
+    const s = current().state as GameState;
+    const q = s.current.question;
+    if (q.mode === 'hands') throw new Error('esperava números');
+    const ids = q.slots.map((slot) => q.banks.flatMap((b) => b.tiles).find((tl) => tl.group === slot.group && tl.value === slot.answer)?.id ?? '');
+    sfx.play.mockClear();
+    act(() => {
+      for (const id of ids) current().tapTile(id);
+      onHome.click();
+    });
+    expect(screen.getByRole('heading', { name: 'Início' })).toBeInTheDocument();
+    expect(sfx.play.mock.calls.map(([n]) => n as string)).toEqual([]);
+    expect(speech.speak).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ponteiros' }));
+    expect(screen.getByRole('heading', { name: 'Jogo hands' })).toBeInTheDocument();
+    expect(screen.getByText('pergunta 1')).toBeInTheDocument();
+    expect(current().state?.sessionId).toBe('app-2');
+    expect(sfx.play.mock.calls.map(([n]) => n as string)).toEqual(['pick']);
+    solveCurrent();
+    expect(sfx.play.mock.calls.map(([n]) => n as string).filter((n) => n === 'success')).toHaveLength(1);
+    expect(speech.speak).toHaveBeenCalledTimes(1);
+  });
+
   it('atualização do SW: hook montado no App e repassado à Home', () => {
     const update: ServiceWorkerUpdateApi = { updateReady: true, applyUpdate: vi.fn(), dismissToast: vi.fn() };
     const useUpdate = vi.fn(() => update);
