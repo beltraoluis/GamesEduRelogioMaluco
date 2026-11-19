@@ -13,13 +13,17 @@
  *   gravadas na recuperação (próxima operação ou `refresh()`), reconciliadas
  *   com o que outras abas gravaram nesse meio-tempo (ver `rebase`);
  * - o evento `storage` de outra aba (inclusive `key === null`, de
- *   `localStorage.clear()`) só atualiza a memória, a partir do próprio
- *   `oldValue`/`newValue`; nunca regrava.
+ *   `localStorage.clear()`) é só um sinal para reler o estado atual: o
+ *   conteúdo (`oldValue`/`newValue`) e a ordem de entrega não são usados,
+ *   porque o evento pode chegar atrasado (enfileirado antes de uma operação
+ *   local e entregue depois dela). Se a releitura falha, a sessão é mantida.
+ *   O handler nunca grava.
  *
- * Limite (sem relógio no formato salvo): com a leitura bloqueada e sem
- * evento, uma mudança externa descoberta depois tem ordem indistinguível das
- * operações locais às cegas. Nesse caso nada é prometido além da regra não
- * destrutiva: o `set-*` local vence e nenhuma estrela é perdida.
+ * Limite (sem relógio no formato salvo): uma mudança externa descoberta
+ * depois de operações feitas com a leitura bloqueada tem ordem
+ * indeterminada em relação a elas. Nesse caso vale a regra não destrutiva:
+ * o `set-*` local vence e a rodada local é preservada, mesmo que isso faça
+ * sobreviver um recorde anterior a um reset que esta aba não observou.
  */
 
 import { PREFERENCES_STORAGE_KEY } from '../contracts';
@@ -104,8 +108,8 @@ type UnknownRecord = Readonly<Record<string, unknown>>;
  * Operação local ainda não gravada.
  *
  * - `blind`: feita sem conseguir reler o storage (leitura bloqueada). Uma
- *   mudança externa descoberta depois por releitura pode ter acontecido
- *   antes OU depois dela: a ordem é indistinguível (ver `rebase`).
+ *   mudança externa descoberta depois pode ter acontecido antes OU depois
+ *   dela: a ordem é indeterminada (ver `rebase`).
  * - `reset-stars` guarda o que a criança/educador VIU ao apagar
  *   (`cleared`): reaplicado sobre uma base mais nova, só remove essas
  *   estrelas (valor <= o apagado), nunca recordes posteriores de outra aba.
@@ -159,10 +163,6 @@ function externalReset(oldBase: StoredPreferences, newBase: StoredPreferences): 
   return (Object.entries(oldBase.prefs.stars) as [StarsKey, Stars][]).some(([k, v]) => (newBase.prefs.stars[k] ?? 0) < v);
 }
 
-function sameStored(a: StoredPreferences, b: StoredPreferences): boolean {
-  return serializePreferences(a.prefs, a.passthrough, a.passthroughStars) === serializePreferences(b.prefs, b.passthrough, b.passthroughStars);
-}
-
 export function createPreferencesStore(options: PreferencesStoreOptions = {}): PreferencesStore {
   const storage = options.storage === undefined ? defaultStorage() : options.storage;
   const eventTarget = options.eventTarget === undefined ? defaultEventTarget() : options.eventTarget;
@@ -202,27 +202,24 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
   }
 
   /**
-   * Incorpora uma nova observação do storage.
+   * Incorpora uma releitura bem-sucedida do storage.
    *
-   * `ordered = true` (evento `storage` com `newValue`, ou `clear()`): a
-   * mudança externa aconteceu DEPOIS de todas as operações pendentes, então
-   * ela vence: campo alterado descarta o `set-*` pendente e reset externo
-   * descarta as operações de estrelas pendentes (ADR-002: reset depois da
-   * rodada apaga a rodada).
+   * Operações feitas com leitura OK (`blind: false`) releram o storage logo
+   * antes; o que esta releitura revela de novo aconteceu DEPOIS delas, então
+   * a mudança externa vence: campo alterado descarta o `set-*` pendente e
+   * reset externo descarta as estrelas pendentes (ADR-002: reset depois da
+   * rodada apaga a rodada; reset observado antes dela não a afeta, porque a
+   * rodada é aplicada sobre a base já zerada).
    *
-   * `ordered = false` (releitura): a mudança é posterior às operações feitas
-   * com leitura OK (`blind: false`), que perdem como acima; mas pode ser
-   * anterior ou posterior às operações às cegas. Nessa ambiguidade vale a
-   * regra não destrutiva: o `set-*` local é mantido e nenhuma estrela é
-   * perdida (o recorde local volta; o reset local só apaga o que viu).
+   * Operações às cegas (`blind: true`) têm ordem indeterminada em relação à
+   * mudança: são preservadas (o `set-*` local vence; a rodada local fica).
    *
    * Um reset externo invalida o que os resets locais pendentes tinham visto:
    * eles e as operações de estrelas anteriores a eles são descartados, para
    * não apagar recordes gravados depois do reset externo.
    */
-  function rebase(next: StoredPreferences, ordered: boolean): void {
+  function rebase(next: StoredPreferences): void {
     const known = baseKnown;
-    const timely = ordered && known;
     const old = base.prefs;
     const levelChanged = next.prefs.level !== old.level;
     const soundChanged = next.prefs.sound !== old.sound;
@@ -238,7 +235,7 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
       ops = ops.filter((op, i) => !(isStarOp(op) && i <= lastReset));
     }
     ops = ops.filter((op) => {
-      if (!known || (op.blind && !timely)) return true;
+      if (!known || op.blind) return true;
       switch (op.op) {
         case 'set-level':
           return !levelChanged;
@@ -275,7 +272,7 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
   /** Releitura; em falha mantém a memória (base + pendentes) e só derruba `persistent`. */
   function sync(): boolean {
     const fresh = read();
-    if (fresh.ok) rebase(fresh.stored, false);
+    if (fresh.ok) rebase(fresh.stored);
     else writable = false;
     return fresh.ok;
   }
@@ -302,21 +299,15 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
   }
 
   /**
-   * Evento de outra aba: observação ORDENADA (chega logo após a gravação).
-   * Usa `oldValue`/`newValue` do próprio evento, então funciona mesmo com a
-   * leitura bloqueada. Se `oldValue` difere da base conhecida, houve
-   * mudanças não observadas antes desta (evento perdido): elas entram como
-   * releitura (não ordenada). `key === null` é `localStorage.clear()`.
-   * ADR-002: só atualiza a memória; nunca regrava.
+   * Evento de outra aba: só um SINAL para reler o estado atual. O conteúdo
+   * do evento é ignorado (pode estar atrasado em relação a gravações e
+   * releituras locais); se a releitura falhar, a sessão é mantida.
+   * ADR-002: só atualiza a memória; nunca grava.
    */
   function onStorage(event: StorageEvent): void {
     if (event.key !== null && event.key !== key) return;
     if (event.storageArea !== null && event.storageArea !== storage) return;
-    if (event.key !== null) {
-      const before = parsePreferences(event.oldValue);
-      if (!baseKnown || !sameStored(before, base)) rebase(before, false);
-    }
-    rebase(parsePreferences(event.key === null ? null : event.newValue), true);
+    sync();
     publish();
   }
 
