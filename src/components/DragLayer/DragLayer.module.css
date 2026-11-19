@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+.ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -50%); display: grid; place-items: center; border: 2px solid currentColor; border-radius: 12px; background: var(--color-surface-card); }
+.ghost[data-group='hour'] { color: var(--color-hour-ledge); border-color: var(--color-hour); border-left-width: 6px; background: var(--color-hour-soft); }
+.ghost[data-group='minute'] { color: var(--color-minute-ledge); border: 2px dashed var(--color-minute); background: var(--color-minute-soft); }
+.ghost[data-group='period'] { color: var(--color-period); border-color: var(--color-period); border-radius: 9999px; background: var(--color-period-soft); }

@@ -1,0 +1,4 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+.clock { display: inline-flex; align-items: center; background: var(--color-visor-bg); color: var(--color-surface-card); border-radius: 12px; padding: .3em .6em; font: bold 2rem var(--font-sans); font-variant-numeric: tabular-nums; }
+.hour { color: var(--color-hour-on-dark); } .minute { color: var(--color-minute-on-dark); }
