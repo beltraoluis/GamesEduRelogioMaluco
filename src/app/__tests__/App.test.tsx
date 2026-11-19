@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PREFERENCES_STORAGE_KEY } from '../../contracts';
 import type { GameState, ServiceWorkerUpdateApi } from '../../contracts';
+import { spokenPhrase } from '../../domain/question';
 import { RESULT_TITLES } from '../../domain/scoring';
 import { createPreferencesStore } from '../../storage/preferencesStore';
 import type { StorageLike } from '../../storage/preferencesStore';
 import type { GameSessionApi } from '../../screens/GameScreen/useGameController';
 import { App } from '../App';
 import type { AppScreens } from '../screenProps';
+import { HISTORY_STATE_KEY } from '../useBackToHome';
 
 const sfx = vi.hoisted(() => ({ play: vi.fn(), unlock: vi.fn() }));
 vi.mock('../../hooks/useSound', () => ({
@@ -139,6 +141,60 @@ function playRound(): void {
 const spokenTexts = (): string[] => speech.speak.mock.calls.map(([u]) => (u as Utterance).text);
 
 describe('App', () => {
+  it('preserva a nova partida quando chega a travessia de Voltar e aceita o próximo voltar do sistema', async () => {
+    const nextPop = () => new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }));
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: 'Explorar' }));
+    // O navegador decide quando executar a travessia. Solte a chamada nativa
+    // depois da seleção seguinte para reproduzir essa ordem deterministicamente.
+    const traverse = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, 'back').mockImplementationOnce(() => {});
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(back).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Ponteiros' }));
+    await act(async () => {
+      const previousBack = nextPop();
+      traverse();
+      await previousBack;
+    });
+    expect(screen.getByRole('heading', { name: 'Jogo hands' })).toBeInTheDocument();
+    expect(current().state?.sessionId).toBe('app-1');
+    expect(window.history.state).toMatchObject({ [HISTORY_STATE_KEY]: 'away' });
+
+    await act(async () => {
+      const systemBack = nextPop();
+      window.history.back();
+      await systemBack;
+    });
+    expect(screen.getByRole('heading', { name: 'Início' })).toBeInTheDocument();
+    expect(window.history.state).toBeNull();
+  });
+
+  it('fala o elogio final completo antes do título quando o acerto e o resultado chegam no mesmo lote', () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: 'Ponteiros' }));
+    for (let i = 0; i < 7; i++) {
+      solveCurrent();
+      act(() => current().next());
+    }
+    const state = current().state as GameState;
+    const time = state.current.question.time;
+    const phrase = spokenPhrase(state.mode, state.level, time);
+    speech.speak.mockClear();
+    speech.cancel.mockClear();
+    act(() => {
+      current().moveHands(time);
+      current().checkHands();
+      current().next();
+    });
+    expect(screen.getByRole('heading', { name: 'Resultado 3' })).toBeInTheDocument();
+    const spoken = spokenTexts();
+    expect(spoken).toHaveLength(1);
+    expect(spoken[0]).toBe(`Muito bem! ${phrase} ${RESULT_TITLES[3]}`);
+    expect(speech.cancel).toHaveBeenCalledTimes(1);
+    expect(speech.cancel).toHaveBeenCalledBefore(speech.speak);
+  });
+
   it('rodada completa sob StrictMode: efeitos uma vez, estrelas gravadas, resultado', () => {
     const { storage } = renderApp();
     expect(screen.getByRole('heading', { name: 'Início' })).toBeInTheDocument();

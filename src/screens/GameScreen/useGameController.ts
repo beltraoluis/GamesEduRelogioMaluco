@@ -430,6 +430,7 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
     optionsRef.current = options;
   });
 
+  const speechForCommit = useRef<string[]>([]);
   const controller = useGameController({
     ...(options.createSession === undefined ? {} : { createSession: options.createSession }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
@@ -438,12 +439,25 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
       dispatchView({ type: 'event', envelope });
       runGameEffects(envelope, origin, {
         sound: o.sound,
-        speech: o.speech,
+        speech: { speak: (text) => speechForCommit.current.push(text) },
         recordStars: o.recordStars,
         confetti: o.onConfetti,
         finished: o.onFinished,
       });
     },
+  });
+
+  // O consumidor acima já percorreu os envelopes deste commit. Cada speak()
+  // interrompe a fala anterior: entregue elogio e título juntos, na ordem da fila.
+  useEffect(() => {
+    const texts = speechForCommit.current;
+    if (texts.length === 0) return;
+    speechForCommit.current = [];
+    try {
+      optionsRef.current.speech.speak(texts.join(' '));
+    } catch (error) {
+      reportEffectError(error);
+    }
   });
 
   const { state } = controller;

@@ -112,9 +112,8 @@ describe('origem por evento', () => {
       correctActions(h.api(), h.state())();
       h.api().next();
     });
-    expect(h.spoken).toHaveLength(2);
-    expect(h.spoken[0]).toContain(spokenPhrase('hands', h.state().level, last.time));
-    expect(h.spoken[1]).toBe(RESULT_TITLES[3]);
+    expect(h.spoken).toHaveLength(1);
+    expect(h.spoken[0]).toContain(`${spokenPhrase('hands', h.state().level, last.time)} ${RESULT_TITLES[3]}`);
     expect(h.options.onFinished).toHaveBeenCalledTimes(1);
   });
 });
