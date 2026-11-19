@@ -4,7 +4,7 @@ import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 const require = createRequire(import.meta.url);
-const packages = ['react', 'react-dom', 'scheduler', 'workbox-core', 'workbox-precaching', 'workbox-routing', 'workbox-strategies'];
+const packages = ['react', 'react-dom', 'scheduler', 'workbox-core', 'workbox-precaching', 'workbox-routing', 'workbox-strategies', 'workbox-window'];
 const licenses = packages.map(name => {
   const entry = require.resolve(name);
   let dir = dirname(entry);

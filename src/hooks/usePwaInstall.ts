@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
-import { useCallback, useEffect, useState } from 'react';
-import { registerSW } from 'virtual:pwa-register';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PwaApi, InstallOutcome } from '@/contracts';
+import { subscribeToOfflineReady } from './pwaRegistration';
 
-interface InstallEvent extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
-const standalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+interface InstallEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+function standalone(): boolean {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
 
 async function hasOfflineCache(): Promise<boolean> {
   if (!('caches' in window) || !('serviceWorker' in navigator)) return false;
@@ -24,32 +31,78 @@ async function hasOfflineCache(): Promise<boolean> {
 
 export function usePwaInstall(): PwaApi {
   const [prompt, setPrompt] = useState<InstallEvent | null>(null);
+  const promptRef = useRef<InstallEvent | null>(null);
   const [isStandalone, setStandalone] = useState(standalone);
   const [online, setOnline] = useState(navigator.onLine);
   const [offlineReady, setOfflineReady] = useState(false);
+
   useEffect(() => {
     let active = true;
-    const validate = () => { void hasOfflineCache().then(value => { if (active) setOfflineReady(value); }); };
-    const capture = (event: Event) => { event.preventDefault(); setPrompt(event as InstallEvent); };
-    const installed = () => { setPrompt(null); setStandalone(true); };
+    let generation = 0;
+    const validate = () => {
+      const current = ++generation;
+      void hasOfflineCache().then(value => {
+        if (active && current === generation) setOfflineReady(value);
+      });
+    };
+    const capture = (event: Event) => {
+      event.preventDefault();
+      promptRef.current = event as InstallEvent;
+      setPrompt(promptRef.current);
+    };
+    const installed = () => {
+      promptRef.current = null;
+      setPrompt(null);
+      setStandalone(true);
+    };
     const connectivity = () => setOnline(navigator.onLine);
     const media = window.matchMedia('(display-mode: standalone)');
     const modeChanged = () => setStandalone(standalone());
+    const serviceWorker = navigator.serviceWorker;
+
     window.addEventListener('beforeinstallprompt', capture);
     window.addEventListener('appinstalled', installed);
-    window.addEventListener('online', connectivity); window.addEventListener('offline', connectivity);
+    window.addEventListener('online', connectivity);
+    window.addEventListener('offline', connectivity);
     media.addEventListener('change', modeChanged);
-    navigator.serviceWorker?.addEventListener('controllerchange', validate);
-    if (import.meta.env.PROD && 'serviceWorker' in navigator) registerSW({ onOfflineReady: validate });
+    serviceWorker?.addEventListener('controllerchange', validate);
+    const unsubscribe = subscribeToOfflineReady(validate);
     validate();
-    return () => { active = false; window.removeEventListener('beforeinstallprompt', capture); window.removeEventListener('appinstalled', installed); window.removeEventListener('online', connectivity); window.removeEventListener('offline', connectivity); media.removeEventListener('change', modeChanged); navigator.serviceWorker?.removeEventListener('controllerchange', validate); };
+
+    return () => {
+      active = false;
+      unsubscribe();
+      window.removeEventListener('beforeinstallprompt', capture);
+      window.removeEventListener('appinstalled', installed);
+      window.removeEventListener('online', connectivity);
+      window.removeEventListener('offline', connectivity);
+      media.removeEventListener('change', modeChanged);
+      serviceWorker?.removeEventListener('controllerchange', validate);
+    };
   }, []);
+
   const install = useCallback(async (): Promise<InstallOutcome> => {
-    if (!prompt || isStandalone) return 'unavailable';
+    const event = promptRef.current;
+    if (!event || isStandalone) return 'unavailable';
+    promptRef.current = null;
     setPrompt(null);
-    try { await prompt.prompt(); return (await prompt.userChoice).outcome; } catch { return 'unavailable'; }
-  }, [prompt, isStandalone]);
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    try {
+      await event.prompt();
+      return (await event.userChoice).outcome;
+    } catch {
+      return 'unavailable';
+    }
+  }, [isStandalone]);
+
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const safari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
-  return { canInstall: !!prompt && !isStandalone, install, isStandalone, online, offlineReady, showIosInstallTip: ios && safari && !isStandalone && !prompt };
+  return {
+    canInstall: !!prompt && !isStandalone,
+    install,
+    isStandalone,
+    online,
+    offlineReady,
+    showIosInstallTip: ios && safari && !isStandalone && !prompt,
+  };
 }
