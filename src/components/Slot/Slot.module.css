@@ -1,4 +1,8 @@
-.slot { display: inline-block; min-width: 3em; min-height: 1.5em; border: 2px solid #1560bd; border-left-width: 6px; border-radius: 12px; background: #e8f1fc; text-align: center; }
-.slot[data-group='minute'] { border: 2px dashed #d62839; background: #fff5f6; }
-.slot[data-group='period'] { border: 2px dotted #7b2cbf; border-radius: 9999px; background: #f3eafa; }
-.slot[data-over] { outline: 3px solid #2e7d32; }
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+.slot { display: inline-block; min-width: 3em; min-height: 1.5em; border: 2px solid var(--color-hour); border-left-width: 6px; border-radius: 12px; background: var(--color-hour-soft); text-align: center; }
+.slot[data-group='minute'] { border: 2px dashed var(--color-minute); background: var(--color-minute-soft); }
+.slot[data-group='period'] { border: 2px dotted var(--color-period); border-radius: 9999px; background: var(--color-period-soft); }
+.slot[data-over] { outline: 3px solid var(--color-success); }
+.slot[data-filled][data-group='minute'] { border-style: solid; box-shadow: inset 0 0 0 2px var(--color-minute-soft), inset 0 0 0 3px var(--color-minute); }
+.slot[data-filled][data-group='period'] { border-style: solid; box-shadow: inset 0 0 0 2px var(--color-period-soft), inset 0 0 0 3px var(--color-period); }

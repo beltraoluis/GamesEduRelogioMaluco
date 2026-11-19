@@ -3,8 +3,9 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { AnalogClockDragApi, AnalogClockDragOptions, ClockTime, HandName } from '../contracts';
 import type { PointerEvent, KeyboardEvent } from 'react';
+import { angleToHour, angleToMinute, pickHand, withMinute, CLOCK_CENTER } from '../domain/clockMath';
 
-export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClockDragApi {
+export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClockDragApi & { bind: AnalogClockDragApi['bind'] & { onLostPointerCapture: (event: PointerEvent<SVGSVGElement>) => void } } {
   const [dragging, setDragging] = useState<HandName | null>(null);
   const active = useRef<{ id: number; hand: HandName } | null>(null);
   const timeRef = useRef(options.time);
@@ -15,7 +16,7 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
       if (!ctm) return null;
       const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
       if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
-      const x = p.x - 110, y = p.y - 110;
+      const x = p.x - CLOCK_CENTER, y = p.y - CLOCK_CENTER;
       return { angle: (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360, radius: Math.hypot(x, y) };
     } catch { return null; }
   };
@@ -24,12 +25,8 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
     if (!active.current || active.current.id !== e.pointerId) return;
     const p = point(e); if (!p) return;
     const t = timeRef.current;
-    if (active.current.hand === 'hour') change({ ...t, h: ((Math.round((p.angle - t.m * 0.5) / 30) % 12 + 12) % 12) + (t.h >= 12 ? 12 : 0) }, 'hour');
-    else {
-      const minute = Math.round(p.angle / (6 * options.minuteStep)) * options.minuteStep % 60;
-      const diff = options.linkHands && t.m > 45 && minute < 15 ? 1 : options.linkHands && t.m < 15 && minute > 45 ? -1 : 0;
-      change({ ...t, h: (t.h + diff + 24) % 24, m: minute }, 'minute');
-    }
+    if (active.current.hand === 'hour') change({ ...t, h: angleToHour(p.angle, t) }, 'hour');
+    else change(withMinute(t, angleToMinute(p.angle, options.minuteStep), options.linkHands), 'minute');
   };
   const finish = (e: PointerEvent<SVGSVGElement>) => {
     if (active.current?.id !== e.pointerId) return;
@@ -51,10 +48,9 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
     onPointerDown(e) {
       if (!options.interactive || !e.isPrimary || e.button !== 0 || active.current) return;
       const p = point(e); if (!p) return;
-      const t = timeRef.current; const distance = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
-      const hand: HandName = options.lockMinute || p.radius < 45 || distance(p.angle, (t.h % 12) * 30 + t.m * 0.5) < distance(p.angle, t.m * 6) ? 'hour' : 'minute';
+      const hand: HandName = options.lockMinute ? 'hour' : pickHand(p.angle, p.radius, timeRef.current);
       const g = e.currentTarget.querySelector<SVGGElement>(`[data-hand="${hand}"]`);
       if (g) { const transform = getComputedStyle(g).transform; const match = /^matrix\(([^)]+)\)$/.exec(transform); if (match) { const values = match[1]?.split(',').map(Number); const a = values?.[0], b = values?.[1]; if (a !== undefined && b !== undefined && Number.isFinite(a) && Number.isFinite(b)) { const angle = Math.atan2(b, a) * 180 / Math.PI; g.style.transition = 'none'; g.style.transform = `rotate(${angle}deg)`; } } }
       active.current = { id: e.pointerId, hand }; setDragging(hand); e.currentTarget.setPointerCapture(e.pointerId); options.onGrab?.(hand);
-    }, onPointerMove: move, onPointerUp: finish, onPointerCancel: finish } };
+    }, onPointerMove: move, onPointerUp: finish, onPointerCancel: finish, onLostPointerCapture: finish } };
 }

@@ -34,6 +34,8 @@ describe('AnalogClock', () => {
     const cancel = vi.fn();
     Object.defineProperty(SVGElement.prototype, 'animate', { configurable: true, value: () => ({ cancel, finished: Promise.resolve() }) });
     const { rerender, unmount } = render(<AnalogClock label="Relógio" time={{ h: 3, m: 0 }} highlight={{ target: 'hour', seq: 1 }} />);
+    rerender(<AnalogClock label="Relógio" time={{ h: 3, m: 0 }} highlight={{ target: 'hour', seq: 1 }} />);
+    expect(cancel).not.toHaveBeenCalled();
     rerender(<AnalogClock label="Relógio" time={{ h: 3, m: 0 }} highlight={{ target: 'hour', seq: 2 }} />);
     expect(cancel).toHaveBeenCalledTimes(1); unmount(); expect(cancel).toHaveBeenCalledTimes(2);
   });

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent, PointerEvent, KeyboardEvent } from 'react';
+import { SLOT_ID_ATTRIBUTE } from '../contracts';
 import type { DragLayerApi, TileDragApi, TileDragOptions } from '../contracts';
 
 export const DragLayerContext = createContext<DragLayerApi | null>(null);
@@ -21,7 +22,7 @@ export function useTileDrag(options: TileDragOptions): TileDragApi & { bind: Til
   const frame = useRef<number | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => { if (frame.current !== null) cancelAnimationFrame(frame.current); cleanup.current?.(); if (active.current?.dragged) latest.current.layer.endDrag(false); active.current = null; }, []);
-  const hit = (x: number, y: number) => document.elementFromPoint?.(x, y)?.closest<HTMLElement>('[data-slot-id]:not([data-filled])')?.dataset.slotId ?? null;
+  const hit = (x: number, y: number) => document.elementFromPoint?.(x, y)?.closest<HTMLElement>(`[${SLOT_ID_ATTRIBUTE}]:not([data-filled])`)?.dataset.slotId ?? null;
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     if (!e.isPrimary || e.button !== 0 || options.disabled || active.current) return;
     const element = e.currentTarget; const id = e.pointerId;

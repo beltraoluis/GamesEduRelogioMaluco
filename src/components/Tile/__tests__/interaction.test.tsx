@@ -88,3 +88,14 @@ it('removes the ghost when only the tile unmounts', () => {
   expect(portal.textContent).toBe('03'); rerender(<Example show={false} />); expect(portal.textContent).toBe('');
   unmount(); portal.remove();
 });
+it('skips the return animation for reduced motion', () => {
+  const animate = vi.fn();
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+  const portal = document.createElement('div'); portal.id = 'drag-layer'; document.body.append(portal);
+  const { button, unmount } = setup();
+  fireEvent.pointerDown(button, { clientX: 1, clientY: 1, pointerId: 1, isPrimary: true });
+  fireEvent.pointerMove(button, { clientX: 30, clientY: 30, pointerId: 1, isPrimary: true });
+  fireEvent.pointerUp(button, { clientX: 30, clientY: 30, pointerId: 1, isPrimary: true });
+  expect(animate).not.toHaveBeenCalled(); expect(portal.textContent).toBe(''); unmount(); portal.remove();
+});
