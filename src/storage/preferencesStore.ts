@@ -11,9 +11,15 @@
  *   `persistent: false` e o jogo segue em memória: o snapshot é a última
  *   versão conhecida do storage + as operações locais pendentes, que são
  *   gravadas na recuperação (próxima operação ou `refresh()`), reconciliadas
- *   com o que outras abas gravaram nesse meio-tempo;
+ *   com o que outras abas gravaram nesse meio-tempo (ver `rebase`);
  * - o evento `storage` de outra aba (inclusive `key === null`, de
- *   `localStorage.clear()`) só atualiza a memória; nunca regrava.
+ *   `localStorage.clear()`) só atualiza a memória, a partir do próprio
+ *   `oldValue`/`newValue`; nunca regrava.
+ *
+ * Limite (sem relógio no formato salvo): com a leitura bloqueada e sem
+ * evento, uma mudança externa descoberta depois tem ordem indistinguível das
+ * operações locais às cegas. Nesse caso nada é prometido além da regra não
+ * destrutiva: o `set-*` local vence e nenhuma estrela é perdida.
  */
 
 import { PREFERENCES_STORAGE_KEY } from '../contracts';
@@ -95,19 +101,25 @@ interface ReadResult {
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
 /**
- * Operação local ainda não gravada. O `reset-stars` guarda o que a criança
- * VIU ao apagar (`cleared`): ao ser reaplicado sobre uma releitura mais nova,
- * só remove essas estrelas (valor <= o apagado), nunca recordes gravados
- * depois por outra aba. `null` = a base nunca pôde ser lida (apaga tudo; é
- * resolvido na primeira leitura bem-sucedida).
+ * Operação local ainda não gravada.
+ *
+ * - `blind`: feita sem conseguir reler o storage (leitura bloqueada). Uma
+ *   mudança externa descoberta depois por releitura pode ter acontecido
+ *   antes OU depois dela: a ordem é indistinguível (ver `rebase`).
+ * - `reset-stars` guarda o que a criança/educador VIU ao apagar
+ *   (`cleared`): reaplicado sobre uma base mais nova, só remove essas
+ *   estrelas (valor <= o apagado), nunca recordes posteriores de outra aba.
  */
 type PendingOp =
-  | Exclude<PreferencesWriteOp, { readonly op: 'reset-stars' }>
+  | (Exclude<PreferencesWriteOp, { readonly op: 'reset-stars' }> & { readonly blind: boolean })
   | {
       readonly op: 'reset-stars';
-      readonly cleared: StarsMap | null;
-      readonly clearedUnknown: UnknownRecord | null;
+      readonly cleared: StarsMap;
+      readonly clearedUnknown: UnknownRecord;
+      readonly blind: boolean;
     };
+
+type ResetOp = Extract<PendingOp, { readonly op: 'reset-stars' }>;
 
 interface Materialized {
   readonly prefs: Preferences;
@@ -116,19 +128,17 @@ interface Materialized {
 
 const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
-function applyReset(state: Materialized, op: Extract<PendingOp, { readonly op: 'reset-stars' }>): Materialized {
-  const { cleared, clearedUnknown } = op;
-  if (cleared === null || clearedUnknown === null) {
-    return { prefs: { ...state.prefs, stars: {} }, passthroughStars: {} };
-  }
+const isStarOp = (op: PendingOp): boolean => op.op === 'record-stars' || op.op === 'reset-stars';
+
+function applyReset(state: Materialized, op: ResetOp): Materialized {
   const stars: Partial<Record<StarsKey, Stars>> = {};
   for (const [k, v] of Object.entries(state.prefs.stars) as [StarsKey, Stars][]) {
-    const gone = cleared[k];
+    const gone = op.cleared[k];
     if (gone === undefined || v > gone) stars[k] = v;
   }
   const unknown: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(state.passthroughStars)) {
-    if (!(k in clearedUnknown && sameJson(clearedUnknown[k], v))) unknown[k] = v;
+    if (!(k in op.clearedUnknown && sameJson(op.clearedUnknown[k], v))) unknown[k] = v;
   }
   return { prefs: { ...state.prefs, stars }, passthroughStars: unknown };
 }
@@ -139,14 +149,18 @@ function applyPending(state: Materialized, op: PendingOp): Materialized {
   return result.changed ? { ...state, prefs: result.prefs } : state;
 }
 
-/** Base (última leitura/gravação válida) + operações locais pendentes, em ordem. */
+/** Base (última versão conhecida do storage) + operações locais pendentes, em ordem. */
 function replay(base: StoredPreferences, ops: readonly PendingOp[]): Materialized {
   return ops.reduce(applyPending, { prefs: base.prefs, passthroughStars: base.passthroughStars });
 }
 
-/** Alguma estrela da base antiga sumiu ou caiu: outra aba apagou as estrelas. */
+/** Estrelas só sobem, exceto num reset: alguma estrela sumiu ou caiu = outra aba apagou. */
 function externalReset(oldBase: StoredPreferences, newBase: StoredPreferences): boolean {
   return (Object.entries(oldBase.prefs.stars) as [StarsKey, Stars][]).some(([k, v]) => (newBase.prefs.stars[k] ?? 0) < v);
+}
+
+function sameStored(a: StoredPreferences, b: StoredPreferences): boolean {
+  return serializePreferences(a.prefs, a.passthrough, a.passthroughStars) === serializePreferences(b.prefs, b.passthrough, b.passthroughStars);
 }
 
 export function createPreferencesStore(options: PreferencesStoreOptions = {}): PreferencesStore {
@@ -165,9 +179,9 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
   }
 
   const initial = read();
-  /** Última versão do storage conhecida (lida ou gravada por esta aba). */
+  /** Última versão do storage conhecida (lida, recebida por evento ou gravada aqui). */
   let base: StoredPreferences = initial.stored;
-  /** `false` enquanto o storage nunca pôde ser lido. */
+  /** `false` enquanto o storage nunca pôde ser observado. */
   let baseKnown = initial.ok;
   /** Operações locais que ainda não chegaram ao storage. */
   let pending: readonly PendingOp[] = [];
@@ -188,44 +202,57 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
   }
 
   /**
-   * Incorpora uma releitura bem-sucedida. Uma mudança externa observada
-   * agora é mais nova que as operações locais pendentes: um campo alterado
-   * por outra aba descarta o `set-*` pendente desse campo, e um reset
-   * externo descarta as operações de estrelas pendentes. `record-stars`
-   * (máximo) é idempotente e não é reaplicado em dobro.
+   * Incorpora uma nova observação do storage.
+   *
+   * `ordered = true` (evento `storage` com `newValue`, ou `clear()`): a
+   * mudança externa aconteceu DEPOIS de todas as operações pendentes, então
+   * ela vence: campo alterado descarta o `set-*` pendente e reset externo
+   * descarta as operações de estrelas pendentes (ADR-002: reset depois da
+   * rodada apaga a rodada).
+   *
+   * `ordered = false` (releitura): a mudança é posterior às operações feitas
+   * com leitura OK (`blind: false`), que perdem como acima; mas pode ser
+   * anterior ou posterior às operações às cegas. Nessa ambiguidade vale a
+   * regra não destrutiva: o `set-*` local é mantido e nenhuma estrela é
+   * perdida (o recorde local volta; o reset local só apaga o que viu).
+   *
+   * Um reset externo invalida o que os resets locais pendentes tinham visto:
+   * eles e as operações de estrelas anteriores a eles são descartados, para
+   * não apagar recordes gravados depois do reset externo.
    */
-  function rebase(next: StoredPreferences): void {
-    if (baseKnown) {
-      const old = base.prefs;
-      const levelChanged = next.prefs.level !== old.level;
-      const soundChanged = next.prefs.sound !== old.sound;
-      const voiceChanged = next.prefs.voice !== old.voice;
-      const starsReset = externalReset(base, next);
-      pending = pending.filter((op) => {
-        switch (op.op) {
-          case 'set-level':
-            return !levelChanged;
-          case 'set-sound':
-            return !soundChanged;
-          case 'set-voice':
-            return !voiceChanged;
-          case 'record-stars':
-          case 'reset-stars':
-            return !starsReset;
-        }
+  function rebase(next: StoredPreferences, ordered: boolean): void {
+    const known = baseKnown;
+    const timely = ordered && known;
+    const old = base.prefs;
+    const levelChanged = next.prefs.level !== old.level;
+    const soundChanged = next.prefs.sound !== old.sound;
+    const voiceChanged = next.prefs.voice !== old.voice;
+    const starsReset = known && externalReset(base, next);
+
+    let ops = pending;
+    if (starsReset) {
+      let lastReset = -1;
+      ops.forEach((op, i) => {
+        if (op.op === 'reset-stars') lastReset = i;
       });
-    } else {
-      // Primeira leitura: resets feitos "às cegas" apagam o que existia até aqui.
-      let state: Materialized = { prefs: next.prefs, passthroughStars: next.passthroughStars };
-      pending = pending.map((op) => {
-        const resolved: PendingOp =
-          op.op === 'reset-stars' && op.cleared === null
-            ? { op: 'reset-stars', cleared: { ...state.prefs.stars }, clearedUnknown: { ...state.passthroughStars } }
-            : op;
-        state = applyPending(state, resolved);
-        return resolved;
-      });
+      ops = ops.filter((op, i) => !(isStarOp(op) && i <= lastReset));
     }
+    ops = ops.filter((op) => {
+      if (!known || (op.blind && !timely)) return true;
+      switch (op.op) {
+        case 'set-level':
+          return !levelChanged;
+        case 'set-sound':
+          return !soundChanged;
+        case 'set-voice':
+          return !voiceChanged;
+        case 'record-stars':
+        case 'reset-stars':
+          return !starsReset;
+      }
+    });
+    // A partir daqui toda operação pendente é anterior ao que vier depois.
+    pending = ops.map((op) => (op.blind ? { ...op, blind: false } : op));
     base = next;
     baseKnown = true;
   }
@@ -248,26 +275,25 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
   /** Releitura; em falha mantém a memória (base + pendentes) e só derruba `persistent`. */
   function sync(): boolean {
     const fresh = read();
-    if (fresh.ok) rebase(fresh.stored);
+    if (fresh.ok) rebase(fresh.stored, false);
     else writable = false;
     return fresh.ok;
   }
 
   function write(op: PreferencesWriteOp): boolean {
     const readable = sync();
+    const blind = !readable;
     const current = view();
     let entry: PendingOp | null = null;
     let changed: boolean;
     if (op.op === 'reset-stars') {
       changed = Object.keys(current.prefs.stars).length > 0;
-      if (changed || Object.keys(current.passthroughStars).length > 0 || !baseKnown) {
-        entry = baseKnown
-          ? { op: 'reset-stars', cleared: { ...current.prefs.stars }, clearedUnknown: { ...current.passthroughStars } }
-          : { op: 'reset-stars', cleared: null, clearedUnknown: null };
+      if (changed || Object.keys(current.passthroughStars).length > 0) {
+        entry = { op: 'reset-stars', cleared: { ...current.prefs.stars }, clearedUnknown: { ...current.passthroughStars }, blind };
       }
     } else {
       changed = applyPreferencesOp(current.prefs, op).changed;
-      if (changed) entry = op;
+      if (changed) entry = { ...op, blind };
     }
     if (entry !== null) pending = [...pending, entry];
     if (readable) flush();
@@ -275,10 +301,22 @@ export function createPreferencesStore(options: PreferencesStoreOptions = {}): P
     return changed;
   }
 
+  /**
+   * Evento de outra aba: observação ORDENADA (chega logo após a gravação).
+   * Usa `oldValue`/`newValue` do próprio evento, então funciona mesmo com a
+   * leitura bloqueada. Se `oldValue` difere da base conhecida, houve
+   * mudanças não observadas antes desta (evento perdido): elas entram como
+   * releitura (não ordenada). `key === null` é `localStorage.clear()`.
+   * ADR-002: só atualiza a memória; nunca regrava.
+   */
   function onStorage(event: StorageEvent): void {
     if (event.key !== null && event.key !== key) return;
-    // ADR-002: o evento só atualiza a memória; nunca regrava.
-    sync();
+    if (event.storageArea !== null && event.storageArea !== storage) return;
+    if (event.key !== null) {
+      const before = parsePreferences(event.oldValue);
+      if (!baseKnown || !sameStored(before, base)) rebase(before, false);
+    }
+    rebase(parsePreferences(event.key === null ? null : event.newValue), true);
     publish();
   }
 

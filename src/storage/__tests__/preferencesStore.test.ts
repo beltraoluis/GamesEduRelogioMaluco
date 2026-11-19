@@ -14,6 +14,10 @@ class MemoryStorage implements StorageLike {
   failWrites = false;
   failReads = false;
   writes = 0;
+  /** Simula o navegador: gravações desta "aba" disparam `storage` nas outras. */
+  emitTo: EventTarget | null = null;
+  /** Evento perdido (ex.: aba congelada): grava sem avisar. */
+  muted = false;
   getItem(key: string): string | null {
     if (this.failReads) throw new DOMException('bloqueado', 'SecurityError');
     return this.data.get(key) ?? null;
@@ -21,10 +25,18 @@ class MemoryStorage implements StorageLike {
   setItem(key: string, value: string): void {
     if (this.failWrites) throw new DOMException('cota', 'QuotaExceededError');
     if (!key.endsWith(':probe')) this.writes++;
+    const oldValue = this.data.get(key) ?? null;
     this.data.set(key, value);
+    this.emit(key, oldValue, value);
   }
   removeItem(key: string): void {
+    const oldValue = this.data.get(key) ?? null;
     this.data.delete(key);
+    this.emit(key, oldValue, null);
+  }
+  private emit(key: string, oldValue: string | null, newValue: string | null): void {
+    if (this.emitTo === null || this.muted || key.endsWith(':probe') || oldValue === newValue) return;
+    this.emitTo.dispatchEvent(new StorageEvent('storage', { key, oldValue, newValue }));
   }
   json(): unknown {
     const raw = this.data.get(KEY);
@@ -36,9 +48,11 @@ function tab(storage: StorageLike | null) {
   return createPreferencesStore({ storage, eventTarget: null });
 }
 
-function fireStorage(key: string | null): void {
-  window.dispatchEvent(new StorageEvent('storage', { key }));
+function fireStorage(key: string | null, oldValue: string | null = null, newValue: string | null = null): void {
+  window.dispatchEvent(new StorageEvent('storage', { key, oldValue, newValue }));
 }
+
+const asTarget = (t: EventTarget) => t as unknown as Window;
 
 beforeEach(() => {
   localStorage.clear();
@@ -220,18 +234,19 @@ describe('armazenamento indisponível (best-effort)', () => {
   });
 
   it('regressão: após getItem falhar, refresh e evento storage mantêm a memória', () => {
+    const raw = '{"level":3,"sound":false,"voice":true,"stars":{"hands-1":2}}';
     const storage = new MemoryStorage();
-    storage.data.set(KEY, '{"level":3,"sound":false,"voice":true,"stars":{"hands-1":2}}');
+    storage.data.set(KEY, raw);
     const target = new EventTarget();
-    const store = createPreferencesStore({ storage, eventTarget: target as unknown as Window });
+    const store = createPreferencesStore({ storage, eventTarget: asTarget(target) });
     const known = store.getSnapshot().prefs;
     storage.failReads = true;
     store.refresh();
     expect(store.getSnapshot()).toEqual({ prefs: known, persistent: false });
     expect(store.getSnapshot().prefs).toBe(known);
-    target.dispatchEvent(new StorageEvent('storage', { key: KEY }));
-    target.dispatchEvent(new StorageEvent('storage', { key: null }));
-    expect(store.getSnapshot()).toEqual({ prefs: known, persistent: false });
+    // Evento sem mudança real (outra aba regravou o mesmo JSON): memória intacta.
+    target.dispatchEvent(new StorageEvent('storage', { key: KEY, oldValue: raw, newValue: raw }));
+    expect(store.getSnapshot().prefs).toBe(known);
     // Operações sem releitura ficam pendentes (não grava às cegas).
     store.setLevel(4);
     expect(store.recordStars('hands-1', 3)).toBe(true);
@@ -244,43 +259,30 @@ describe('armazenamento indisponível (best-effort)', () => {
     expect(storage.json()).toEqual({ level: 4, sound: false, voice: true, stars: { 'hands-1': 3 } });
   });
 
-  it('leitura bloqueada desde o início: base desconhecida, operações locais vencem na recuperação', () => {
+  it('leitura bloqueada desde o início: reset às cegas só apaga o que foi visto (não destrutivo)', () => {
     const storage = new MemoryStorage();
     storage.data.set(KEY, '{"theme":"dark","level":2,"sound":true,"voice":true,"stars":{"numbers-1":3,"explore-1":1}}');
     storage.failReads = true;
     const store = tab(storage);
     expect(store.getSnapshot()).toEqual({ prefs: DEFAULT_PREFERENCES, persistent: false });
     store.setVoice(false);
+    expect(store.recordStars('hands-1', 2)).toBe(true);
     store.resetStars();
     expect(store.recordStars('words-2', 1)).toBe(true);
+    expect(store.getSnapshot().prefs.stars).toEqual({ 'words-2': 1 });
     expect(storage.writes).toBe(0);
     storage.failReads = false;
     store.refresh();
-    // O reset feito sem ver o storage apaga as estrelas que existiam; o recorde posterior fica.
-    expect(storage.json()).toEqual({ theme: 'dark', level: 2, sound: true, voice: false, stars: { 'words-2': 1 } });
-    expect(store.getSnapshot()).toEqual({ prefs: { level: 2, sound: true, voice: false, stars: { 'words-2': 1 } }, persistent: true });
-  });
-
-  it('reset às cegas resolvido por evento storage não apaga recorde gravado depois', () => {
-    const data = new Map<string, string>();
-    data.set(KEY, '{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":3}}');
-    const storageA = new MemoryStorage(data);
-    const storageB = new MemoryStorage(data);
-    storageA.failReads = true;
-    const target = new EventTarget();
-    const a = createPreferencesStore({ storage: storageA, eventTarget: target as unknown as Window });
-    a.resetStars();
-    storageA.failReads = false;
-    storageA.failWrites = true;
-    target.dispatchEvent(new StorageEvent('storage', { key: KEY }));
-    expect(a.getSnapshot().prefs.stars).toEqual({});
-    // Outra aba grava um recorde novo depois: o reset pendente não o apaga.
-    tab(storageB).recordStars('hands-2', 2);
-    target.dispatchEvent(new StorageEvent('storage', { key: KEY }));
-    expect(a.getSnapshot().prefs.stars).toEqual({ 'hands-2': 2 });
-    storageA.failWrites = false;
-    a.refresh();
-    expect(storageA.json()).toEqual({ level: 1, sound: true, voice: true, stars: { 'hands-2': 2 } });
+    // Ordem indistinguível entre o storage nunca visto e as operações às
+    // cegas: o set local vence e nenhuma estrela nunca vista é apagada.
+    expect(storage.json()).toEqual({
+      theme: 'dark',
+      level: 2,
+      sound: true,
+      voice: false,
+      stars: { 'numbers-1': 3, 'explore-1': 1, 'words-2': 1 },
+    });
+    expect(store.getSnapshot().persistent).toBe(true);
   });
 
   it('sem storage (null)', () => {
@@ -314,26 +316,26 @@ describe('armazenamento indisponível (best-effort)', () => {
 });
 
 describe('reconciliação na recuperação (abas com falhas independentes)', () => {
+  /** A: aba sob teste (com falhas). B: outra aba, cujas gravações disparam `storage` em A. */
   function setup(initial = '{"level":1,"sound":true,"voice":true,"stars":{}}') {
     const data = new Map<string, string>([[KEY, initial]]);
     const target = new EventTarget();
     const storageA = new MemoryStorage(data);
-    const a = createPreferencesStore({ storage: storageA, eventTarget: target as unknown as Window });
+    const a = createPreferencesStore({ storage: storageA, eventTarget: asTarget(target) });
     const storageB = new MemoryStorage(data);
+    storageB.emitTo = target;
     const b = tab(storageB);
-    const notifyA = () => target.dispatchEvent(new StorageEvent('storage', { key: KEY }));
-    return { a, b, storageA, storageB, notifyA };
+    return { a, b, storageA, storageB, target };
   }
 
   it('mudanças externas e pendentes locais se somam; evento storage nunca grava', () => {
-    const { a, b, storageA, notifyA } = setup();
+    const { a, b, storageA } = setup();
     storageA.failWrites = true;
     a.setLevel(3);
     a.recordStars('numbers-1', 2);
+    const writesA = storageA.writes;
     b.recordStars('words-1', 3);
     b.setSound(false);
-    const writesA = storageA.writes;
-    notifyA();
     expect(storageA.writes).toBe(writesA);
     expect(a.getSnapshot()).toEqual({
       prefs: { level: 3, sound: false, voice: true, stars: { 'numbers-1': 2, 'words-1': 3 } },
@@ -346,15 +348,14 @@ describe('reconciliação na recuperação (abas com falhas independentes)', () 
   });
 
   it('campo alterado por outra aba depois vence o set pendente', () => {
-    const { a, b, storageA, notifyA } = setup();
+    const { a, b, storageA } = setup();
     storageA.failWrites = true;
     a.setLevel(3);
     a.setVoice(false);
     a.setSound(false);
     b.setLevel(2);
     b.setSound(false);
-    notifyA();
-    // level e sound mudaram fora (o externo vence); voice não, e o pendente de A fica.
+    // level e sound mudaram fora depois (o externo vence); voice não, e o pendente de A fica.
     expect(a.getSnapshot().prefs).toMatchObject({ level: 2, voice: false, sound: false });
     storageA.failWrites = false;
     a.refresh();
@@ -362,11 +363,10 @@ describe('reconciliação na recuperação (abas com falhas independentes)', () 
   });
 
   it('recorde pendente: máximo com o externo, sem reaplicar nem reduzir', () => {
-    const { a, b, storageA, notifyA } = setup('{"level":1,"sound":true,"voice":true,"stars":{"hands-1":1}}');
+    const { a, b, storageA } = setup('{"level":1,"sound":true,"voice":true,"stars":{"hands-1":1}}');
     storageA.failWrites = true;
     expect(a.recordStars('hands-1', 2)).toBe(true);
     b.recordStars('hands-1', 3);
-    notifyA();
     expect(a.getSnapshot().prefs.stars).toEqual({ 'hands-1': 3 });
     storageA.failWrites = false;
     a.refresh();
@@ -374,69 +374,207 @@ describe('reconciliação na recuperação (abas com falhas independentes)', () 
   });
 
   it('reset pendente não apaga recorde gravado depois por outra aba nem é reaplicado', () => {
-    const { a, b, storageA, notifyA } = setup('{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":3,"words-2":1,"explore-1":2}}');
+    const { a, b, storageA } = setup('{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":3,"words-2":1,"explore-1":2}}');
     storageA.failWrites = true;
     a.resetStars();
     expect(a.getSnapshot().prefs.stars).toEqual({});
     // Outra aba (com o storage obsoleto) termina rodadas: uma melhora words-2, outra é nova.
     b.recordStars('words-2', 2);
     b.recordStars('hands-4', 1);
-    notifyA();
     expect(a.getSnapshot().prefs.stars).toEqual({ 'words-2': 2, 'hands-4': 1 });
     storageA.failWrites = false;
     a.refresh();
     expect(storageA.json()).toEqual({ level: 1, sound: true, voice: true, stars: { 'words-2': 2, 'hands-4': 1 } });
     // Depois de gravado, o reset não volta: uma nova rodada de numbers-1 fica.
     b.recordStars('numbers-1', 3);
-    notifyA();
     expect(a.getSnapshot().prefs.stars).toEqual({ 'words-2': 2, 'hands-4': 1, 'numbers-1': 3 });
     a.setSound(false);
     expect(storageA.json()).toMatchObject({ stars: { 'words-2': 2, 'hands-4': 1, 'numbers-1': 3 } });
   });
 
-  it('reset externo observado depois descarta recordes pendentes', () => {
-    const { a, b, storageA, notifyA } = setup('{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":2}}');
+  it('reset externo depois de recordes pendentes os descarta (ordem visível pelo evento)', () => {
+    const { a, b, storageA } = setup('{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":2}}');
     storageA.failWrites = true;
     a.recordStars('numbers-1', 3);
     a.recordStars('words-1', 1);
     a.setLevel(4);
     b.resetStars();
-    notifyA();
     expect(a.getSnapshot().prefs).toEqual({ level: 4, sound: true, voice: true, stars: {} });
     storageA.failWrites = false;
     a.refresh();
     expect(storageA.json()).toEqual({ level: 4, sound: true, voice: true, stars: {} });
   });
 
+  it('sem evento e com leitura OK, a releitura ordena: reset externo descoberto depois vence', () => {
+    const { a, b, storageA, storageB } = setup('{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":2}}');
+    storageA.failWrites = true;
+    storageB.muted = true;
+    a.recordStars('words-1', 1);
+    b.resetStars();
+    a.setVoice(false); // releitura antes desta operação descobre o reset
+    expect(a.getSnapshot().prefs.stars).toEqual({});
+  });
+
+  describe('reset externo x rodada local com a leitura bloqueada', () => {
+    const initial = '{"level":1,"sound":true,"voice":true,"stars":{"numbers-1":3}}';
+
+    it('regressão Codex: reset externo e DEPOIS rodada local, observado pelo evento -> rodada fica', () => {
+      const { a, b, storageA } = setup(initial);
+      storageA.failReads = true;
+      b.resetStars();
+      expect(a.getSnapshot().prefs.stars).toEqual({});
+      expect(a.recordStars('hands-1', 2)).toBe(true);
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ stars: { 'hands-1': 2 } });
+      expect(a.getSnapshot()).toEqual({ prefs: { ...DEFAULT_PREFERENCES, stars: { 'hands-1': 2 } }, persistent: true });
+    });
+
+    it('rodada local e DEPOIS reset externo, observado pelo evento -> reset apaga a rodada (ADR-002)', () => {
+      const { a, b, storageA } = setup(initial);
+      storageA.failReads = true;
+      expect(a.recordStars('hands-1', 2)).toBe(true);
+      b.resetStars();
+      expect(a.getSnapshot().prefs.stars).toEqual({});
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ stars: {} });
+    });
+
+    it('regressão Codex sem evento: reset externo e depois rodada -> rodada fica', () => {
+      const { a, b, storageA, storageB } = setup(initial);
+      storageA.failReads = true;
+      storageB.muted = true;
+      b.resetStars();
+      expect(a.recordStars('hands-1', 2)).toBe(true);
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ stars: { 'hands-1': 2 } });
+    });
+
+    it('sem evento, a ordem inversa é indistinguível: a rodada também fica (não destrutivo)', () => {
+      const { a, b, storageA, storageB } = setup(initial);
+      storageA.failReads = true;
+      storageB.muted = true;
+      expect(a.recordStars('hands-1', 2)).toBe(true);
+      b.resetStars();
+      storageA.failReads = false;
+      a.refresh();
+      // Limite documentado: sem relógio no formato salvo, não dá para saber
+      // que o reset veio depois; nenhuma estrela é perdida.
+      expect(storageA.json()).toMatchObject({ stars: { 'hands-1': 2 } });
+    });
+
+    it('evento perdido é detectado por oldValue: mudanças anteriores entram como ambíguas', () => {
+      const { a, b, storageA, storageB } = setup(initial);
+      storageA.failReads = true;
+      expect(a.recordStars('hands-1', 2)).toBe(true);
+      storageB.muted = true;
+      b.resetStars();
+      storageB.muted = false;
+      b.recordStars('words-1', 1);
+      // O oldValue do evento (stars: {}) não bate com a base de A (numbers-1: 3).
+      expect(a.getSnapshot().prefs.stars).toEqual({ 'hands-1': 2, 'words-1': 1 });
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ stars: { 'hands-1': 2, 'words-1': 1 } });
+    });
+
+    it('reset local às cegas + reset e rodada externos: rodada externa posterior não é apagada', () => {
+      const { a, b, storageA, storageB } = setup(initial);
+      storageA.failReads = true;
+      storageB.muted = true;
+      a.recordStars('hands-1', 2);
+      a.resetStars();
+      a.recordStars('words-2', 1);
+      b.resetStars();
+      b.recordStars('numbers-1', 1);
+      storageA.failReads = false;
+      a.refresh();
+      // O reset local (que tinha visto numbers-1: 3) não apaga o numbers-1: 1
+      // gravado depois do reset externo; a rodada local posterior ao reset fica.
+      expect(storageA.json()).toMatchObject({ stars: { 'numbers-1': 1, 'words-2': 1 } });
+    });
+  });
+
+  describe('conflitos de campo com a leitura bloqueada', () => {
+    it('evento depois do set local: o externo vence', () => {
+      const { a, b, storageA } = setup();
+      storageA.failReads = true;
+      a.setLevel(3);
+      b.setLevel(2);
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ level: 2 });
+    });
+
+    it('evento antes do set local: o local vence', () => {
+      const { a, b, storageA } = setup();
+      storageA.failReads = true;
+      b.setLevel(2);
+      a.setLevel(3);
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ level: 3 });
+    });
+
+    it('sem evento (indistinguível): o set local vence; o campo que só o externo mudou fica', () => {
+      const { a, b, storageA, storageB } = setup();
+      storageA.failReads = true;
+      storageB.muted = true;
+      a.setLevel(3);
+      b.setLevel(2);
+      b.setVoice(false);
+      storageA.failReads = false;
+      a.refresh();
+      expect(storageA.json()).toMatchObject({ level: 3, voice: false });
+    });
+  });
+
   it('localStorage.clear() em outra aba (key === null) com pendências', () => {
-    const { a, storageA } = setup('{"level":2,"sound":true,"voice":true,"stars":{"numbers-1":2}}');
+    const { storageA } = setup('{"level":2,"sound":true,"voice":true,"stars":{"numbers-1":2}}');
     const target = new EventTarget();
-    const a2 = createPreferencesStore({ storage: storageA, eventTarget: target as unknown as Window });
+    const a2 = createPreferencesStore({ storage: storageA, eventTarget: asTarget(target) });
     storageA.failWrites = true;
     a2.setVoice(false);
+    a2.recordStars('hands-1', 3);
     storageA.data.clear();
     target.dispatchEvent(new StorageEvent('storage', { key: null }));
-    // Nível e estrelas voltam ao padrão (externo é mais novo); a voz pendente fica.
+    // clear() é posterior às pendências: nível e estrelas voltam ao padrão; a voz pendente fica.
     expect(a2.getSnapshot()).toEqual({ prefs: { ...DEFAULT_PREFERENCES, voice: false }, persistent: false });
+  });
+
+  it('clear() observado com a leitura bloqueada também vale', () => {
+    const { a, storageA, target } = setup('{"level":2,"sound":true,"voice":true,"stars":{"numbers-1":2}}');
+    storageA.failReads = true;
+    target.dispatchEvent(new StorageEvent('storage', { key: null }));
+    expect(a.getSnapshot().prefs).toEqual(DEFAULT_PREFERENCES);
+  });
+
+  it('ignora eventos de outro storageArea (sessionStorage)', () => {
+    const { a, target } = setup('{"level":2,"sound":true,"voice":true,"stars":{}}');
+    target.dispatchEvent(new StorageEvent('storage', { key: KEY, oldValue: null, newValue: '{"level":4}', storageArea: sessionStorage }));
     expect(a.getSnapshot().prefs.level).toBe(2);
   });
 });
 
 describe('evento storage (outra aba)', () => {
-  it('atualiza a memória sem regravar; trata key === null (clear)', () => {
-    localStorage.setItem(KEY, '{"level":2,"sound":true,"voice":true,"stars":{"numbers-1":3}}');
+  it('atualiza a memória pelo newValue sem regravar; trata key === null (clear)', () => {
+    const v2 = '{"level":2,"sound":true,"voice":true,"stars":{"numbers-1":3}}';
+    const v4 = '{"level":4,"sound":true,"voice":true,"stars":{"numbers-1":3}}';
+    localStorage.setItem(KEY, v2);
     const store = createPreferencesStore();
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     const listener = vi.fn();
     store.subscribe(listener);
 
-    localStorage.setItem(KEY, '{"level":4,"sound":true,"voice":true,"stars":{"numbers-1":3}}');
+    localStorage.setItem(KEY, v4);
     setItem.mockClear();
-    fireStorage(KEY);
+    fireStorage(KEY, v2, v4);
     expect(store.getSnapshot().prefs.level).toBe(4);
     expect(listener).toHaveBeenCalledTimes(1);
 
-    fireStorage('outra-chave');
+    fireStorage('outra-chave', null, 'x');
     expect(listener).toHaveBeenCalledTimes(1);
 
     localStorage.clear();
@@ -446,9 +584,16 @@ describe('evento storage (outra aba)', () => {
     expect(setItem).not.toHaveBeenCalled();
 
     store.dispose();
-    localStorage.setItem(KEY, '{"level":3}');
-    fireStorage(KEY);
+    fireStorage(KEY, null, '{"level":3}');
     expect(store.getSnapshot().prefs.level).toBe(1);
+  });
+
+  it('removeItem em outra aba (newValue null) volta aos padrões', () => {
+    const v = '{"level":3,"sound":false,"voice":true,"stars":{}}';
+    localStorage.setItem(KEY, v);
+    const store = createPreferencesStore();
+    fireStorage(KEY, v, null);
+    expect(store.getSnapshot().prefs).toEqual(DEFAULT_PREFERENCES);
   });
 });
 
