@@ -1,10 +1,21 @@
 # Licença, Proveniência e Auditoria Técnica de Ativos Visuais (`ASSETS-LICENSE.md`)
 
+<!--
+  SPDX-FileCopyrightText: 2026 Luis Henrique Coutinho Beltrão
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+- **SPDX-FileCopyrightText:** `2026 Luis Henrique Coutinho Beltrão`
+- **SPDX-License-Identifier:** `AGPL-3.0-or-later`
+
+---
+
 ## 1. Declaração de Proveniência e Licenciamento (`AGPL-3.0-or-later`)
 
-Todas as ilustrações rasterizadas (arquivos masters em alta resolução e derivados otimizados `.webp`) contidas em `design/source/illustrations/` foram geradas especificamente para o projeto educacional **Relógio Maluco** ("Oficina Tátil do Tempo") a partir de descrições originais da equipe do projeto, sem incorporação de marcas registradas, logotipos, personagens de terceiros, textos protegidos ou fotografias sob copyright restritivo.
+Todas as ilustrações rasterizadas (arquivos masters em alta resolução e derivados otimizados `.webp`) contidas em `design/source/illustrations/` foram geradas especificamente para o projeto educacional **Relógio Maluco** ("Oficina Tátil do Tempo") a partir de direção de arte, composição cromática e prompts originais da equipe do projeto, sem incorporação de marcas registradas, logotipos, personagens de terceiros, textos protegidos ou fotografias sob copyright restritivo.
 
 - **Licença de Distribuição:** `AGPL-3.0-or-later` (GNU Affero General Public License v3.0 or later), em total conformidade com o repositório principal `GamesEduRelogioMaluco`.
+- **Nota sobre Direitos Autorais de Saídas Geradas por IA:** Saídas visuais brutas geradas por modelos de inteligência artificial generativa (referenciados na Seção 2: subagente `image-generator` / pipeline Google DeepMind Gemini Image Generation) podem ter proteção autoral limitada ou inexistente dependendo da jurisdição aplicável. A licença `AGPL-3.0-or-later` aplica-se na medida máxima dos direitos autorais e conexos existentes sobre a direção artística, curadoria, seleção, pós-processamento e integração no software, garantindo que nenhuma restrição proprietária adicional seja imposta a terceiros.
 - **Direitos de Uso, Modificação e Redistribuição:** É garantida a liberdade irrestrita de usar, estudar, copiar, modificar, otimizar, recodificar e redistribuir tanto os arquivos-fonte masters (`design/source/illustrations/*-master.jpg`) quanto os ativos compilados de produção (`design/source/illustrations/webp/*.webp`) sob os termos da licença `AGPL-3.0-or-later`.
 
 ---
@@ -13,7 +24,7 @@ Todas as ilustrações rasterizadas (arquivos masters em alta resolução e deri
 
 - **Ferramenta / Modelo de Geração:** Antigravity `image-generator` subagent (`generate_image` / Google DeepMind Gemini Image Generation pipeline, orquestrado via Gemini 4 Argon).
 - **Data de Geração:** `2026-11-19`
-- **Pipeline de Conversão e Otimização WebP:** `sharp` (Node.js `v22.23.4`) com redimensionamento `.resize(384, 384, { fit: 'cover' })` e codificação `.webp({ quality: 82, effort: 6 })`.
+- **Pipeline de Conversão e Otimização WebP:** `sharp` (Node.js `v22.23.4`) com redimensionamento `.resize(384, 384, { fit: 'cover' })` e codificação `.webp({ quality: 90, effort: 6 })` para `mode-numbers.webp` (preservando com nitidez máxima o relevo dos pips táteis na madeira) e `.webp({ quality: 82, effort: 6 })` para `mode-words.webp`, `mode-hands.webp` e `mode-explore.webp`.
 - **Inspeção Visual de Qualidade:** Todas as 4 imagens masters e os 4 derivados `.webp` foram inspecionados visualmente para confirmar ausência absoluta de texto, algarismos borrados, letras ou marcas d'água (`STRICTLY NO TEXT, NO NUMBERS, NO LETTERS, NO WATERMARKS`) e consistência estética (*3D tactile wooden toy & matte paper-craft*, iluminação top-left, fundo `#FFFDF5`).
 
 ---
@@ -34,11 +45,11 @@ Todas as ilustrações rasterizadas (arquivos masters em alta resolução e deri
 
 | Modo | Caminho do Arquivo | Formato | Dimensões (`px`) | Tamanho Exato (Bytes) | Tamanho (`KB`) | Limite Individual (`≤ 28 KB`) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **`mode-numbers`** | `design/source/illustrations/webp/mode-numbers.webp` | WebP (`q=82, effort=6`) | `384×384` | `4416` bytes | `4,31 KB` | Aprovado (`15,4%` do teto) |
+| **`mode-numbers`** | `design/source/illustrations/webp/mode-numbers.webp` | WebP (`q=90, effort=6`) | `384×384` | `6990` bytes | `6,83 KB` | Aprovado (`24,4%` do teto) |
 | **`mode-words`** | `design/source/illustrations/webp/mode-words.webp` | WebP (`q=82, effort=6`) | `384×384` | `10640` bytes | `10,39 KB` | Aprovado (`37,1%` do teto) |
 | **`mode-hands`** | `design/source/illustrations/webp/mode-hands.webp` | WebP (`q=82, effort=6`) | `384×384` | `10596` bytes | `10,35 KB` | Aprovado (`37,0%` do teto) |
 | **`mode-explore`** | `design/source/illustrations/webp/mode-explore.webp` | WebP (`q=82, effort=6`) | `384×384` | `12706` bytes | `12,41 KB` | Aprovado (`44,3%` do teto) |
-| **Total WebP (4 arquivos)** | — | — | — | **`38358` bytes** | **`37,46 KB`** | **Aprovado (`≤ 110 KB`)** |
+| **Total WebP (4 arquivos)** | — | — | — | **`40932` bytes** | **`39,97 KB`** | **Aprovado (`≤ 110 KB`)** |
 
 ---
 
