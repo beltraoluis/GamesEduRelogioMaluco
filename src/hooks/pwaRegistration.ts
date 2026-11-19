@@ -5,12 +5,20 @@ import { registerSW } from 'virtual:pwa-register';
 const listeners = new Set<() => void>();
 let registered = false;
 
-/** The browser registration is shared by all mounts, including StrictMode remounts. */
-export function subscribeToOfflineReady(listener: () => void): () => void {
-  listeners.add(listener);
+/** Register once at boot, independent of UI mounts and StrictMode. */
+export function registerPwa(): void {
   if (!registered && import.meta.env.PROD && 'serviceWorker' in navigator) {
     registered = true;
-    registerSW({ onOfflineReady: () => listeners.forEach(notify => notify()) });
+    registerSW({
+      onOfflineReady: () => listeners.forEach(notify => notify()),
+      // The plugin otherwise reloads after a waiting worker takes control.
+      onNeedReload: () => {},
+    });
   }
+}
+
+/** Late subscribers validate existing caches on mount in usePwaInstall. */
+export function subscribeToOfflineReady(listener: () => void): () => void {
+  listeners.add(listener);
   return () => { listeners.delete(listener); };
 }

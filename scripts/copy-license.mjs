@@ -21,4 +21,4 @@ const licenses = packages.map(name => {
 licenses.push(`Fredoka font\n${readFileSync('src/assets/fonts/OFL.txt', 'utf8')}`);
 copyFileSync('LICENSE', 'public/LICENSE.txt');
 writeFileSync('public/THIRD_PARTY_LICENSES.txt', licenses.join('\n\n---\n\n'));
-copyFileSync('design/source/illustrations/ASSETS-LICENSE.md', 'public/ASSETS-LICENSE.md');
+writeFileSync('public/ASSETS-LICENSE.md', readFileSync('design/source/illustrations/ASSETS-LICENSE.md', 'utf8') + readFileSync('scripts/assets-pwa-license.md', 'utf8'));
