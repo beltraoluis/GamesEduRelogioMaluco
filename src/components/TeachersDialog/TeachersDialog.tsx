@@ -12,21 +12,6 @@ import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './TeachersDialog.module.css';
 
-// Fallback seguro para ambientes de teste (JSDOM) onde HTMLDialogElement não implementa showModal/close nativamente
-if (typeof HTMLDialogElement !== 'undefined') {
-  if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
-    HTMLDialogElement.prototype.showModal = function showModalFallback(this: HTMLDialogElement) {
-      this.setAttribute('open', '');
-    };
-  }
-  if (typeof HTMLDialogElement.prototype.close !== 'function') {
-    HTMLDialogElement.prototype.close = function closeFallback(this: HTMLDialogElement) {
-      this.removeAttribute('open');
-      this.dispatchEvent(new Event('close'));
-    };
-  }
-}
-
 function extractCommitFromSourceUrl(sourceUrl: string): string {
   const idx = sourceUrl.indexOf('/tree/');
   const candidate = idx !== -1 ? sourceUrl.slice(idx + 6).trim() : '';

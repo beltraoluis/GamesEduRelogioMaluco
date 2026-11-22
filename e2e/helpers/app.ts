@@ -42,6 +42,10 @@ export async function openMode(page: Page, id: ModeId): Promise<void> {
     await expect(page.getByRole('heading', { name: /Explorar/i })).toBeVisible();
     return;
   }
+  if (id === 'assemble') {
+    await expect(page.getByRole('group', { name: 'Mostrador do relógio' })).toBeVisible();
+    return;
+  }
   await expect(answerRegion(page, id as GameMode)).toBeVisible();
 }
 

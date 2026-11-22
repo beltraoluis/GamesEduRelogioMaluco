@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { useSyncExternalStore, type CSSProperties, type ReactElement } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 
 import type { ConfettiProps } from '@/contracts';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 import styles from './Confetti.module.css';
+
+export { usePrefersReducedMotion };
 
 const CONFETTI_COLORS = [
   '#ffb703',
@@ -16,39 +19,6 @@ const CONFETTI_COLORS = [
   '#7b2cbf',
   '#2e7d32',
 ] as const;
-
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-function subscribeReducedMotion(onStoreChange: () => void): () => void {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return () => {};
-  }
-  const mql = window.matchMedia(REDUCED_MOTION_QUERY);
-  if (typeof mql.addEventListener === 'function') {
-    mql.addEventListener('change', onStoreChange);
-    return () => mql.removeEventListener('change', onStoreChange);
-  }
-  return () => {};
-}
-
-function getReducedMotionSnapshot(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-  return Boolean(window.matchMedia(REDUCED_MOTION_QUERY).matches);
-}
-
-function getServerReducedMotionSnapshot(): boolean {
-  return false;
-}
-
-export function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    getReducedMotionSnapshot,
-    getServerReducedMotionSnapshot,
-  );
-}
 
 interface ParticleSpec {
   readonly id: string;

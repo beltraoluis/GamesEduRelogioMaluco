@@ -8,7 +8,7 @@ import type { GameMode, ModeId } from '../../src/domain/types.ts';
 
 export { ANSWER_REGION_LABELS, APP_COPY };
 
-export const MODE_IDS = ['numbers', 'words', 'hands', 'explore'] as const satisfies readonly ModeId[];
+export const MODE_IDS = ['assemble', 'numbers', 'words', 'hands', 'explore'] as const satisfies readonly ModeId[];
 
 export function modeTitle(id: ModeId): string {
   return APP_COPY.modes[id].title;

@@ -41,14 +41,6 @@ import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './GameScreen.module.css';
 
-// Fallback seguro para ambientes de teste (JSDOM) onde setPointerCapture não existe por padrão
-if (
-  typeof HTMLElement !== 'undefined' &&
-  typeof HTMLElement.prototype.setPointerCapture !== 'function'
-) {
-  HTMLElement.prototype.setPointerCapture = function setPointerCaptureFallback() {};
-}
-
 export interface AnalogDescriptionOptions {
   readonly period?: Period | undefined;
   readonly minuteLabels?: boolean | undefined;

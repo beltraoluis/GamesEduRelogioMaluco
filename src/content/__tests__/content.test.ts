@@ -137,6 +137,11 @@ describe('zero emojis e glifos proibidos', () => {
 });
 
 describe('copy estrutural mínima', () => {
+  it('identifica modos pelo id mesmo com a montagem no primeiro cartão', () => {
+    for (const id of ['assemble', 'numbers', 'words', 'hands', 'explore'] as const) {
+      expect(APP_COPY.modes[id].id).toBe(id);
+    }
+  });
   it('mantém prompts, ações de jogo e confirmação em 2 etapas', () => {
     expect(APP_COPY.home.title).toBe('Relógio Maluco');
     expect(APP_COPY.home.subtitle).toBe('Vamos aprender a ler as horas!');

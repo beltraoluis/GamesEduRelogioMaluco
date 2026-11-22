@@ -80,12 +80,21 @@
   }
 
   @keyframes hand-turn {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   @keyframes eyes-blink {
-    0%, 44%, 48%, 100% { transform: scaleY(1); }
-    46% { transform: scaleY(0.08); }
+    0%,
+    44%,
+    48%,
+    100% {
+      transform: scaleY(1);
+    }
+    46% {
+      transform: scaleY(0.08);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

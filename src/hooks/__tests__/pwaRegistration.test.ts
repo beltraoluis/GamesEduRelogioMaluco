@@ -3,34 +3,52 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { registerPwa, subscribeToOfflineReady } from '../pwaRegistration';
 
-const register = vi.hoisted(() => vi.fn());
-vi.mock('virtual:pwa-register', () => ({ registerSW: register }));
-
 afterEach(() => {
   delete (navigator as unknown as { serviceWorker?: unknown }).serviceWorker;
   vi.unstubAllEnvs();
-  vi.resetModules();
-  register.mockReset();
 });
 
-it('registers once across remounts and only notifies active subscribers', () => {
+it('registers once across remounts and only notifies active subscribers on activation', async () => {
   vi.stubEnv('PROD', true);
-  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {} });
+  let stateChangeHandler: (() => void) | undefined;
+  const installingWorker = {
+    state: 'installing',
+    addEventListener: vi.fn((event: string, cb: () => void) => {
+      if (event === 'statechange') stateChangeHandler = cb;
+    }),
+  };
+  const registration = {
+    active: null,
+    installing: installingWorker,
+    waiting: null,
+    addEventListener: vi.fn(),
+  };
+  const registerMock = vi.fn(() => Promise.resolve(registration));
+  Object.defineProperty(navigator, 'serviceWorker', {
+    configurable: true,
+    value: { register: registerMock },
+  });
+
   const first = vi.fn();
   const second = vi.fn();
+
   registerPwa();
   registerPwa();
+
   const unsubscribeFirst = subscribeToOfflineReady(first);
   unsubscribeFirst();
   const unsubscribeSecond = subscribeToOfflineReady(second);
-  expect(register).toHaveBeenCalledTimes(1);
-  const options = register.mock.calls[0]?.[0] as { onOfflineReady: () => void; onNeedReload: () => void };
-  expect(options.onNeedReload).toBeTypeOf('function');
-  expect(() => options.onNeedReload()).not.toThrow();
-  options.onOfflineReady();
+
+  expect(registerMock).toHaveBeenCalledTimes(1);
+  await Promise.resolve();
+
+  installingWorker.state = 'activated';
+  stateChangeHandler?.();
+
   expect(first).not.toHaveBeenCalled();
   expect(second).toHaveBeenCalledTimes(1);
+
   unsubscribeSecond();
-  options.onOfflineReady();
+  stateChangeHandler?.();
   expect(second).toHaveBeenCalledTimes(1);
 });

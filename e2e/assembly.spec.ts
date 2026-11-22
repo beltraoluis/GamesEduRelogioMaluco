@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { expect, test, type Page } from '@playwright/test';
+import { waitForServiceWorkerControl } from './helpers/preferences';
 
 const piece = (page: Page, p: number) => page.locator(`[data-piece="${p}"]`);
 const target = (page: Page, p: number) => page.locator(`[data-slot-id="assembly-${p}"]`);
@@ -8,8 +9,19 @@ const target = (page: Page, p: number) => page.locator(`[data-slot-id="assembly-
 test.describe('Monte o relógio — toque no navegador', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
-  test('gestos de toque, seleção, erro corrigível, conclusão e progresso persistente', async ({ page, context }) => {
+  test('offline: gestos de toque, seleção, erro corrigível, conclusão e progresso persistente', async ({ page, context }) => {
     await page.goto('/');
+    await waitForServiceWorkerControl(page);
+    await context.setOffline(true);
+    // Primeira entrada no modo ocorre sem rede e depois de recarregar a página.
+    await page.reload();
+    const sprite = await page.evaluate(async () => {
+      const response = await fetch('./icons/sprite.svg');
+      const xml = new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+      const ids = [...document.querySelectorAll('use')].map(use => use.getAttribute('href')?.split('#')[1]);
+      return { status: response.status, found: ids.every(id => id && xml.getElementById(id)) };
+    });
+    expect(sprite).toEqual({ status: 200, found: true });
     await page.locator('[data-mode-card="assemble"]').tap();
     await expect(page.getByRole('heading', { name: 'Monte o relógio: horas' })).toBeVisible();
     // Eventos enviados ao motor de entrada do Chromium, não dispatchEvent no DOM.
