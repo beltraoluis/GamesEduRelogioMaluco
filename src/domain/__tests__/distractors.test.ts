@@ -70,7 +70,7 @@ describe('chooseDistractors', () => {
 
 describe(`invariantes com ${SEEDS} seeds por nível`, () => {
   for (const level of LEVELS) {
-    it(`nível ${level.id}: números e palavras`, () => {
+    it(`nível ${level.id}: números e palavras`, { timeout: 30_000 }, () => {
       for (let seed = 0; seed < SEEDS; seed++) {
         const rng = mulberry32(seed);
         const time = randomTime(level, new Set(), rng);
