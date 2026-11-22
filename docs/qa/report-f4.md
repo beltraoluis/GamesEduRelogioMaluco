@@ -31,7 +31,7 @@ Algumas capturas da janela do Orca em alturas grandes repetiram uma faixa do top
 | Atmosferas e contraste | 24 passos de hora por teclado em Explorar, leitura de `data-atmosphere` e execução do script de contraste do projeto | Manhã, tarde, noite e madrugada observadas; 60 de 60 combinações de contraste aprovadas |
 | Identificação sem depender da cor | 12 capturas dos modos Números, Palavras e Ponteiros, em acromatopsia, protanopia, deuteranopia e tritanopia, via emulação de visão do Chromium; inspeção das capturas no nível 1 | Comprimentos dos ponteiros, filete lateral da lacuna de horas e contorno tracejado da lacuna vazia de minutos permanecem distinguíveis. A escala de cinza também foi aplicada à tela Explorar no Orca |
 | Safari móvel | Smoke visual registrado pelo coordenador no simulador de iPhone 14 com iOS 16.4 | A Home renderizou |
-| Chrome móvel | Emulador Android Pixel 2, depuração remota de Chrome, entrada de teclado em Explorar | A Home exibiu os quatro modos. Ao avançar das 09h às 12h, o jogo exibiu “É meio-dia”. Captura em `android-explorar.png` |
+| Chrome móvel | Emulador Android Pixel 2, depuração remota de Chrome, entrada de teclado em Explorar | A Home exibiu os quatro modos. Ao avançar das 09h às 12h, o jogo exibiu “É meio-dia”. Texto verificado no DOM via CDP. A captura de tela excedeu o tempo limite |
 
 ## Limites e reprodução
 
