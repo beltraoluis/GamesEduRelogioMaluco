@@ -4,10 +4,14 @@
 import { ANSWER_REGION_LABELS } from '../contracts';
 import { LEVELS } from '../domain/levels';
 import { MODES } from '../domain/modes';
+import { readDomJson } from './runtimeDomData';
 
 /** Repositório canônico do Corresponding Source. */
 export const SOURCE_REPO_URL =
   'https://github.com/beltraoluis/GamesEduRelogioMaluco' as const;
+
+const FALLBACK_SRC_ERR =
+  'Corresponding Source exige commit exato (ADR-004): informe o SHA do build para montar tree/{commit}.';
 
 /**
  * Monta a URL `tree/{commit}` do Corresponding Source (ADR-004 §1).
@@ -18,7 +22,7 @@ export function buildSourceUrl(commit: string): string {
   const trimmed = commit.trim();
   if (trimmed.length === 0 || trimmed === 'unknown') {
     throw new Error(
-      'Corresponding Source exige commit exato (ADR-004): informe o SHA do build para montar tree/{commit}.',
+      readDomJson('srcErr', () => (import.meta.env.PROD ? 'ADR-004' : FALLBACK_SRC_ERR)),
     );
   }
   return `${SOURCE_REPO_URL}/tree/${trimmed}`;
@@ -27,8 +31,7 @@ export function buildSourceUrl(commit: string): string {
 const LISTEN_LABEL = 'Ouvir';
 const RESET_PROGRESS_LABEL = 'Apagar progresso deste aparelho';
 
-/** Toda a copy da interface (pt-BR, sem emojis). */
-export const APP_COPY = {
+const FALLBACK_COPY = {
   home: {
     title: 'Relógio Maluco',
     subtitle: 'Vamos aprender a ler as horas!',
@@ -117,4 +120,24 @@ export const APP_COPY = {
   answerRegions: ANSWER_REGION_LABELS,
 } as const;
 
-export type AppCopy = typeof APP_COPY;
+export type AppCopy = typeof FALLBACK_COPY;
+
+/** Toda a copy da interface (pt-BR, sem emojis). */
+export const APP_COPY: AppCopy = import.meta.env.PROD
+  ? {
+      ...readDomJson('copy', () => FALLBACK_COPY),
+      modes: {
+        numbers: MODES[0],
+        words: MODES[1],
+        hands: MODES[2],
+        explore: MODES[3],
+      },
+      levels: {
+        1: LEVELS[0],
+        2: LEVELS[1],
+        3: LEVELS[2],
+        4: LEVELS[3],
+      },
+      answerRegions: ANSWER_REGION_LABELS,
+    }
+  : FALLBACK_COPY;

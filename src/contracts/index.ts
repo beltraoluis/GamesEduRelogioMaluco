@@ -17,6 +17,7 @@
 
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 
+import { readDomJson } from '../content/runtimeDomData';
 import type { BadgeKind, Message } from '../domain/messages';
 import type {
   Atmosphere,
@@ -82,12 +83,17 @@ export const ROUND_LENGTH = 8;
 /** Atributo que identifica uma lacuna para o hit-test do arrasto. */
 export const SLOT_ID_ATTRIBUTE = 'data-slot-id';
 
-/** Nome acessível da região de resposta (`role="group"`) por modo. */
-export const ANSWER_REGION_LABELS: Readonly<Record<GameMode, string>> = {
+const FALLBACK_ANSWER_REGION_LABELS: Readonly<Record<GameMode, string>> = {
   numbers: 'Resposta: relógio digital com lacunas para as horas e os minutos',
   words: 'Resposta: frase da hora com lacunas para completar',
   hands: 'Resposta: relógio analógico para girar os ponteiros',
 };
+
+/** Nome acessível da região de resposta (`role="group"`) por modo. */
+export const ANSWER_REGION_LABELS: Readonly<Record<GameMode, string>> = readDomJson(
+  'answerRegions',
+  () => (import.meta.env.PROD ? ({} as Readonly<Record<GameMode, string>>) : FALLBACK_ANSWER_REGION_LABELS),
+);
 
 /* ------------------------------------------------------------------ */
 /* Mascote Tic                                                         */

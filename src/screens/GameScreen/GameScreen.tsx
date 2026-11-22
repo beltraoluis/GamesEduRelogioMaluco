@@ -17,7 +17,7 @@ import { TicMascot } from '@/components/TicMascot';
 import { Tile } from '@/components/Tile';
 import { VisuallyHidden } from '@/components/VisuallyHidden';
 import { APP_COPY } from '@/content/copy';
-import { readDomTemplate } from '@/content/runtimeDomData';
+import { readDomJson, readDomTemplate } from '@/content/runtimeDomData';
 import {
   ANSWER_REGION_LABELS,
   type ClockTime,
@@ -47,34 +47,63 @@ export interface AnalogDescriptionOptions {
   readonly minuteLabels?: boolean | undefined;
 }
 
-/**
- * Descreve geometricamente as posições e a identidade dos ponteiros no mostrador
- * (ponteiro curto das horas e ponteiro longo dos minutos, incluindo posições
- * intermediárias e período quando visível), permitindo resolver o desafio com
- * leitor de tela sem anunciar a resposta numérica/por extenso pronta.
- */
+interface AnalogDescTemplates {
+  readonly hourPoint: string;
+  readonly hourBetween: string;
+  readonly minPoint: string;
+  readonly minBetween: string;
+  readonly tickOne: string;
+  readonly tickMany: string;
+  readonly stimPrefix: string;
+  readonly stimLabels: string;
+  readonly ctrlLocked: string;
+  readonly ctrlFree: string;
+  readonly interTpl: string;
+}
+
+const FALLBACK_ANALOG_DESC: AnalogDescTemplates = {
+  hourPoint: 'ponteiro curto das horas apontando para o número {0}',
+  hourBetween: 'ponteiro curto das horas entre os números {0} e {1}',
+  minPoint: 'ponteiro longo dos minutos apontando para o número {0}',
+  minBetween: 'ponteiro longo dos minutos entre os números {0} e {1}, {2} depois do número {0}',
+  tickOne: '1 tracinho',
+  tickMany: '{0} tracinhos',
+  stimPrefix: 'Relógio analógico do desafio: ',
+  stimLabels: 'marcadores de 5 em 5 minutos visíveis no mostrador',
+  ctrlLocked:
+    'Use as setas esquerda e direita ou arraste o ponteiro curto das horas (ponteiro longo dos minutos travado no 12).',
+  ctrlFree: 'Use as setas ou arraste os ponteiros.',
+  interTpl: 'Relógio analógico interativo. {0} Posição atual: {1}.',
+};
+
+const ANALOG_DESC: AnalogDescTemplates = readDomJson(
+  'analogDesc',
+  () => (import.meta.env.PROD ? ({} as AnalogDescTemplates) : FALLBACK_ANALOG_DESC),
+);
+
+function fmt(tpl: string, ...args: readonly (string | number)[]): string {
+  return tpl.replace(/\{(\d)\}/g, (_m, i: string) => String(args[Number(i)] ?? ''));
+}
+
 export function describeAnalogHandPositions(time: ClockTime): string {
   const h12 = clockMath.to12(time.h);
   const nextH12 = (h12 % 12) + 1;
-
   const hourDesc =
     time.m === 0
-      ? `ponteiro curto das horas apontando para o número ${h12}`
-      : `ponteiro curto das horas entre os números ${h12} e ${nextH12}`;
+      ? fmt(ANALOG_DESC.hourPoint, h12)
+      : fmt(ANALOG_DESC.hourBetween, h12, nextH12);
 
   let minuteDesc: string;
   if (time.m % 5 === 0) {
-    const dialNum = time.m === 0 ? 12 : time.m / 5;
-    minuteDesc = `ponteiro longo dos minutos apontando para o número ${dialNum}`;
+    minuteDesc = fmt(ANALOG_DESC.minPoint, time.m === 0 ? 12 : time.m / 5);
   } else {
-    const prevMark = Math.floor(time.m / 5);
-    const prevDialNum = prevMark === 0 ? 12 : prevMark;
+    const prevDialNum = Math.floor(time.m / 5) || 12;
     const nextDialNum = (prevDialNum % 12) + 1;
     const ticksAfter = time.m % 5;
-    const ticksText = ticksAfter === 1 ? '1 tracinho' : `${ticksAfter} tracinhos`;
-    minuteDesc = `ponteiro longo dos minutos entre os números ${prevDialNum} e ${nextDialNum}, ${ticksText} depois do número ${prevDialNum}`;
+    const ticksText =
+      ticksAfter === 1 ? ANALOG_DESC.tickOne : fmt(ANALOG_DESC.tickMany, ticksAfter);
+    minuteDesc = fmt(ANALOG_DESC.minBetween, prevDialNum, nextDialNum, ticksText);
   }
-
   return `${hourDesc}; ${minuteDesc}`;
 }
 
@@ -82,14 +111,12 @@ export function describeAnalogStimulus(
   time: ClockTime,
   options: AnalogDescriptionOptions = {},
 ): string {
-  const parts: string[] = [
-    `Relógio analógico do desafio: ${describeAnalogHandPositions(time)}`,
-  ];
+  const parts: string[] = [`${ANALOG_DESC.stimPrefix}${describeAnalogHandPositions(time)}`];
   if (options.period !== undefined) {
     parts.push(`período ${options.period}`);
   }
   if (options.minuteLabels) {
-    parts.push('marcadores de 5 em 5 minutos visíveis no mostrador');
+    parts.push(ANALOG_DESC.stimLabels);
   }
   return `${parts.join('; ')}.`;
 }
@@ -98,10 +125,11 @@ export function describeInteractiveAnalogClock(
   time: ClockTime,
   lockMinute: boolean,
 ): string {
-  const controlHint = lockMinute
-    ? 'Use as setas esquerda e direita ou arraste o ponteiro curto das horas (ponteiro longo dos minutos travado no 12).'
-    : 'Use as setas ou arraste os ponteiros.';
-  return `Relógio analógico interativo. ${controlHint} Posição atual: ${describeAnalogHandPositions(time)}.`;
+  return fmt(
+    ANALOG_DESC.interTpl,
+    lockMinute ? ANALOG_DESC.ctrlLocked : ANALOG_DESC.ctrlFree,
+    describeAnalogHandPositions(time),
+  );
 }
 
 export interface MascotSignal {

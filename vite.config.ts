@@ -115,12 +115,66 @@ const EDUCATORS_CONTENT = {
   licenseHeading: 'Licença e código-fonte',
 } as const;
 
+const LISTEN_LABEL = 'Ouvir';
+const RESET_PROGRESS_LABEL = 'Apagar progresso deste aparelho';
+
+const ANSWER_REGION_LABELS = {
+  numbers: 'Resposta: relógio digital com lacunas para as horas e os minutos',
+  words: 'Resposta: frase da hora com lacunas para completar',
+  hands: 'Resposta: relógio analógico para girar os ponteiros',
+};
+
+const MODES = [
+  { id: 'numbers', title: 'Números', description: 'Leia o relógio e arraste os números', scored: true },
+  { id: 'words', title: 'Palavras', description: 'Monte a frase da hora', scored: true },
+  { id: 'hands', title: 'Ponteiros', description: 'Gire os ponteiros do relógio', scored: true },
+  { id: 'explore', title: 'Explorar', description: 'Brinque livremente com o relógio', scored: false },
+];
+
+const LEVELS = [
+  { id: 1, name: 'Horas certas', grade: '1º ano', step: 60, h24: false, bankSize: 3, bncc: ['EF01MA16'] },
+  { id: 2, name: 'Meias e quartos', grade: '2º ano', step: 15, h24: false, bankSize: 4, bncc: ['EF02MA19', 'EF03MA23'] },
+  { id: 3, name: 'De 5 em 5', grade: '3º ano', step: 5, h24: false, bankSize: 4, bncc: ['EF03MA22', 'EF03MA23'] },
+  { id: 4, name: 'Minuto a minuto · 24h', grade: '4º e 5º anos', step: 1, h24: true, bankSize: 4, bncc: ['EF04MA22', 'EF01MA17'] },
+];
+
 const APP_COPY = {
   home: {
     title: 'Relógio Maluco',
     subtitle: 'Vamos aprender a ler as horas!',
+    levelSection: '1. Escolha o nível',
+    modeSection: '2. Escolha a brincadeira',
+  },
+  menu: {
+    sound: 'Som',
+    soundOn: 'Som: ligado',
+    soundOff: 'Som: desligado',
+    voice: 'Voz',
+    voiceOn: 'Voz: ligada',
+    voiceOff: 'Voz: desligada',
+    teachers: 'Para educadores',
+    source: 'Código-fonte',
+    install: 'Instalar',
+    offlineReady: 'Funciona sem internet',
+    iosInstallTip: 'No iPhone/iPad: Compartilhar > Adicionar à Tela de Início',
+  },
+  game: {
+    prompts: {
+      numbers: 'Que horas são? Arraste os números para o relógio digital.',
+      words: 'Que horas são? Arraste as palavras para completar a frase.',
+      hands: 'Gire os ponteiros para o relógio mostrar esta hora:',
+    },
+    tileFirstHint: 'Escolha uma ficha e toque Enter ou Espaço para encaixar',
+    hint: 'Dica',
+    listen: LISTEN_LABEL,
+    ready: 'Pronto!',
+    next: 'Próxima',
+    back: 'Voltar ao início',
   },
   explore: {
+    title: 'Explorar o relógio',
+    now: 'Que horas são agora?',
+    listen: LISTEN_LABEL,
     dragTip:
       'Arraste os ponteiros! Quando o ponteiro grande dá uma volta inteira, o pequeno anda até o próximo número.',
     facts: [
@@ -130,7 +184,92 @@ const APP_COPY = {
       '1 hora = 60 minutos · 1 minuto = 60 segundos',
     ],
   },
+  result: {
+    playAgain: 'Jogar de novo',
+    home: 'Início',
+  },
+  updateToast: {
+    title: 'Nova versão pronta',
+    apply: 'Atualizar agora',
+    dismiss: 'Agora não',
+  },
+  resetProgress: {
+    title: RESET_PROGRESS_LABEL,
+    confirm: 'Tem certeza? Todas as estrelas salvas neste aparelho serão apagadas.',
+    confirmButton: 'Sim, apagar',
+    cancelButton: 'Cancelar',
+    liveMessage: 'Progresso apagado.',
+  },
+  persistence: {
+    unavailable:
+      'Neste aparelho o progresso não pode ser salvo (modo privado ou armazenamento indisponível). As estrelas valem só enquanto esta página estiver aberta.',
+  },
+  teachers: {
+    title: 'Para educadores e famílias',
+    close: 'Fechar',
+    resetButton: RESET_PROGRESS_LABEL,
+  },
 } as const;
+
+const BIG_HAND = [['m', 'ponteiro grande', 'minute'], ['b', 'minute-hand']];
+const SMALL_HAND = [['m', 'ponteiro pequeno', 'hour'], ['b', 'hour-hand']];
+const PERIOD_TERM = [['m', 'período do dia', 'period'], ['b', 'period']];
+const PERIOD_RANGES = [
+  'A ', ['m', 'madrugada', 'period'], ' vai da meia-noite às 5 horas; a ',
+  ['m', 'manhã', 'period'], ', das 6 às 11; a ',
+  ['m', 'tarde', 'period'], ', das 12 às 17; e a ',
+  ['m', 'noite', 'period'], ', das 18 às 23.',
+];
+
+const HINTS_TABLE = {
+  'drop.group-mismatch': ['Essa ficha é de ', ['m', '{0}', '{1}'], '. Procure a lacuna do mesmo tipo: horas, minutos ou período.'],
+  'drop.hour.noon': ['Às 12 horas do dia, dizemos ', ['s', 'meio-dia'], '!'],
+  'drop.hour.midnight': ['À zero hora, no meio da noite, dizemos ', ['s', 'meia-noite'], '!'],
+  'drop.hour.minute-hand-number': ['Esse é o número para onde o ', ...BIG_HAND, ' aponta. Quem mostra a hora é o ', ...SMALL_HAND, '!'],
+  'drop.hour.rounded-up': ['Quase! O ', ...SMALL_HAND, ' ainda ', ['s', 'não'], ' chegou nesse número. Escolha o número que ele já passou.'],
+  'drop.hour.add-12-afternoon': ['Olhe o ', ...PERIOD_TERM, '! Depois do meio-dia, somamos 12: 3 horas da tarde são 15 horas.'],
+  'drop.hour.no-add-12-morning': ['Olhe o ', ...PERIOD_TERM, '! De manhã e de madrugada, não somamos 12.'],
+  'drop.hour.look-hour-hand': ['Olhe o ', ...SMALL_HAND, ': ele mostra as horas.'],
+  'drop.hour.subtract-12': ['Depois do meio-dia, tiramos 12: 15 horas são 3 horas da tarde.'],
+  'drop.hour.before-colon': ['As ', ['m', 'horas', 'hour'], ' são os números ', ['s', 'antes'], ' dos dois pontos ', ['b', 'colon'], '.'],
+  'drop.minute.count-by-5': ['O ', ...BIG_HAND, ' aponta para o {0}, mas cada número vale 5 minutos. Conte de 5 em 5!'],
+  'drop.minute.half-not-meio': ['Para as horas, dizemos ', ['s', 'e meia'], ' (meia hora).'],
+  'drop.minute.count-from-12': ['Conte de 5 em 5 a partir do 12: 5, 10, 15, 20…'],
+  'drop.minute.look-minute-hand': ['Olhe o ', ...BIG_HAND, ': ele mostra os minutos.'],
+  'drop.minute.after-colon': ['Os ', ['m', 'minutos', 'minute'], ' são os números ', ['s', 'depois'], ' dos dois pontos ', ['b', 'colon'], '.'],
+  'drop.period.ranges': PERIOD_RANGES,
+  'help.period': PERIOD_RANGES,
+  'hands.minute.on-12': ['Hora certa: o ', ...BIG_HAND, ' fica no 12!'],
+  'hands.minute.amount': ['O ', ...BIG_HAND, ' precisa mostrar {0}.'],
+  'hands.minute.point-to': ['O ', ...BIG_HAND, ' deve apontar para o {0}.'],
+  'hands.hour.adjust': ['Os minutos estão certos! Agora ajuste o ', ...SMALL_HAND, ' das horas.'],
+  'hands.hour.position': ['O ', ...SMALL_HAND, ' deve ficar {0}.'],
+  'help.hands': ['Primeiro o ', ...BIG_HAND, ' (minutos), depois o ', ['m', 'pequeno', 'hour'], ['b', 'hour-hand'], ' (horas). Os ', ['m', 'números vermelhos dos minutos', 'minute'], ' ajudam a contar.'],
+  'help.analog.minute': ['O ', ...BIG_HAND, ' mostra os minutos. Veja os ', ['m', 'números vermelhos dos minutos', 'minute'], ': cada número vale 5 minutos!'],
+  'help.analog.hour': ['O ', ...SMALL_HAND, ' mostra a hora. Para qual número ele aponta?'],
+  'help.analog.hour-between': ['O ', ...SMALL_HAND, ' mostra a hora. Se ele estiver entre dois números, escolha o que ele já passou.'],
+  'help.digital.hour': ['Veja os números ', ['s', 'antes'], ' dos dois pontos ', ['b', 'colon'], ': eles mostram as ', ['m', 'horas', 'hour'], '.'],
+  'help.digital.minute': ['Veja os números ', ['s', 'depois'], ' dos dois pontos ', ['b', 'colon'], ': eles mostram os ', ['m', 'minutos', 'minute'], '.'],
+  'intro.hands': ['Arraste os ponteiros. Depois toque em ', ['s', 'Pronto!'], '.'],
+  'intro.analog': ['Comece pelo ', ...SMALL_HAND, ': ele mostra as horas.'],
+  'intro.digital': ['Os números antes dos dois pontos ', ['b', 'colon'], ' são as ', ['m', 'horas', 'hour'], '.'],
+  done: ['Rodada completa! Veja quantas estrelas você ganhou.'],
+};
+
+const ANALOG_DESC = {
+  hourPoint: 'ponteiro curto das horas apontando para o número {0}',
+  hourBetween: 'ponteiro curto das horas entre os números {0} e {1}',
+  minPoint: 'ponteiro longo dos minutos apontando para o número {0}',
+  minBetween: 'ponteiro longo dos minutos entre os números {0} e {1}, {2} depois do número {0}',
+  tickOne: '1 tracinho',
+  tickMany: '{0} tracinhos',
+  stimPrefix: 'Relógio analógico do desafio: ',
+  stimLabels: 'marcadores de 5 em 5 minutos visíveis no mostrador',
+  ctrlLocked:
+    'Use as setas esquerda e direita ou arraste o ponteiro curto das horas (ponteiro longo dos minutos travado no 12).',
+  ctrlFree: 'Use as setas ou arraste os ponteiros.',
+  interTpl: 'Relógio analógico interativo. {0} Posição atual: {1}.',
+};
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 let commit = process.env.GITHUB_SHA ?? '';
@@ -236,6 +375,22 @@ function buildStaticTemplates(resolveClass: (mod: string, local: string) => stri
 
   const jsonPayload = JSON.stringify({
     agplTpl: AGPL_TPL,
+    srcErr:
+      'Corresponding Source exige commit exato (ADR-004): informe o SHA do build para montar tree/{commit}.',
+    modesList: MODES,
+    levelsList: LEVELS,
+    answerRegions: ANSWER_REGION_LABELS,
+    units: [
+      'zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove',
+      'dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove',
+    ],
+    tens: { 20: 'vinte', 30: 'trinta', 40: 'quarenta', 50: 'cinquenta' },
+    periods: ['da madrugada', 'da manhã', 'da tarde', 'da noite'],
+    copy: APP_COPY,
+    hints: HINTS_TABLE,
+    praise: ['Muito bem!', 'Isso mesmo!', 'Arrasou!', 'Que incrível!', 'Mandou bem!', 'Perfeito!'],
+    progress: ['Isso! Agora a próxima.', 'Boa! Falta pouco.', 'Certo! Continue.'],
+    analogDesc: ANALOG_DESC,
   });
 
   return [

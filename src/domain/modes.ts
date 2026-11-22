@@ -3,14 +3,20 @@
 
 /** Cartões de modo da tela inicial. */
 
+import { readDomJson } from '../content/runtimeDomData';
 import type { GameMode, ModeId, ModeMeta } from './types';
 
-export const MODES: readonly [ModeMeta, ModeMeta, ModeMeta, ModeMeta] = [
+const FALLBACK_MODES: readonly [ModeMeta, ModeMeta, ModeMeta, ModeMeta] = [
   { id: 'numbers', title: 'Números', description: 'Leia o relógio e arraste os números', scored: true },
   { id: 'words', title: 'Palavras', description: 'Monte a frase da hora', scored: true },
   { id: 'hands', title: 'Ponteiros', description: 'Gire os ponteiros do relógio', scored: true },
   { id: 'explore', title: 'Explorar', description: 'Brinque livremente com o relógio', scored: false },
 ];
+
+export const MODES: readonly [ModeMeta, ModeMeta, ModeMeta, ModeMeta] = readDomJson(
+  'modesList',
+  () => (import.meta.env.PROD ? ([] as unknown as readonly [ModeMeta, ModeMeta, ModeMeta, ModeMeta]) : FALLBACK_MODES),
+);
 
 /** Modos com rodada e estrelas. */
 export const GAME_MODES: readonly [GameMode, GameMode, GameMode] = ['numbers', 'words', 'hands'];
