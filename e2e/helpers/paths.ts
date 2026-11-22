@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const LEGACY_V6_FIXTURE = path.join(REPO_ROOT, 'e2e', 'fixtures', 'legacy-v6');
 export const PREVIEW_HOST = '127.0.0.1';
 export const PREVIEW_PORT = Number(process.env.E2E_PORT ?? 4177);
 if (!Number.isInteger(PREVIEW_PORT) || PREVIEW_PORT < 1 || PREVIEW_PORT > 65535) {

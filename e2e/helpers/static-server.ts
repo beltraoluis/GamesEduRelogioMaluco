@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { REPO_ROOT, RUNTIME_DIST } from './paths.ts';
+import { LEGACY_V6_FIXTURE, REPO_ROOT, RUNTIME_DIST } from './paths.ts';
 
 export type ServeRoot = 'legacy' | 'dist';
 
@@ -83,7 +83,7 @@ export async function startSwitchableServer(
         }
       }
 
-      const rootDir = root === 'legacy' ? path.join(REPO_ROOT, 'legacy') : distDir;
+      const rootDir = root === 'legacy' ? LEGACY_V6_FIXTURE : distDir;
 
       if (root === 'legacy' && (pathname === '/LICENSE' || pathname === '/LICENSE.txt')) {
         const licensePath = path.join(REPO_ROOT, 'LICENSE');
@@ -159,7 +159,7 @@ function sendFile(res: ServerResponse, filePath: string): void {
 }
 
 function sendLegacySw(res: ServerResponse, version: 'v6' | 'v7'): void {
-  const swPath = path.join(REPO_ROOT, 'legacy', 'sw.js');
+  const swPath = path.join(LEGACY_V6_FIXTURE, 'sw.js');
   const raw = readFileSync(swPath, 'utf8');
   const rewritten = raw.replace(
     /const CACHE = 'relogio-maluco-v6';/,

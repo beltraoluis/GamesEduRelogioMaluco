@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { describe, expect, it } from 'vitest';
 
-// @ts-expect-error -- módulo JS do legado, sem declarações de tipo (só para paridade).
-import * as legacyRaw from '../../../legacy/js/time.js';
+import numberFixture from './fixtures/legacy-numbers.json';
+import phraseFixtureJson from './fixtures/legacy-phrases.json?raw';
 import {
   atmosphereOf,
   numberWord,
@@ -25,18 +25,14 @@ interface LegacyPart {
   readonly num?: number;
 }
 
-interface LegacyTime {
-  numberWord(n: number, feminine?: boolean): string;
-  pad(n: number): string;
-  to12(h: number): number;
-  periodOf(h: number): string;
-  phraseParts(h: number, m: number, opts?: { withPeriod?: boolean; useHalf?: boolean }): LegacyPart[];
-  phraseText(parts: readonly LegacyPart[]): string;
-  phrase24(h: number, m: number): string;
-  PERIODS: readonly string[];
+interface PhraseFixture {
+  options: { withPeriod?: boolean; useHalf?: boolean }[];
+  pieces: LegacyPart[];
+  phrases: { parts: number[]; text: string }[];
+  cases: { h: number; m: number; text24: string; phrases: number[] }[];
 }
 
-const legacy = legacyRaw as LegacyTime;
+const fixture: PhraseFixture = JSON.parse(phraseFixtureJson);
 
 function fromLegacy(p: LegacyPart): PhrasePart {
   if (p.slot === undefined) return { kind: 'text', text: p.text as string };
@@ -45,53 +41,33 @@ function fromLegacy(p: LegacyPart): PhrasePart {
 }
 
 describe('time.ts: paridade exaustiva com legacy/js/time.js', () => {
-  it('PERIODS idênticos', () => {
-    expect([...PERIODS]).toEqual(legacy.PERIODS);
-  });
-
-  it('numberWord (0–59, masculino e feminino), pad, to12 e periodOf', () => {
-    for (let n = 0; n < 60; n++) {
-      expect(numberWord(n)).toBe(legacy.numberWord(n));
-      expect(numberWord(n, true)).toBe(legacy.numberWord(n, true));
-      expect(pad(n)).toBe(legacy.pad(n));
+  it('preserva períodos, números masculinos e femininos e horas', () => {
+    expect([...PERIODS]).toEqual(numberFixture.periods);
+    expect(numberFixture.values).toHaveLength(60);
+    for (const { n, masculine, feminine, padded } of numberFixture.values) {
+      expect(numberWord(n)).toBe(masculine);
+      expect(numberWord(n, true)).toBe(feminine);
+      expect(pad(n)).toBe(padded);
     }
-    for (let h = 0; h < 24; h++) {
-      expect(to12(h)).toBe(legacy.to12(h));
-      expect(periodOf(h)).toBe(legacy.periodOf(h));
-    }
-  });
-
-  it('phraseParts e phraseText: 24 × 60 × 4 variações', () => {
-    let checked = 0;
-    for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m++) {
-        for (const withPeriod of [false, true]) {
-          for (const useHalf of [false, true]) {
-            const expected = legacy.phraseParts(h, m, { withPeriod, useHalf });
-            const parts = phraseParts({ h, m }, { withPeriod, useHalf });
-            expect(parts).toStrictEqual(expected.map(fromLegacy));
-            expect(phraseText(parts)).toBe(legacy.phraseText(expected));
-            checked++;
-          }
-        }
-      }
-    }
-    expect(checked).toBe(24 * 60 * 4);
-  });
-
-  it('phraseParts sem opções usa os padrões do legado', () => {
-    for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m++) {
-        expect(phraseParts({ h, m })).toStrictEqual(legacy.phraseParts(h, m).map(fromLegacy));
-      }
+    expect(numberFixture.hours).toHaveLength(24);
+    for (const { h, h12, period } of numberFixture.hours) {
+      expect(to12(h)).toBe(h12);
+      expect(periodOf(h)).toBe(period);
     }
   });
 
-  it('phrase24: 24 × 60 variações', () => {
-    for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m++) {
-        expect(phrase24({ h, m })).toBe(legacy.phrase24(h, m));
-      }
+  it('preserva as frases das 24 × 60 horas com opções padrão e quatro combinações', () => {
+    expect(fixture.cases).toHaveLength(24 * 60);
+    expect(fixture.options).toHaveLength(5);
+    for (const { h, m, text24, phrases } of fixture.cases) {
+      expect(phrase24({ h, m })).toBe(text24);
+      expect(phrases).toHaveLength(fixture.options.length);
+      phrases.forEach((id, index) => {
+        const expected = fixture.phrases[id]!;
+        const parts = index === 0 ? phraseParts({ h, m }) : phraseParts({ h, m }, fixture.options[index]);
+        expect(parts).toStrictEqual(expected.parts.map(piece => fromLegacy(fixture.pieces[piece]!)));
+        expect(phraseText(parts)).toBe(expected.text);
+      });
     }
   });
 });

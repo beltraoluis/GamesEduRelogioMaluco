@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { APP_COPY, homeHeading } from './helpers/locators.ts';
-import { REPO_ROOT, RUNTIME_DIST } from './helpers/paths.ts';
+import { LEGACY_V6_FIXTURE, REPO_ROOT, RUNTIME_DIST } from './helpers/paths.ts';
 
 /**
  * Provas de harness — devem passar sem composição F3.
@@ -31,7 +31,7 @@ test.describe('F2d harness (G1)', () => {
     expect(existsSync(path.join(REPO_ROOT, 'playwright.config.ts'))).toBe(true);
     expect(existsSync(path.join(REPO_ROOT, 'e2e', 'DEPENDENCIES.md'))).toBe(true);
     expect(existsSync(path.join(REPO_ROOT, 'public', 'LICENSE.txt'))).toBe(true);
-    expect(existsSync(path.join(REPO_ROOT, 'legacy', 'sw.js'))).toBe(true);
+    expect(existsSync(path.join(LEGACY_V6_FIXTURE, 'sw.js'))).toBe(true);
     expect(existsSync(path.join(RUNTIME_DIST, 'index.html'))).toBe(true);
     expect(RUNTIME_DIST.includes(`${path.sep}e2e${path.sep}.runtime-dist`)).toBe(true);
   });

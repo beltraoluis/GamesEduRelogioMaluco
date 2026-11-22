@@ -9,6 +9,12 @@ E2E_PORT=44181 E2E_F2C_SHA=0aa620edb7fa4ef1dd2d2e47f5b1b9c2608f4083 \
   npm run test:e2e -- --workers=7
 ```
 
+## Referência congelada da versão v6
+
+O servidor das provas de migração e rollback usa `e2e/fixtures/legacy-v6/`, uma cópia integral da árvore `legacy/` do commit `063d2eea449d7b3307c409e493fac39fc20df471` (árvore Git `6acff69dc3f3e1427fff53f0a5a732fa40bed251`). O servidor só substitui o nome do cache na resposta de `sw.js` para a prova de rollback v7. A fixture faz parte da suíte de testes e fica fora de `public/` e das entradas de build.
+
+Os snapshots em `src/domain/__tests__/fixtures/` foram calculados com o `js/time.js` dessa árvore. `legacy-numbers.json` registra os numerais, o preenchimento com zero, as horas de 12 h e os períodos. Em `legacy-phrases.json`, cada um dos 1.440 horários referencia cinco saídas da função legada: a chamada padrão e as quatro combinações de `withPeriod` e `useHalf`. Os índices em `phrases` e `pieces` compartilham saídas repetidas. Cada caso registra também a frase de 24 h.
+
 ## Execução com as quatro branches compostas
 
 A composição de validação reuniu F2a `8a2c8c4`, F2b `29a4145` e F2c `43ef50e` com os testes desta revisão de F2d, sucessora de `7fc5903`. A entrada temporária montou o App em StrictMode com as quatro telas, registro do SW e hooks reais de atualização e instalação. O launcher também compilou o checkout isolado de F2c com `E2E_F2C_SHA=43ef50ebc350ad8cfaee5f8da65b82cf21a68e96`.
