@@ -25,8 +25,17 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
     if (!active.current || active.current.id !== e.pointerId) return;
     const p = point(e); if (!p) return;
     const t = timeRef.current;
-    if (active.current.hand === 'hour') change({ ...t, h: angleToHour(p.angle, t) }, 'hour');
-    else change(withMinute(t, angleToMinute(p.angle, options.minuteStep), options.linkHands), 'minute');
+    if (active.current.hand === 'hour') {
+      let h = angleToHour(p.angle, t);
+      if (options.linkHands) {
+        // No relógio livre, acompanhe a posição mais próxima no ciclo de 24 horas.
+        const delta = h - t.h;
+        if (Math.abs(delta) > 6) h = (h + 12) % 24;
+      }
+      change({ ...t, h }, 'hour');
+    } else {
+      change(withMinute(t, angleToMinute(p.angle, options.minuteStep), options.linkHands), 'minute');
+    }
   };
   const finish = (e: PointerEvent<SVGSVGElement>) => {
     if (active.current?.id !== e.pointerId) return;

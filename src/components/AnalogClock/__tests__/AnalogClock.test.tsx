@@ -40,3 +40,27 @@ describe('AnalogClock', () => {
     expect(cancel).toHaveBeenCalledTimes(1); unmount(); expect(cancel).toHaveBeenCalledTimes(2);
   });
 });
+
+it.each([
+  [11, 12], [23, 0], [12, 11], [0, 23],
+])('keeps linked hour drags continuous from %i to %i', (from, to) => {
+  vi.stubGlobal('PointerEvent', TestPointer);
+  vi.stubGlobal('DOMPoint', class {
+    constructor(readonly x: number, readonly y: number) {}
+    matrixTransform() { return this; }
+  });
+  const onChange = vi.fn();
+  render(<AnalogClock label="Explorar" interactive linkHands time={{ h: from, m: 30 }} onChange={onChange} />);
+  const svg = screen.getByRole('group');
+  Object.defineProperties(svg, {
+    getScreenCTM: { value: () => ({ inverse: () => ({}) }) },
+    setPointerCapture: { value: vi.fn() },
+  });
+  function position(h: number) {
+    const angle = ((h % 12) * 30 + 15) * Math.PI / 180;
+    return { pointerId: 1, clientX: 110 + 42 * Math.sin(angle), clientY: 110 - 42 * Math.cos(angle) };
+  }
+  fireEvent.pointerDown(svg, position(from));
+  fireEvent.pointerMove(svg, position(to));
+  expect(onChange).toHaveBeenLastCalledWith({ h: to, m: 30 }, 'hour');
+});
