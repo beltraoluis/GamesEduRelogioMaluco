@@ -17,6 +17,7 @@ import { TicMascot } from '@/components/TicMascot';
 import { Tile } from '@/components/Tile';
 import { VisuallyHidden } from '@/components/VisuallyHidden';
 import { APP_COPY } from '@/content/copy';
+import { readDomTemplate } from '@/content/runtimeDomData';
 import {
   ANSWER_REGION_LABELS,
   type ClockTime,
@@ -335,16 +336,25 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                     onChange={(nextTime) => session.moveHands(nextTime)}
                   />
                 </div>
-                <p className={styles.handsLegend}>
-                  <span className={styles.legendItem}>
-                    <HandBadge kind="hour-hand" size="inline" />
-                    <span>pequeno = horas</span>
-                  </span>
-                  <span className={styles.legendItem}>
-                    <HandBadge kind="minute-hand" size="inline" />
-                    <span>grande = minutos</span>
-                  </span>
-                </p>
+                {readDomTemplate('rm-tpl-hands-legend') !== null ? (
+                  <p
+                    className={styles.handsLegend}
+                    dangerouslySetInnerHTML={{
+                      __html: readDomTemplate('rm-tpl-hands-legend') ?? '',
+                    }}
+                  />
+                ) : !import.meta.env.PROD ? (
+                  <p className={styles.handsLegend}>
+                    <span className={styles.legendItem}>
+                      <HandBadge kind="hour-hand" size="inline" />
+                      <span>pequeno = horas</span>
+                    </span>
+                    <span className={styles.legendItem}>
+                      <HandBadge kind="minute-hand" size="inline" />
+                      <span>grande = minutos</span>
+                    </span>
+                  </p>
+                ) : null}
               </>
             ) : null}
           </AnswerRegion>

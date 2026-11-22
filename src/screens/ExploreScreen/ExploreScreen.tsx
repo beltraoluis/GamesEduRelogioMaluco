@@ -18,6 +18,7 @@ import { HandBadge } from '@/components/HandBadge';
 import { PeriodBadge } from '@/components/PeriodBadge';
 import { TicMascot } from '@/components/TicMascot';
 import { APP_COPY } from '@/content/copy';
+import { readDomTemplate } from '@/content/runtimeDomData';
 import {
   ATMOSPHERE_AMBIENT,
   type Atmosphere,
@@ -256,30 +257,40 @@ export function ExploreScreen({
             </Button>
           </div>
 
-          <ul className={styles.facts}>
-            <li className={styles.factItem}>
-              <HandBadge kind="hour-hand" size="inline" />
-              <span>{APP_COPY.explore.facts[0]}</span>
-            </li>
-            <li className={styles.factItem}>
-              <HandBadge kind="minute-hand" size="inline" />
-              <span>{APP_COPY.explore.facts[1]}</span>
-            </li>
-            <li className={styles.factItem}>
-              <span className={styles.secondBadge} aria-hidden="true">
-                <span className={styles.secondNeedle} />
-              </span>
-              <span>{APP_COPY.explore.facts[2]}</span>
-            </li>
-            <li className={styles.factItem}>
-              <span className={styles.hourglassIcon} aria-hidden="true">
-                <UiIcon name="HourglassTime" size={18} />
-              </span>
-              <span>{APP_COPY.explore.facts[3]}</span>
-            </li>
-          </ul>
+          {readDomTemplate('rm-tpl-explore-facts') !== null ? (
+            <div
+              dangerouslySetInnerHTML={{
+                __html: readDomTemplate('rm-tpl-explore-facts') ?? '',
+              }}
+            />
+          ) : !import.meta.env.PROD ? (
+            <>
+              <ul className={styles.facts}>
+                <li className={styles.factItem}>
+                  <HandBadge kind="hour-hand" size="inline" />
+                  <span>{APP_COPY.explore.facts[0]}</span>
+                </li>
+                <li className={styles.factItem}>
+                  <HandBadge kind="minute-hand" size="inline" />
+                  <span>{APP_COPY.explore.facts[1]}</span>
+                </li>
+                <li className={styles.factItem}>
+                  <span className={styles.secondBadge} aria-hidden="true">
+                    <span className={styles.secondNeedle} />
+                  </span>
+                  <span>{APP_COPY.explore.facts[2]}</span>
+                </li>
+                <li className={styles.factItem}>
+                  <span className={styles.hourglassIcon} aria-hidden="true">
+                    <UiIcon name="HourglassTime" size={18} />
+                  </span>
+                  <span>{APP_COPY.explore.facts[3]}</span>
+                </li>
+              </ul>
 
-          <p className={styles.dragTip}>{APP_COPY.explore.dragTip}</p>
+              <p className={styles.dragTip}>{APP_COPY.explore.dragTip}</p>
+            </>
+          ) : null}
         </div>
       </div>
     </section>

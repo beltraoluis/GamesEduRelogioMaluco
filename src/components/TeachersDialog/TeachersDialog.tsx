@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactElement } fr
 import { Button } from '@/components/Button';
 import { APP_COPY } from '@/content/copy';
 import { buildAgplNotice, EDUCATORS_CONTENT } from '@/content/educators';
+import { readDomTemplate } from '@/content/runtimeDomData';
 import type { TeachersDialogProps } from '@/contracts';
 import { useModalDialog } from '@/hooks/useModalDialog';
 import { UiIcon } from '@/ui/icons/UiIcons';
@@ -73,6 +74,8 @@ export function TeachersDialog({
     setResetAnnounced(true);
   };
 
+  const staticEducatorsHtml = readDomTemplate('rm-tpl-educators');
+
   return (
     <dialog
       ref={dialogRef}
@@ -107,73 +110,78 @@ export function TeachersDialog({
           </div>
         ) : null}
 
-        <p className={styles.paragraph}>{EDUCATORS_CONTENT.intro}</p>
+        {staticEducatorsHtml !== null ? (
+          <div dangerouslySetInnerHTML={{ __html: staticEducatorsHtml }} />
+        ) : !import.meta.env.PROD ? (
+          <>
+            <p className={styles.paragraph}>{EDUCATORS_CONTENT.intro}</p>
 
-        <h3 id={bnccHeadingId} className={styles.sectionTitle}>
-          {EDUCATORS_CONTENT.bnccHeading}
-        </h3>
-        <div
-          className={styles.tableWrapper}
-          role="region"
-          aria-labelledby={bnccHeadingId}
-        >
-          <table className={styles.bnccTable} role="table">
-            <thead>
-              <tr>
-                <th scope="col">Código</th>
-                <th scope="col">Resumo da habilidade</th>
-                <th scope="col">Onde aparece</th>
-              </tr>
-            </thead>
-            {/* Os papéis explícitos preservam a tabela empilhada no WebKit antigo (bug 257458). */}
-            {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
-            <tbody role="rowgroup">
-              {EDUCATORS_CONTENT.bnccSkills.map((entry) => (
-                <tr key={entry.code} role="row" data-bncc-row={entry.code}>
-                  <th scope="row" role="rowheader">{entry.code}</th>
-                  {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
-                  <td role="cell">{entry.summary}</td>
-                  {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
-                  <td role="cell">{entry.where}</td>
-                </tr>
+            <h3 id={bnccHeadingId} className={styles.sectionTitle}>
+              {EDUCATORS_CONTENT.bnccHeading}
+            </h3>
+            <div
+              className={styles.tableWrapper}
+              role="region"
+              aria-labelledby={bnccHeadingId}
+            >
+              <table className={styles.bnccTable} role="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Resumo da habilidade</th>
+                    <th scope="col">Onde aparece</th>
+                  </tr>
+                </thead>
+                {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
+                <tbody role="rowgroup">
+                  {EDUCATORS_CONTENT.bnccSkills.map((entry) => (
+                    <tr key={entry.code} role="row" data-bncc-row={entry.code}>
+                      <th scope="row" role="rowheader">{entry.code}</th>
+                      {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
+                      <td role="cell">{entry.summary}</td>
+                      {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
+                      <td role="cell">{entry.where}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className={styles.smallText}>{EDUCATORS_CONTENT.bnccDisclaimer}</p>
+
+            <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.levelsHeading}</h3>
+            <ul className={styles.list}>
+              {EDUCATORS_CONTENT.levels.map((level) => (
+                <li key={level.id}>
+                  <strong>{level.title}:</strong> {level.description}
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
-        <p className={styles.smallText}>{EDUCATORS_CONTENT.bnccDisclaimer}</p>
+            </ul>
 
-        <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.levelsHeading}</h3>
-        <ul className={styles.list}>
-          {EDUCATORS_CONTENT.levels.map((level) => (
-            <li key={level.id}>
-              <strong>{level.title}:</strong> {level.description}
-            </li>
-          ))}
-        </ul>
+            <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.modesHeading}</h3>
+            <ul className={styles.list}>
+              {EDUCATORS_CONTENT.modes.map((mode) => (
+                <li key={mode.id}>
+                  <strong>{mode.title}:</strong> {mode.description}
+                </li>
+              ))}
+            </ul>
 
-        <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.modesHeading}</h3>
-        <ul className={styles.list}>
-          {EDUCATORS_CONTENT.modes.map((mode) => (
-            <li key={mode.id}>
-              <strong>{mode.title}:</strong> {mode.description}
-            </li>
-          ))}
-        </ul>
+            <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.competenciesHeading}</h3>
+            <p className={styles.paragraph}>{EDUCATORS_CONTENT.competencies}</p>
+            <div className={styles.tagList} aria-hidden="true">
+              <span className={styles.tagHour}>azul + filete sólido = horas</span>
+              <span className={styles.tagMinute}>vermelho + borda tracejada = minutos</span>
+              <span className={styles.tagPeriod}>roxo + pílula = período do dia</span>
+            </div>
 
-        <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.competenciesHeading}</h3>
-        <p className={styles.paragraph}>{EDUCATORS_CONTENT.competencies}</p>
-        <div className={styles.tagList} aria-hidden="true">
-          <span className={styles.tagHour}>azul + filete sólido = horas</span>
-          <span className={styles.tagMinute}>vermelho + borda tracejada = minutos</span>
-          <span className={styles.tagPeriod}>roxo + pílula = período do dia</span>
-        </div>
-
-        <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.usageHeading}</h3>
-        <ul className={styles.list}>
-          {EDUCATORS_CONTENT.usageSuggestions.map((suggestion, index) => (
-            <li key={index}>{suggestion}</li>
-          ))}
-        </ul>
+            <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.usageHeading}</h3>
+            <ul className={styles.list}>
+              {EDUCATORS_CONTENT.usageSuggestions.map((suggestion, index) => (
+                <li key={index}>{suggestion}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
 
         <div ref={resetSectionRef} className={styles.resetSection}>
           {!showConfirmBox ? (

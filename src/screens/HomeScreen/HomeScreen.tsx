@@ -10,6 +10,7 @@ import { TeachersDialog } from '@/components/TeachersDialog';
 import { TicMascot } from '@/components/TicMascot';
 import { UpdateToast } from '@/components/UpdateToast';
 import { APP_COPY } from '@/content/copy';
+import { readDomTemplate } from '@/content/runtimeDomData';
 import type {
   LevelId,
   ModeId,
@@ -66,7 +67,8 @@ export function HomeScreen({
   pwa = DEFAULT_PWA,
 }: HomeScreenProps): ReactElement {
   const baseId = useId();
-  const titleId = `${baseId}-home-title`;
+  const staticHeroHtml = readDomTemplate('rm-tpl-home-hero');
+  const titleId = staticHeroHtml !== null ? 'rm-home-title' : `${baseId}-home-title`;
   const levelHeadingId = `${baseId}-level-heading`;
   const modeHeadingId = `${baseId}-mode-heading`;
 
@@ -81,17 +83,24 @@ export function HomeScreen({
       />
 
       <header className={styles.hero}>
-        <div className={styles.heroIdentity}>
-          <div className={styles.mascotWrap}>
-            <TicMascot mood="happy" size="md" ambient="day" />
+        {staticHeroHtml !== null ? (
+          <div
+            className={styles.heroIdentity}
+            dangerouslySetInnerHTML={{ __html: staticHeroHtml }}
+          />
+        ) : !import.meta.env.PROD ? (
+          <div className={styles.heroIdentity}>
+            <div className={styles.mascotWrap}>
+              <TicMascot mood="happy" size="md" ambient="day" />
+            </div>
+            <div className={styles.titleBlock}>
+              <h1 id={titleId} className={styles.title}>
+                {APP_COPY.home.title}
+              </h1>
+              <p className={styles.subtitle}>{APP_COPY.home.subtitle}</p>
+            </div>
           </div>
-          <div className={styles.titleBlock}>
-            <h1 id={titleId} className={styles.title}>
-              {APP_COPY.home.title}
-            </h1>
-            <p className={styles.subtitle}>{APP_COPY.home.subtitle}</p>
-          </div>
-        </div>
+        ) : null}
 
         <AppMenu
           sound={prefs.sound}

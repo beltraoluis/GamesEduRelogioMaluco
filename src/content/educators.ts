@@ -10,12 +10,11 @@
 
 import type { BnccSkill, LevelId, ModeId } from '../domain/types';
 import { buildSourceUrl, SOURCE_REPO_URL } from './copy';
+import { readDomJson } from './runtimeDomData';
 
 export interface BnccSkillEntry {
   readonly code: BnccSkill;
-  /** Paráfrase do texto oficial da BNCC (não substitui a redação oficial). */
   readonly summary: string;
-  /** Onde a habilidade aparece no jogo. */
   readonly where: string;
 }
 
@@ -48,58 +47,50 @@ export interface EducatorsContent {
   readonly licenseHeading: string;
 }
 
-/** As 6 habilidades BNCC cobertas pelo Relógio Maluco. */
-export const BNCC_SKILLS: readonly BnccSkillEntry[] = [
-  {
-    code: 'EF01MA16',
-    summary:
-      'Relatar sequências de acontecimentos de um dia usando, quando possível, os horários dos eventos.',
-    where: 'Nível 1 (horas certas)',
-  },
-  {
-    code: 'EF01MA17',
-    summary: 'Reconhecer e relacionar períodos do dia (manhã, tarde, noite).',
-    where:
-      'Explorar (dia/noite) e Nível 4 (palavras: "da manhã", "da tarde"…)',
-  },
-  {
-    code: 'EF02MA19',
-    summary:
-      'Medir intervalos de tempo com relógio digital e registrar horários.',
-    where: 'Nível 2 – modo Números (registro no relógio digital)',
-  },
-  {
-    code: 'EF03MA22',
-    summary:
-      'Ler e registrar medidas e intervalos de tempo usando relógios analógico e digital.',
-    where: 'Nível 3 – todos os modos',
-  },
-  {
-    code: 'EF03MA23',
-    summary:
-      'Ler horas em relógios digitais e analógicos e relacionar hora/minutos e minuto/segundos.',
-    where:
-      'Níveis 2 e 3, modo Ponteiros e Explorar (ponteiro dos segundos)',
-  },
-  {
-    code: 'EF04MA22',
-    summary:
-      'Ler e registrar medidas e intervalos de tempo em horas, minutos e segundos no cotidiano.',
-    where: 'Nível 4 (minuto a minuto e formato 24 h)',
-  },
-] as const;
-
-/** Códigos BNCC na ordem canônica (cobertura exata exigida pelos testes). */
-export const BNCC_SKILL_CODES: readonly BnccSkill[] = BNCC_SKILLS.map(
-  (entry) => entry.code,
-);
-
-export const EDUCATORS_CONTENT: EducatorsContent = {
+const FALLBACK_EDUCATORS: EducatorsContent = {
   title: 'Para educadores e famílias',
   intro:
     'O Relógio Maluco trabalha a unidade temática Grandezas e Medidas da BNCC (Matemática, Ensino Fundamental – Anos Iniciais), com progressão em quatro níveis. As respostas são montadas arrastando (ou tocando) fichas de números e palavras, com retorno imediato e dicas que apontam os erros mais comuns.',
   bnccHeading: 'Habilidades da BNCC contempladas',
-  bnccSkills: BNCC_SKILLS,
+  bnccSkills: [
+    {
+      code: 'EF01MA16',
+      summary:
+        'Relatar sequências de acontecimentos de um dia usando, quando possível, os horários dos eventos.',
+      where: 'Nível 1 (horas certas)',
+    },
+    {
+      code: 'EF01MA17',
+      summary: 'Reconhecer e relacionar períodos do dia (manhã, tarde, noite).',
+      where:
+        'Explorar (dia/noite) e Nível 4 (palavras: "da manhã", "da tarde"…)',
+    },
+    {
+      code: 'EF02MA19',
+      summary:
+        'Medir intervalos de tempo com relógio digital e registrar horários.',
+      where: 'Nível 2 – modo Números (registro no relógio digital)',
+    },
+    {
+      code: 'EF03MA22',
+      summary:
+        'Ler e registrar medidas e intervalos de tempo usando relógios analógico e digital.',
+      where: 'Nível 3 – todos os modos',
+    },
+    {
+      code: 'EF03MA23',
+      summary:
+        'Ler horas em relógios digitais e analógicos e relacionar hora/minutos e minuto/segundos.',
+      where:
+        'Níveis 2 e 3, modo Ponteiros e Explorar (ponteiro dos segundos)',
+    },
+    {
+      code: 'EF04MA22',
+      summary:
+        'Ler e registrar medidas e intervalos de tempo em horas, minutos e segundos no cotidiano.',
+      where: 'Nível 4 (minuto a minuto e formato 24 h)',
+    },
+  ],
   bnccDisclaimer:
     'Os resumos acima parafraseiam o texto da BNCC. Consulte a redação oficial em basenacionalcomum.mec.gov.br ao planejar suas aulas.',
   levelsHeading: 'Progressão dos níveis',
@@ -165,39 +156,41 @@ export const EDUCATORS_CONTENT: EducatorsContent = {
     'O progresso (estrelas) fica salvo apenas neste aparelho; nenhum dado é enviado.',
   ],
   licenseHeading: 'Licença e código-fonte',
-} as const;
+};
+
+const FALLBACK_AGPL_TPL = [
+  'O Relógio Maluco (versão {version}) é software livre, distribuído sob a GNU Affero General Public License, versão 3 ou posterior (AGPL-3.0-or-later).',
+  'Você pode usar, estudar, modificar e compartilhar o jogo; se oferecer uma versão modificada pela internet, deve disponibilizar o código-fonte correspondente aos usuários.',
+  'Os arquivos servidos por este site são compilados e minificados a partir do código-fonte TypeScript/React; eles não são a forma preferida para modificação.',
+  `O Corresponding Source desta versão está no repositório GitHub: {sourceUrl} (repositório: ${SOURCE_REPO_URL}).`,
+  'Para reproduzir o build: clone o repositório no commit indicado, execute `npm ci` e em seguida `npm run build`; a saída fica em `dist/`.',
+  'Os textos integrais da licença e das dependências empacotadas ficam precacheados offline em LICENSE.txt e THIRD_PARTY_LICENSES.txt.',
+  'O programa é fornecido sem qualquer garantia.',
+].join(' ');
+
+export const EDUCATORS_CONTENT: EducatorsContent = import.meta.env.PROD
+  ? ({
+      title: 'Para educadores e famílias',
+      licenseHeading: 'Licença e código-fonte',
+      bnccSkills: [],
+    } as unknown as EducatorsContent)
+  : FALLBACK_EDUCATORS;
+
+export const BNCC_SKILLS: readonly BnccSkillEntry[] = EDUCATORS_CONTENT.bnccSkills;
+
+export const BNCC_SKILL_CODES: readonly BnccSkill[] = BNCC_SKILLS.map(
+  (entry) => entry.code,
+);
 
 export interface AgplNoticeParams {
-  /** Versão do pacote (ex.: `0.1.0`). */
   readonly version: string;
-  /**
-   * Commit curto ou completo do build (obrigatório).
-   * Vazio ou `"unknown"` faz `buildSourceUrl` lançar (ADR-004 §1).
-   */
   readonly commit: string;
 }
 
-/**
- * Texto AGPL-3.0-or-later §13 para o diálogo dos educadores (pós-build).
- *
- * Explicitamente:
- * - os arquivos servidos são compilados/minificados a partir do TypeScript/React;
- * - Corresponding Source no GitHub em `tree/{commit}` (commit exato do build);
- * - build reproduzível: `npm ci && npm run build` gerando `dist/`;
- * - `LICENSE.txt` e `THIRD_PARTY_LICENSES.txt` precacheados offline;
- * - sem qualquer garantia.
- */
 export function buildAgplNotice(params: AgplNoticeParams): string {
   const sourceUrl = buildSourceUrl(params.commit);
   const versionLabel =
     params.version.trim().length > 0 ? params.version.trim() : 'desconhecida';
-  return [
-    `O Relógio Maluco (versão ${versionLabel}) é software livre, distribuído sob a GNU Affero General Public License, versão 3 ou posterior (AGPL-3.0-or-later).`,
-    'Você pode usar, estudar, modificar e compartilhar o jogo; se oferecer uma versão modificada pela internet, deve disponibilizar o código-fonte correspondente aos usuários.',
-    'Os arquivos servidos por este site são compilados e minificados a partir do código-fonte TypeScript/React; eles não são a forma preferida para modificação.',
-    `O Corresponding Source desta versão está no repositório GitHub: ${sourceUrl} (repositório: ${SOURCE_REPO_URL}).`,
-    'Para reproduzir o build: clone o repositório no commit indicado, execute `npm ci` e em seguida `npm run build`; a saída fica em `dist/`.',
-    'Os textos integrais da licença e das dependências empacotadas ficam precacheados offline em LICENSE.txt e THIRD_PARTY_LICENSES.txt.',
-    'O programa é fornecido sem qualquer garantia.',
-  ].join(' ');
+  const tpl = readDomJson('agplTpl', () => (import.meta.env.PROD ? '' : FALLBACK_AGPL_TPL));
+  return tpl.replace('{version}', versionLabel).replace('{sourceUrl}', sourceUrl);
 }
