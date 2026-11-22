@@ -10,8 +10,10 @@ import { globSync, readFileSync } from 'node:fs';
 
 import { basename } from 'node:path';
 import { transform } from 'lightningcss';
+import MagicString from 'magic-string';
 import { staticContent } from './src/content/staticContent.ts';
 import { EDUCATORS_CONTENT } from './src/content/educatorsArticle.ts';
+import { reactStaticImports } from './build/reactStaticImports.ts';
 const APP_COPY = staticContent.copy;
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
@@ -164,7 +166,11 @@ function buildOptimizationPlugin(): Plugin {
     enforce: 'pre',
     transform(source, id) {
       if (id.endsWith('.tsx')) {
-        return source.replace(/import styles from ('[^']+\.module\.css');/, 'import * as styles from $1;');
+        const match = /import styles from ('[^']+\.module\.css');/.exec(source);
+        if (!match) return;
+        const edited = new MagicString(source);
+        edited.overwrite(match.index, match.index + match[0].length, `import * as styles from ${match[1]};`);
+        return { code: edited.toString(), map: edited.generateMap({ source: id, hires: true, includeContent: true }) };
       }
     },
     transformIndexHtml: {
@@ -186,7 +192,7 @@ export default defineConfig(({ command }) => ({
     cssMinify: 'lightningcss',
     // The single application chunk has no module dependencies to preload.
     modulePreload: { polyfill: false },
-    rolldownOptions: { output: { codeSplitting: false } },
+    rolldownOptions: { treeshake: { commonjs: true }, output: { codeSplitting: false } },
   },
   define: { __APP_VERSION__: JSON.stringify(pkg.version), __APP_COMMIT__: JSON.stringify(commit) },
   css: {
@@ -196,6 +202,7 @@ export default defineConfig(({ command }) => ({
         : { generateScopedName: (local, file) => resolveClass(basename(file, '.module.css'), local) },
   },
   plugins: [
+    reactStaticImports(),
     buildOptimizationPlugin(),
     {
       name: 'retain-component-css',
