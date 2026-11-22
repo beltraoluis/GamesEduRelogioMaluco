@@ -29,7 +29,7 @@ describe('LevelSelector', () => {
     rerender(<LevelSelector levels={LEVELS} current={2} onChange={onChange} />);
     expect(screen.getByRole('button', { name: 'Nível anterior' })).not.toBeDisabled();
 
-    const trigger = screen.getByRole('button', { name: /Nível 2: Meias e quartos/i });
+    const trigger = screen.getByRole('button', { name: /Nível 2 Meias e quartos/i });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
     await user.click(trigger);
@@ -56,7 +56,7 @@ describe('LevelSelector', () => {
 
     expect(screen.getByRole('button', { name: 'Próximo nível' })).toBeDisabled();
 
-    const trigger = screen.getByRole('button', { name: /Nível 4:/i });
+    const trigger = screen.getByRole('button', { name: /Nível 4 /i });
     await user.click(trigger);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
 

@@ -126,7 +126,7 @@ export function LevelSelector({
           className={styles.currentBtn}
           aria-expanded={open}
           aria-controls={popoverId}
-          aria-label={`Nível ${currentLevel.id}: ${currentLevel.name}, ${currentLevel.grade}. Toque para trocar.`}
+          aria-label={`Nível ${currentLevel.id} ${currentLevel.name} ${currentLevel.grade}`}
           onClick={() => setOpen((prev) => !prev)}
           data-level-current={currentLevel.id}
         >
