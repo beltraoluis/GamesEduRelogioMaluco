@@ -4,15 +4,9 @@
 import type { ReactElement } from 'react';
 
 import { HandBadge } from '@/components/HandBadge';
-import type { Group, MessageSegment, MessageTextProps } from '@/contracts';
+import type { MessageSegment, MessageTextProps } from '@/contracts';
 
 import styles from './MessageText.module.css';
-
-const GROUP_CLASS: Readonly<Record<Group, string | undefined>> = {
-  hour: styles.termHour,
-  minute: styles.termMinute,
-  period: styles.termPeriod,
-};
 
 function renderSegment(segment: MessageSegment, index: number): ReactElement {
   switch (segment.kind) {
@@ -25,13 +19,11 @@ function renderSegment(segment: MessageSegment, index: number): ReactElement {
         </strong>
       );
     case 'term': {
-      const groupClass = segment.group === undefined ? undefined : GROUP_CLASS[segment.group];
-      const className = [styles.term, groupClass].filter(Boolean).join(' ');
       return (
         <span
           key={index}
-          className={className}
-          {...(segment.group === undefined ? {} : { 'data-term-group': segment.group })}
+          className={styles.term}
+          data-term-group={segment.group}
         >
           {segment.text}
         </span>
@@ -45,7 +37,7 @@ function renderSegment(segment: MessageSegment, index: number): ReactElement {
 export function MessageText({ message }: MessageTextProps): ReactElement {
   return (
     <span className={styles.messageText} data-message-code={message.code}>
-      {message.segments.map((segment, index) => renderSegment(segment, index))}
+      {message.segments.map(renderSegment)}
     </span>
   );
 }

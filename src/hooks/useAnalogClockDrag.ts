@@ -5,6 +5,13 @@ import type { AnalogClockDragApi, AnalogClockDragOptions, ClockTime, HandName } 
 import type { PointerEvent, KeyboardEvent } from 'react';
 import { angleToHour, angleToMinute, pickHand, withMinute, CLOCK_CENTER } from '../domain/clockMath';
 
+export function renderedHandAngle(node: SVGGElement): number | null {
+  const matrix = /^matrix\(([^)]+)\)$/.exec(getComputedStyle(node).transform);
+  const [a, b] = matrix?.[1]?.split(',').map(Number) ?? [];
+  if (a === undefined || b === undefined || !Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.atan2(b, a) * 180 / Math.PI;
+}
+
 export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClockDragApi & { bind: AnalogClockDragApi['bind'] & { onLostPointerCapture: (event: PointerEvent<SVGSVGElement>) => void } } {
   const [dragging, setDragging] = useState<HandName | null>(null);
   const active = useRef<{ id: number; hand: HandName } | null>(null);
@@ -59,7 +66,11 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
       const p = point(e); if (!p) return;
       const hand: HandName = options.lockMinute ? 'hour' : pickHand(p.angle, p.radius, timeRef.current);
       const g = e.currentTarget.querySelector<SVGGElement>(`[data-hand="${hand}"]`);
-      if (g) { const transform = getComputedStyle(g).transform; const match = /^matrix\(([^)]+)\)$/.exec(transform); if (match) { const values = match[1]?.split(',').map(Number); const a = values?.[0], b = values?.[1]; if (a !== undefined && b !== undefined && Number.isFinite(a) && Number.isFinite(b)) { const angle = Math.atan2(b, a) * 180 / Math.PI; g.style.transition = 'none'; g.style.transform = `rotate(${angle}deg)`; } } }
+      const angle = g && renderedHandAngle(g);
+      if (g && angle !== null) {
+        g.style.transition = 'none';
+        g.style.transform = `rotate(${angle}deg)`;
+      }
       active.current = { id: e.pointerId, hand }; setDragging(hand); e.currentTarget.setPointerCapture(e.pointerId); options.onGrab?.(hand);
     }, onPointerMove: move, onPointerUp: finish, onPointerCancel: finish, onLostPointerCapture: finish } };
 }

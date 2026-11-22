@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactElement,
-} from 'react';
+import { useCallback, useId, useLayoutEffect, type ReactElement } from 'react';
 
-import { APP_COPY } from '@/content/copy';
+import { UI_COPY } from '@/content/runtimeDomData';
 import type { AppMenuProps } from '@/contracts';
+import { useDismissiblePopover } from '@/hooks/useDismissiblePopover';
 import { UiIcon, type UiIconName } from '@/ui/icons/UiIcons';
 
 import styles from './AppMenu.module.css';
@@ -30,15 +23,18 @@ export function AppMenu({
   pwa,
 }: AppMenuProps): ReactElement {
   const panelId = `${useId()}-menu-panel`;
-  const containerRef = useRef<HTMLElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  const [open, setOpen] = useState(false);
-
   const offlineReady =
     'offlineReady' in pwa &&
     Boolean((pwa as { readonly offlineReady?: boolean }).offlineReady);
+
+  const {
+    open,
+    setOpen,
+    containerRef,
+    triggerRef,
+    panelRef,
+    close: closeMenu,
+  } = useDismissiblePopover<HTMLElement>();
 
   const computeFallbackPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -63,19 +59,9 @@ export function AppMenu({
 
     panel.style.setProperty('--menu-top', `${Math.max(margin, top)}px`);
     panel.style.setProperty('--menu-left', `${left}px`);
-  }, []);
+  }, [triggerRef, panelRef]);
 
-  const closeMenu = useCallback((restoreFocus: boolean) => {
-    setOpen(false);
-    try {
-      panelRef.current?.hidePopover?.();
-    } catch {
-      // Ignora
-    }
-    if (restoreFocus) {
-      triggerRef.current?.focus();
-    }
-  }, []);
+
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -86,32 +72,11 @@ export function AppMenu({
     } catch {
       // O painel também pode ser posicionado fora da camada nativa.
     }
-    if (open) computeFallbackPosition();
-  }, [open, computeFallbackPosition]);
-
-  useEffect(() => {
     if (!open) return;
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (target && containerRef.current && !containerRef.current.contains(target)) {
-        closeMenu(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        closeMenu(true);
-      }
-    };
-    document.addEventListener('click', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
+    computeFallbackPosition();
     window.addEventListener('resize', computeFallbackPosition);
-    return () => {
-      document.removeEventListener('click', handleOutsideClick);
-      document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', computeFallbackPosition);
-    };
-  }, [open, closeMenu, computeFallbackPosition]);
+    return () => window.removeEventListener('resize', computeFallbackPosition);
+  }, [open, panelRef, computeFallbackPosition]);
 
   const switches: readonly {
     readonly key: 'sound' | 'voice';
@@ -124,17 +89,26 @@ export function AppMenu({
       key: 'sound',
       checked: sound,
       icon: sound ? 'BellOn' : 'BellOff',
-      label: sound ? APP_COPY.menu.soundOn : APP_COPY.menu.soundOff,
+      label: sound ? UI_COPY.menu.soundOn : UI_COPY.menu.soundOff,
       onToggle: onToggleSound,
     },
     {
       key: 'voice',
       checked: voice,
       icon: voice ? 'VoiceOn' : 'VoiceOff',
-      label: voice ? APP_COPY.menu.voiceOn : APP_COPY.menu.voiceOff,
+      label: voice ? UI_COPY.menu.voiceOn : UI_COPY.menu.voiceOff,
       onToggle: onToggleVoice,
     },
   ];
+
+  const renderItemContent = (icon: UiIconName, label: string, size = 22): ReactElement => (
+    <>
+      <span className={styles.itemIcon} aria-hidden="true">
+        <UiIcon name={icon} size={size} />
+      </span>
+      <span className={styles.itemLabel}>{label}</span>
+    </>
+  );
 
   return (
     <nav ref={containerRef} className={styles.menu} aria-label="Menu principal" data-app-menu="true">
@@ -176,10 +150,7 @@ export function AppMenu({
             onClick={sw.onToggle}
             data-menu-item={sw.key}
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name={sw.icon} size={22} />
-            </span>
-            <span className={styles.itemLabel}>{sw.label}</span>
+            {renderItemContent(sw.icon, sw.label)}
             <span
               className={styles.switchTrack}
               data-checked={String(sw.checked)}
@@ -201,10 +172,7 @@ export function AppMenu({
           }}
           data-menu-item="teachers"
         >
-          <span className={styles.itemIcon} aria-hidden="true">
-            <UiIcon name="TeacherBook" size={22} />
-          </span>
-          <span className={styles.itemLabel}>{APP_COPY.menu.teachers}</span>
+          {renderItemContent('TeacherBook', UI_COPY.menu.teachers)}
         </button>
 
         <a
@@ -215,52 +183,40 @@ export function AppMenu({
           onClick={() => closeMenu(false)}
           data-menu-item="source"
         >
-          <span className={styles.itemIcon} aria-hidden="true">
-            <UiIcon name="CompassExplore" size={22} />
-          </span>
-          <span className={styles.itemLabel}>{APP_COPY.menu.source}</span>
+          {renderItemContent('CompassExplore', UI_COPY.menu.source)}
         </a>
 
         {pwa.canInstall && !pwa.isStandalone ? (
           <button
             type="button"
-            className={[styles.menuItem, styles.installItem].filter(Boolean).join(' ')}
+            className={`${styles.menuItem} ${styles.installItem}`}
             onClick={() => {
               closeMenu(false);
               void pwa.install();
             }}
             data-menu-item="install"
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name="InstallApp" size={22} />
-            </span>
-            <span className={styles.itemLabel}>{APP_COPY.menu.install}</span>
+            {renderItemContent('InstallApp', UI_COPY.menu.install)}
           </button>
         ) : null}
 
         {pwa.showIosInstallTip && !pwa.isStandalone && !pwa.canInstall ? (
           <div
-            className={[styles.menuItem, styles.iosTipItem].filter(Boolean).join(' ')}
+            className={`${styles.menuItem} ${styles.iosTipItem}`}
             role="note"
             data-menu-item="ios-install-tip"
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name="InstallApp" size={20} />
-            </span>
-            <span className={styles.itemLabel}>{APP_COPY.menu.iosInstallTip}</span>
+            {renderItemContent('InstallApp', UI_COPY.menu.iosInstallTip, 20)}
           </div>
         ) : null}
 
         {offlineReady ? (
           <div
-            className={[styles.menuItem, styles.offlineBadge].filter(Boolean).join(' ')}
+            className={`${styles.menuItem} ${styles.offlineBadge}`}
             role="status"
             data-menu-item="offline-ready"
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name="OfflineCheck" size={20} />
-            </span>
-            <span className={styles.itemLabel}>{APP_COPY.menu.offlineReady}</span>
+            {renderItemContent('OfflineCheck', UI_COPY.menu.offlineReady, 20)}
           </div>
         ) : null}
       </div>

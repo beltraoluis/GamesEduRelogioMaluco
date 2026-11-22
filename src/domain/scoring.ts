@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { content } from '../content/runtimeDomData';
 /** Estrelas e resumo da rodada. */
 
 import type { GameMode, LevelId, RoundSummary, Stars, StarsKey } from './types';
@@ -24,11 +25,7 @@ export function starsKey(mode: GameMode, levelId: LevelId): StarsKey {
   return `${mode}-${levelId}`;
 }
 
-export const RESULT_TITLES: Readonly<Record<Stars, string>> = {
-  3: 'Você é craque das horas!',
-  2: 'Muito bom!',
-  1: 'Bom trabalho!',
-};
+export const RESULT_TITLES: Readonly<Record<Stars, string>> = content.resultTitles;
 
 export function buildRoundSummary(mode: GameMode, levelId: LevelId, results: readonly number[]): RoundSummary {
   const totalMistakes = results.reduce((a, r) => a + r, 0);

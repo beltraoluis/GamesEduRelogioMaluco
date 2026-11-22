@@ -9,17 +9,17 @@
     user-select: none;
   }
 
-  .sm {
+  .mascot:where([data-size="sm"]) {
     width: 4rem;
     height: 4rem;
   }
 
-  .md {
+  .mascot:where([data-size="md"]) {
     width: 6rem;
     height: 6rem;
   }
 
-  .lg {
+  .mascot:where([data-size="lg"]) {
     width: 8.5rem;
     height: 8.5rem;
   }

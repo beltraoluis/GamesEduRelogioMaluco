@@ -2,6 +2,8 @@
 /* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
 
 @layer components {
+  .staticContent { display: contents; }
+
   .card {
     position: relative;
     display: flex;
@@ -36,23 +38,19 @@
   }
 
   /* Redundância cromática e geométrica por modo */
-  .numbers {
+  .card:where([data-mode-card="numbers"], [data-mode-card="assemble"]) {
     border-bottom: 5px solid var(--color-hour);
   }
 
-  .assemble {
-    border-bottom: 5px solid var(--color-hour);
-  }
-
-  .words {
+  .card:where([data-mode-card="words"]) {
     border-bottom: 5px solid var(--color-period);
   }
 
-  .hands {
+  .card:where([data-mode-card="hands"]) {
     border-bottom: 5px solid var(--color-minute);
   }
 
-  .explore {
+  .card:where([data-mode-card="explore"]) {
     border-bottom: 5px solid var(--color-second);
   }
 
@@ -95,27 +93,27 @@
     border: 1.5px solid var(--color-border-card);
   }
 
-  .numbers .modeBadge {
+  .card:where([data-mode-card="numbers"], [data-mode-card="assemble"]) .modeBadge {
     color: var(--color-hour);
     background-color: var(--color-hour-soft);
     border-color: var(--color-hour);
   }
 
-  .words .modeBadge {
+  .card:where([data-mode-card="words"]) .modeBadge {
     color: var(--color-period);
     background-color: var(--color-period-soft);
     border-color: var(--color-period);
     border-radius: var(--radius-pill);
   }
 
-  .hands .modeBadge {
+  .card:where([data-mode-card="hands"]) .modeBadge {
     color: var(--color-minute);
     background-color: var(--color-minute-soft);
     border-color: var(--color-minute);
     border-style: dashed;
   }
 
-  .explore .modeBadge {
+  .card:where([data-mode-card="explore"]) .modeBadge {
     color: var(--color-second);
     background-color: var(--color-second-soft);
     border-color: var(--color-second);

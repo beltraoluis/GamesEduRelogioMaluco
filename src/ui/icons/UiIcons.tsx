@@ -3,7 +3,7 @@
 
 import type { ReactElement } from 'react';
 
-import { SPRITE_URL, StarIcon } from './StarIcon';
+import { SpriteIcon, StarIcon } from './StarIcon';
 
 export const UI_ICON_NAMES = [
   'DigitalBlocks',
@@ -67,31 +67,13 @@ export function UiIcon({ name, size = 24, className, title }: UiIconProps): Reac
         filled={name !== 'StarOutline'}
         variant={variant}
         size={size}
-        {...(className === undefined ? {} : { className })}
-        {...(title === undefined ? {} : { title })}
+        className={className}
+        title={title}
       />
     );
   }
 
-  const isDecorative = title === undefined || title.length === 0;
-  const symbolId = ALIAS[name] ?? name;
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      data-ui-icon={name}
-      {...(isDecorative ? { 'aria-hidden': 'true' } : { role: 'img', 'aria-label': title })}
-      {...(className === undefined ? {} : { className })}
-    >
-      {!isDecorative ? <title>{title}</title> : null}
-      <use href={`${SPRITE_URL}#ui-${symbolId}`} />
-    </svg>
-  );
+  return <SpriteIcon symbol={`ui-${ALIAS[name] ?? name}`} data-ui-icon={name} size={size} title={title} className={className} />;
 }
 
 export default UiIcon;

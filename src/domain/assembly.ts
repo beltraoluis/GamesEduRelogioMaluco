@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { content, formatText } from '../content/runtimeDomData';
+
 export type AssemblyPhase = 'hours' | 'minutes';
 export interface AssemblyState {
   readonly phase: AssemblyPhase;
@@ -10,10 +12,8 @@ export interface AssemblyState {
   readonly message: string;
 }
 export const POSITIONS = Array.from({ length: 12 }, (_, i) => i);
-export const ASSEMBLY_INTRO = {
-  hours: 'Comece no 12, lá em cima. Conte de um em um ao redor do relógio.',
-  minutes: 'Comece no 00, lá em cima. Conte de cinco em cinco ao redor do relógio.',
-};
+const copy = content.assembly;
+export const ASSEMBLY_INTRO = copy.intro;
 export function assemblyLabel(phase: AssemblyPhase, position: number): string {
   return phase === 'hours' ? String(position || 12) : String(position * 5).padStart(2, '0');
 }
@@ -38,12 +38,12 @@ export function assemblyReducer(state: AssemblyState, action: AssemblyAction): A
   const piece = action.type === 'select' ? action.position : action.piece;
   if (!POSITIONS.includes(piece) || state.placed.includes(piece)) return state;
   if (action.type === 'select') return { ...state, selected: piece,
-    message: `Peça ${assemblyLabel(state.phase, piece)} selecionada. Agora toque no encaixe.` };
+    message: formatText(copy.selected, assemblyLabel(state.phase, piece)) };
   if (!POSITIONS.includes(action.target) || state.placed.includes(action.target)) return state;
   if (piece !== action.target) return { ...state, mistakes: state.mistakes + 1, selected: piece,
-    message: `Ainda não é esse lugar. Tente outro encaixe para ${assemblyLabel(state.phase, piece)}. ${ASSEMBLY_INTRO[state.phase]}` };
+    message: formatText(copy.wrong, assemblyLabel(state.phase, piece), ASSEMBLY_INTRO[state.phase]) };
   const placed = [...state.placed, piece];
   return { ...state, placed, selected: null, message: placed.length === 12
-    ? (state.phase === 'hours' ? 'Você montou as horas! Agora vamos aos minutos.' : 'Você montou o relógio completo!')
-    : `Isso! ${placed.length} de 12 peças encaixadas. Continue!` };
+    ? copy.finished[state.phase]
+    : formatText(copy.progress, placed.length) };
 }

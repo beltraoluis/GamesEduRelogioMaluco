@@ -32,7 +32,7 @@ export default defineConfig({
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      testMatch: /ios-tip\.spec\.ts|harness\.spec\.ts/,
+      testMatch: /ios-tip\.spec\.ts|harness\.spec\.ts|offline-screens\.spec\.ts/,
     },
   ],
   webServer: {

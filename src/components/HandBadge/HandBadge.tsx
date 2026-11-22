@@ -10,14 +10,13 @@ import styles from './HandBadge.module.css';
 
 export function HandBadge({ kind, size = 'inline' }: HandBadgeProps): ReactElement {
   const px = size === 'md' ? 24 : 20;
-  const className = [styles.handBadge, styles[size]].filter(Boolean).join(' ');
 
   return (
     <svg
       viewBox="0 0 24 24"
       width={px}
       height={px}
-      className={className}
+      className={styles.handBadge}
       aria-hidden="true"
       focusable="false"
       data-hand-badge={kind}

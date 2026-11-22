@@ -24,9 +24,7 @@ export function Button({
   children,
   ...rest
 }: ButtonProps): ReactElement {
-  const variantClass = styles[variant];
-  const sizeClass = styles[size];
-  const mergedClassName = [styles.button, variantClass, sizeClass, className]
+  const mergedClassName = [styles.button, className]
     .filter(Boolean)
     .join(' ');
 

@@ -10,6 +10,8 @@ import { ASSEMBLY_INTRO, POSITIONS, assemblyLabel, assemblyReducer, dialPosition
 import type { AssemblyPhase } from '@/domain/assembly';
 import { starsFor } from '@/domain/scoring';
 import { useTileDrag } from '@/hooks/useTileDrag';
+import { content, formatText, UI_COPY } from '@/content/runtimeDomData';
+const copy = content.assembly;
 import styles from './AssemblyScreen.module.css';
 
 interface Props {
@@ -51,7 +53,7 @@ function AssemblyGame({ levelId, sound, speech, recordStars, onConfetti, onHome,
     completed.current = true;
     recordStars(`assemble-${levelId}`, stars);
     sound.play('fanfare');
-    speech.speak('Muito bem! Você montou o relógio completo!');
+    speech.speak(copy.celebration);
     onConfetti(40);
   }, [done, levelId, stars, recordStars, sound, speech, onConfetti]);
 
@@ -68,19 +70,19 @@ function AssemblyGame({ levelId, sound, speech, recordStars, onConfetti, onHome,
 
   if (result) return <section className={styles.result} data-screen="assembly-result" aria-labelledby="assembly-title">
     <TicMascot mood="celebrate" size="lg" ambient="day" />
-    <h1 id="assembly-title" ref={title} tabIndex={-1}>Você montou o relógio!</h1>
+    <h1 id="assembly-title" ref={title} tabIndex={-1}>{copy.resultTitle}</h1>
     <StarRating value={stars} size="lg" label={`${stars} de 3 estrelas`} animate />
-    <p>12 horas e 12 marcações de minutos nos seus lugares.</p>
-    <div className={styles.actions}><Button variant="go" onClick={onAgain}>Jogar de novo</Button>
-      <Button onClick={onHome}>Início</Button></div>
+    <p>{copy.resultDescription}</p>
+    <div className={styles.actions}><Button variant="go" onClick={onAgain}>{UI_COPY.result.playAgain}</Button>
+      <Button onClick={onHome}>{UI_COPY.result.home}</Button></div>
   </section>;
 
   return <section className={styles.screen} data-screen="assemble" data-phase={state.phase} aria-labelledby="assembly-title">
-    <header className={styles.header}><Button onClick={onHome}>Voltar ao início</Button>
+    <header className={styles.header}><Button onClick={onHome}>{UI_COPY.game.back}</Button>
       <span>Etapa {state.phase === 'hours' ? 1 : 2} de 2 · {state.placed.length}/12</span></header>
-    <h1 id="assembly-title" ref={title} tabIndex={-1}>Monte o relógio: {state.phase === 'hours' ? 'horas' : 'minutos'}</h1>
+    <h1 id="assembly-title" ref={title} tabIndex={-1}>{copy.title}{copy.phases[state.phase]}</h1>
     <p>{ASSEMBLY_INTRO[state.phase]}</p>
-    <p>Arraste cada peça ou toque na peça e depois no encaixe.</p>
+    <p>{copy.instructions}</p>
     <div className={styles.playArea} data-group={state.phase === 'hours' ? 'hour' : 'minute'}>
       <div className={styles.dial} role="group" aria-label="Mostrador do relógio">
         <span className={styles.center} aria-hidden="true" />
@@ -92,24 +94,24 @@ function AssemblyGame({ levelId, sound, speech, recordStars, onConfetti, onHome,
           return <button key={position} type="button" className={styles.target} style={dialPosition(position)}
             data-slot-id={`assembly-${position}`} data-filled={filled ? '' : undefined}
             data-over={overSlotId === `assembly-${position}`} disabled={filled}
-            aria-label={`Encaixe ${position === 0 ? 'no topo' : `na posição ${position} do relógio`}${filled ? `: ${assemblyLabel(state.phase, position)}, preenchido` : ', vazio'}`}
+            aria-label={formatText(copy.target, position === 0 ? copy.top : formatText(copy.position, position), filled ? formatText(copy.filled, assemblyLabel(state.phase, position)) : copy.empty)}
             onClick={() => state.selected !== null && place(state.selected, position)}>
             {filled ? assemblyLabel(state.phase, position) : <span aria-hidden="true">·</span>}
           </button>;
         })}
       </div>
-      <div className={styles.bank} role="group" aria-label={`Peças de ${state.phase === 'hours' ? 'horas' : 'minutos'}`}>
+      <div className={styles.bank} role="group" aria-label={`Peças de ${copy.phases[state.phase]}`}>
         {POSITIONS.map(position => <Piece key={`${state.phase}-${position}`} position={position} phase={state.phase}
           used={state.placed.includes(position)} selected={state.selected === position} onSelect={select} onDrop={place} />)}
       </div>
     </div>
     <p className={styles.feedback} role="status" aria-live="polite" aria-atomic="true">{state.message}</p>
     <div className={styles.actions}>
-      <Button onClick={() => speech.speak(`${ASSEMBLY_INTRO[state.phase]} Arraste cada peça ou toque na peça e depois no encaixe.`)}>Ouvir instruções</Button>
+      <Button onClick={() => speech.speak(`${ASSEMBLY_INTRO[state.phase]} ${copy.instructions}`)}>{copy.listen}</Button>
       {full && <button ref={next} type="button" className={styles.next} onClick={() => {
         speech.cancel(); sound.play('pick');
         if (done) setResult(true); else dispatch({ type: 'minutes' });
-      }}>{done ? 'Ver resultado' : 'Montar os minutos'}</button>}
+      }}>{done ? copy.result : copy.next}</button>}
     </div>
   </section>;
 }

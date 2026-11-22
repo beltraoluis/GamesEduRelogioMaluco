@@ -20,38 +20,16 @@ const CONFETTI_COLORS = [
   '#2e7d32',
 ] as const;
 
-interface ParticleSpec {
-  readonly id: string;
-  readonly leftPercent: number;
-  readonly color: string;
-  readonly dxPx: number;
-  readonly rotDeg: number;
-  readonly delayMs: number;
-  readonly durationMs: number;
-}
-
-function buildParticles(seq: number, count: number): readonly ParticleSpec[] {
-  const safeCount = Math.max(0, Math.min(count, 120));
-  const out: ParticleSpec[] = [];
-  for (let i = 0; i < safeCount; i++) {
-    const hash = ((seq * 1103515245 + (i + 1) * 12345) >>> 0) % 10000;
-    const leftPercent = ((i * 97 + seq * 31) % 96) + 2;
-    const color = CONFETTI_COLORS[(i + seq) % CONFETTI_COLORS.length] ?? '#ffb703';
-    const dxPx = (hash % 161) - 80;
-    const rotDeg = 180 + (hash % 720);
-    const delayMs = (i * 23) % 300;
-    const durationMs = 1200 + (hash % 900);
-    out.push({
-      id: `${seq}-${i}`,
-      leftPercent,
-      color,
-      dxPx,
-      rotDeg,
-      delayMs,
-      durationMs,
-    });
-  }
-  return out;
+function particleStyle(seq: number, i: number): CSSProperties & Record<string, string> {
+  const hash = ((seq * 1103515245 + (i + 1) * 12345) >>> 0) % 10000;
+  return {
+    left: `${((i * 97 + seq * 31) % 96) + 2}%`,
+    backgroundColor: CONFETTI_COLORS[(i + seq) % CONFETTI_COLORS.length] ?? '#ffb703',
+    '--confetti-dx': `${(hash % 161) - 80}px`,
+    '--confetti-rot': `${180 + (hash % 720)}deg`,
+    '--confetti-delay': `${(i * 23) % 300}ms`,
+    '--confetti-duration': `${1200 + (hash % 900)}ms`,
+  };
 }
 
 export function Confetti({ burst }: ConfettiProps): ReactElement | null {
@@ -61,7 +39,7 @@ export function Confetti({ burst }: ConfettiProps): ReactElement | null {
     return null;
   }
 
-  const particles = buildParticles(burst.seq, burst.count);
+  const count = Math.min(Math.ceil(burst.count), 120);
 
   return (
     <div
@@ -70,25 +48,15 @@ export function Confetti({ burst }: ConfettiProps): ReactElement | null {
       data-confetti-seq={burst.seq}
       data-motion="particle"
     >
-      {particles.map((p) => {
-        const style: CSSProperties & Record<string, string> = {
-          left: `${p.leftPercent}%`,
-          backgroundColor: p.color,
-          '--confetti-dx': `${p.dxPx}px`,
-          '--confetti-rot': `${p.rotDeg}deg`,
-          '--confetti-delay': `${p.delayMs}ms`,
-          '--confetti-duration': `${p.durationMs}ms`,
-        };
-        return (
+      {Array.from({ length: count }, (_, i) => (
           <i
-            key={p.id}
+            key={`${burst.seq}-${i}`}
             className={styles.particle}
-            style={style}
+            style={particleStyle(burst.seq, i)}
             data-confetti-particle="true"
             data-motion="particle"
           />
-        );
-      })}
+      ))}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { UI_COPY, content, readDomTemplate, formatText as fmt } from '@/content/runtimeDomData';
 import { useEffect, useId, useRef, type ReactElement } from 'react';
 
 import { AnalogClock } from '@/components/AnalogClock';
@@ -16,7 +17,6 @@ import { SpeechBubble } from '@/components/SpeechBubble';
 import { TicMascot } from '@/components/TicMascot';
 import { Tile } from '@/components/Tile';
 import { VisuallyHidden } from '@/components/VisuallyHidden';
-import { APP_COPY } from '@/content/copy';
 import {
   ANSWER_REGION_LABELS,
   type ClockTime,
@@ -33,11 +33,11 @@ import {
   type Question,
   type SlotSpec,
 } from '@/contracts';
-import { clockMath } from '@/domain/clockMath';
+import { to12 } from '@/domain/time';
 import { renderMessage } from '@/domain/hints';
 import { GROUP_NAMES } from '@/domain/question';
 import { perfectCount } from '@/domain/scoring';
-import { UiIcon } from '@/ui/icons/UiIcons';
+import { UiIcon, type UiIconName } from '@/ui/icons/UiIcons';
 
 import styles from './GameScreen.module.css';
 
@@ -46,49 +46,29 @@ export interface AnalogDescriptionOptions {
   readonly minuteLabels?: boolean | undefined;
 }
 
-/**
- * Descreve geometricamente as posições e a identidade dos ponteiros no mostrador
- * (ponteiro curto das horas e ponteiro longo dos minutos, incluindo posições
- * intermediárias e período quando visível), permitindo resolver o desafio com
- * leitor de tela sem anunciar a resposta numérica/por extenso pronta.
- */
-export function describeAnalogHandPositions(time: ClockTime): string {
-  const h12 = clockMath.to12(time.h);
-  const nextH12 = (h12 % 12) + 1;
+const ANALOG_DESC = content.analogDesc;
 
+export function describeAnalogHandPositions(time: ClockTime): string {
+  const h12 = to12(time.h);
+  const nextH12 = (h12 % 12) + 1;
   const hourDesc =
     time.m === 0
-      ? `ponteiro curto das horas apontando para o número ${h12}`
-      : `ponteiro curto das horas entre os números ${h12} e ${nextH12}`;
+      ? fmt(ANALOG_DESC.hourPoint, h12)
+      : fmt(ANALOG_DESC.hourBetween, h12, nextH12);
 
-  let minuteDesc: string;
-  if (time.m % 5 === 0) {
-    const dialNum = time.m === 0 ? 12 : time.m / 5;
-    minuteDesc = `ponteiro longo dos minutos apontando para o número ${dialNum}`;
-  } else {
-    const prevMark = Math.floor(time.m / 5);
-    const prevDialNum = prevMark === 0 ? 12 : prevMark;
-    const nextDialNum = (prevDialNum % 12) + 1;
-    const ticksAfter = time.m % 5;
-    const ticksText = ticksAfter === 1 ? '1 tracinho' : `${ticksAfter} tracinhos`;
-    minuteDesc = `ponteiro longo dos minutos entre os números ${prevDialNum} e ${nextDialNum}, ${ticksText} depois do número ${prevDialNum}`;
-  }
-
-  return `${hourDesc}; ${minuteDesc}`;
+  return `${hourDesc}; ponteiro longo dos minutos ${ANALOG_DESC.minutes[time.m]}`;
 }
 
 export function describeAnalogStimulus(
   time: ClockTime,
   options: AnalogDescriptionOptions = {},
 ): string {
-  const parts: string[] = [
-    `Relógio analógico do desafio: ${describeAnalogHandPositions(time)}`,
-  ];
+  const parts: string[] = [`${ANALOG_DESC.stimPrefix}${describeAnalogHandPositions(time)}`];
   if (options.period !== undefined) {
     parts.push(`período ${options.period}`);
   }
   if (options.minuteLabels) {
-    parts.push('marcadores de 5 em 5 minutos visíveis no mostrador');
+    parts.push(ANALOG_DESC.stimLabels);
   }
   return `${parts.join('; ')}.`;
 }
@@ -97,10 +77,11 @@ export function describeInteractiveAnalogClock(
   time: ClockTime,
   lockMinute: boolean,
 ): string {
-  const controlHint = lockMinute
-    ? 'Use as setas esquerda e direita ou arraste o ponteiro curto das horas (ponteiro longo dos minutos travado no 12).'
-    : 'Use as setas ou arraste os ponteiros.';
-  return `Relógio analógico interativo. ${controlHint} Posição atual: ${describeAnalogHandPositions(time)}.`;
+  return fmt(
+    ANALOG_DESC.interTpl,
+    lockMinute ? ANALOG_DESC.ctrlLocked : ANALOG_DESC.ctrlFree,
+    describeAnalogHandPositions(time),
+  );
 }
 
 export interface MascotSignal {
@@ -161,6 +142,14 @@ interface GameStageProps {
   readonly onHome: () => void;
 }
 
+function actionButton(action: string, label: string, icon: UiIconName, onClick: () => void, primary = false) {
+  return (
+    <Button variant={primary ? 'go' : 'soft'} onClick={onClick} icon={<UiIcon name={icon} size={primary ? 22 : 20} />} data-game-action={action}>
+      {label}
+    </Button>
+  );
+}
+
 function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
   const promptId = `${useId()}-game-prompt`;
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -194,7 +183,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
         slot={slot}
         filledWith={filledWith}
         over={overSlotId === slot.id && filledWith === null}
-        {...(glowSeq > 0 ? { glowSeq } : {})}
+        glowSeq={glowSeq}
       />
     );
   };
@@ -212,7 +201,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
       <header className={styles.topbar}>
         <Button
           variant="icon"
-          aria-label={APP_COPY.game.back}
+          aria-label={UI_COPY.game.back}
           onClick={onHome}
           icon={<UiIcon name="BackArrow" size={24} />}
         />
@@ -236,11 +225,11 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
       </header>
 
       <h1 id={promptId} className={styles.prompt}>
-        {APP_COPY.game.prompts[question.mode]}
+        {UI_COPY.game.prompts[question.mode]}
       </h1>
 
       {question.mode !== 'hands' ? (
-        <VisuallyHidden>{APP_COPY.game.tileFirstHint}</VisuallyHidden>
+        <VisuallyHidden>{UI_COPY.game.tileFirstHint}</VisuallyHidden>
       ) : null}
 
       <div className={styles.stage}>
@@ -332,19 +321,28 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                     minuteLabels={showMinuteLabels}
                     highlight={view.handHighlight}
                     size="lg"
-                    onChange={(nextTime) => session.moveHands(nextTime)}
+                    onChange={session.moveHands}
                   />
                 </div>
-                <p className={styles.handsLegend}>
-                  <span className={styles.legendItem}>
-                    <HandBadge kind="hour-hand" size="inline" />
-                    <span>pequeno = horas</span>
-                  </span>
-                  <span className={styles.legendItem}>
-                    <HandBadge kind="minute-hand" size="inline" />
-                    <span>grande = minutos</span>
-                  </span>
-                </p>
+                {readDomTemplate('rm-tpl-hands-legend') !== null ? (
+                  <p
+                    className={styles.handsLegend}
+                    dangerouslySetInnerHTML={{
+                      __html: readDomTemplate('rm-tpl-hands-legend') ?? '',
+                    }}
+                  />
+                ) : !import.meta.env.PROD ? (
+                  <p className={styles.handsLegend}>
+                    <span className={styles.legendItem}>
+                      <HandBadge kind="hour-hand" size="inline" />
+                      <span>pequeno = horas</span>
+                    </span>
+                    <span className={styles.legendItem}>
+                      <HandBadge kind="minute-hand" size="inline" />
+                      <span>grande = minutos</span>
+                    </span>
+                  </p>
+                ) : null}
               </>
             ) : null}
           </AnswerRegion>
@@ -381,10 +379,10 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                       key={tile.id}
                       tile={tile}
                       used={usedTileIds.includes(tile.id)}
-                      {...(shakeSeq > 0 ? { shakeSeq } : {})}
-                      onDrop={(tId, sId) => session.dropTile(tId, sId)}
-                      onTap={(tId) => session.tapTile(tId)}
-                      onPick={(tId) => session.pickTile(tId)}
+                      shakeSeq={shakeSeq}
+                      onDrop={session.dropTile}
+                      onTap={session.tapTile}
+                      onPick={session.pickTile}
                     />
                   );
                 })}
@@ -411,49 +409,10 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
         </div>
 
         <div ref={actionsRef} className={styles.actions}>
-          {!done ? (
-            <Button
-              variant="soft"
-              onClick={() => session.requestHelp()}
-              icon={<UiIcon name="HintBulb" size={20} />}
-              data-game-action="hint"
-            >
-              {APP_COPY.game.hint}
-            </Button>
-          ) : null}
-
-          {question.mode === 'hands' || done ? (
-            <Button
-              variant="soft"
-              onClick={() => session.listen()}
-              icon={<UiIcon name="SpeakWave" size={20} />}
-              data-game-action="listen"
-            >
-              {APP_COPY.game.listen}
-            </Button>
-          ) : null}
-
-          {question.mode === 'hands' && !done ? (
-            <Button
-              variant="go"
-              onClick={() => session.checkHands()}
-              icon={<UiIcon name="CheckBadge" size={22} />}
-              data-game-action="check"
-            >
-              {APP_COPY.game.ready}
-            </Button>
-          ) : null}
-
-          {done ? (
-            <Button
-              variant="go"
-              onClick={() => session.next()}
-              icon={<UiIcon name="NextArrow" size={22} />}
-              data-game-action="next"
-            >
-              {APP_COPY.game.next}
-            </Button>
-          ) : null}
+          {!done && actionButton('hint', UI_COPY.game.hint, 'HintBulb', session.requestHelp)}
+          {(question.mode === 'hands' || done) && actionButton('listen', UI_COPY.game.listen, 'SpeakWave', session.listen)}
+          {question.mode === 'hands' && !done && actionButton('check', UI_COPY.game.ready, 'CheckBadge', session.checkHands, true)}
+          {done && actionButton('next', UI_COPY.game.next, 'NextArrow', session.next, true)}
         </div>
       </div>
     </section>

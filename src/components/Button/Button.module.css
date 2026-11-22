@@ -31,28 +31,28 @@
     cursor: not-allowed;
   }
 
-  .primary {
+  .button:where([data-variant="primary"]) {
     background-color: var(--color-hour, #1560bd);
     color: #ffffff;
     border: 2px solid var(--color-hour-ledge, #0d4285);
     box-shadow: 0 3px 0 var(--color-hour-ledge, #0d4285);
   }
 
-  .soft {
+  .button:where([data-variant="soft"]) {
     background-color: var(--color-surface-elevated, #fff9e6);
     color: var(--color-ink, #1e2832);
     border: 2px solid var(--color-border-card, #e2d9c5);
     box-shadow: 0 3px 0 var(--color-border-ledge, #cbbd9f);
   }
 
-  .go {
+  .button:where([data-variant="go"]) {
     background-color: var(--color-success, #2e7d32);
     color: #ffffff;
     border: 2px solid var(--color-success-ledge, #1b5e20);
     box-shadow: 0 3px 0 var(--color-success-ledge, #1b5e20);
   }
 
-  .icon {
+  .button:where([data-variant="icon"]) {
     min-width: var(--tap-target-min, 3.25rem);
     padding: 0.625rem;
     border-radius: var(--radius-pill, 9999px);
@@ -62,24 +62,24 @@
     box-shadow: 0 3px 0 var(--color-border-ledge, #cbbd9f);
   }
 
-  .ghost {
+  .button:where([data-variant="ghost"]) {
     background-color: transparent;
     color: var(--color-ink, #1e2832);
     border: 2px solid transparent;
     box-shadow: none;
   }
 
-  .sm {
+  .button:where([data-size="sm"]) {
     min-height: 2.5rem;
     padding: 0.375rem 0.875rem;
     font-size: var(--font-size-sm, 0.875rem);
   }
 
-  .md {
+  .button:where([data-size="md"]) {
     min-height: var(--tap-target-min, 3.25rem);
   }
 
-  .lg {
+  .button:where([data-size="lg"]) {
     min-height: 3.75rem;
     padding: 0.75rem 1.5rem;
     font-size: var(--font-size-lg, 1.25rem);

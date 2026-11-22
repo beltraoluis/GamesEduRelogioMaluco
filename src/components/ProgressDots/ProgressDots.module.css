@@ -23,20 +23,20 @@
       border-color var(--duration-fast, 150ms) ease-out;
   }
 
-  .current {
+  .dot:where([data-state="current"]) {
     width: 1.625rem;
     background-color: var(--color-hour-soft, #e8f1fc);
     border-color: var(--color-hour, #1560bd);
     box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--color-hour, #1560bd);
   }
 
-  .perfect {
+  .dot:where([data-state="perfect"]) {
     background-color: var(--color-success, #2e7d32);
     border-color: var(--color-success-ledge, #1b5e20);
     color: #ffffff;
   }
 
-  .completed {
+  .dot:where([data-state="completed"]) {
     background-color: var(--color-warning-accent, #ffb703);
     border-color: var(--color-warning-warm, #fb8500);
     color: var(--color-ink, #1e2832);

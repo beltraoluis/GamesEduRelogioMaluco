@@ -28,7 +28,7 @@ export function TicMascot({
         ? styles.bounceEven
         : styles.bounceOdd;
 
-  const className = [styles.mascot, styles[size], bounceClass].filter(Boolean).join(' ');
+  const className = [styles.mascot, bounceClass].filter(Boolean).join(' ');
 
   return (
     <svg

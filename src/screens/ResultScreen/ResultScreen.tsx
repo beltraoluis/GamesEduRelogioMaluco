@@ -6,7 +6,7 @@ import { useId, type ReactElement } from 'react';
 import { Button } from '@/components/Button';
 import { StarRating } from '@/components/StarRating';
 import { TicMascot } from '@/components/TicMascot';
-import { APP_COPY } from '@/content/copy';
+import { UI_COPY } from '@/content/runtimeDomData';
 import type { RoundSummary } from '@/contracts';
 import { RESULT_TITLES, resultText } from '@/domain/scoring';
 import { UiIcon } from '@/ui/icons/UiIcons';
@@ -73,7 +73,7 @@ export function ResultScreen({
             onClick={onPlayAgain}
             icon={<UiIcon name="RefreshArrow" size={22} />}
           >
-            {APP_COPY.result.playAgain}
+            {UI_COPY.result.playAgain}
           </Button>
           <Button
             variant="soft"
@@ -81,7 +81,7 @@ export function ResultScreen({
             onClick={onHome}
             icon={<UiIcon name="HomeWorkshop" size={22} />}
           >
-            {APP_COPY.result.home}
+            {UI_COPY.result.home}
           </Button>
         </div>
       </div>
