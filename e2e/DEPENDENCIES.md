@@ -2,7 +2,7 @@
 
 `npm ci` instala as dependências do checkout. `npm run test:e2e` gera o build local em `e2e/.runtime-dist/<porta>/local` a cada execução. O preview reserva `127.0.0.1` com `strictPort` e o Playwright espera a mensagem de prontidão do próprio processo. Use `E2E_PORT` para escolher outra porta (padrão 4177).
 
-As três provas de F2c exigem um SHA completo na variável `E2E_F2C_SHA` e o objeto Git correspondente. O launcher extrai o checkout temporário a partir do repositório local, instala o lockfile com `npm ci --include=dev` e executa o script de build do commit. O resultado fica em `e2e/.runtime-dist/<porta>/f2c`. Essa composição tem o harness de F2d e um segundo build de aplicação, ambos com origem explícita.
+As três provas de PWA usam o build local integrado por padrão. Para testar uma revisão anterior em separado, forneça um SHA completo na variável `E2E_F2C_SHA` e o objeto Git correspondente. O launcher extrai o checkout temporário a partir do repositório local, instala o lockfile com `npm ci --include=dev` e executa o script de build do commit. O resultado fica em `e2e/.runtime-dist/<porta>/f2c`. Essa composição tem o harness de F2d e um segundo build de aplicação, ambos com origem explícita.
 
 ```sh
 E2E_PORT=44181 E2E_F2C_SHA=0aa620edb7fa4ef1dd2d2e47f5b1b9c2608f4083 \

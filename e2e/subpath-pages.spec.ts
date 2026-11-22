@@ -100,8 +100,7 @@ test.describe('Subpath GitHub Pages (base: ./)', () => {
   });
 
   test('F2c composition: SW + precache no subpath (sem UI F3)', async ({ browser }) => {
-    test.skip(!F2C_SHA, 'requer E2E_F2C_SHA explícito');
-    const distDir = F2C_DIST;
+    const distDir = F2C_SHA ? F2C_DIST : RUNTIME_DIST;
     const server = await startSwitchableServer({ distDir });
     server.setRoot('dist');
     server.setSubpath(SUBPATH);

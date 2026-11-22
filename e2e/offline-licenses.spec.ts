@@ -28,8 +28,7 @@ test.describe('Offline + licenças', () => {
   });
 
   test('composição F2c: LICENSE + THIRD_PARTY offline (ignoreSearch)', async ({ browser }) => {
-    test.skip(!F2C_SHA, 'requer E2E_F2C_SHA explícito');
-    const distDir = F2C_DIST;
+    const distDir = F2C_SHA ? F2C_DIST : RUNTIME_DIST;
     expect(existsSync(path.join(distDir, 'THIRD_PARTY_LICENSES.txt'))).toBe(true);
 
     const server = await startSwitchableServer({ distDir });
@@ -83,8 +82,7 @@ test.describe('Offline + licenças', () => {
   });
 
   test('composição F2c: licenças offline no subpath GitHub Pages', async ({ browser }) => {
-    test.skip(!F2C_SHA, 'requer E2E_F2C_SHA explícito');
-    const distDir = F2C_DIST;
+    const distDir = F2C_SHA ? F2C_DIST : RUNTIME_DIST;
     const server = await startSwitchableServer({ distDir });
     server.setRoot('dist');
     server.setSubpath(SUBPATH);

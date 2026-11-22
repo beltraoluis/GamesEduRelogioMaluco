@@ -4,15 +4,27 @@ Jogo web (PWA) para crianças aprenderem a ler as horas em relógios **analógic
 
 ## Como rodar
 
-Não há dependências nem etapa de build: são só HTML, CSS e JavaScript.
+O jogo usa React 19, TypeScript e Vite. Use Node.js 22.22.2 ou superior da série 22, ou 24.15.0 ou superior da série 24. Em um checkout Git do projeto, instale as dependências e inicie o servidor.
 
 ```bash
-python3 -m http.server 8765
+npm ci
+npm run dev
 ```
 
-Abra http://localhost:8765. O service worker precisa de `http://localhost` ou `https://` (não funciona abrindo o arquivo direto).
+Abra o endereço exibido pelo Vite. Para testar a instalação e o funcionamento offline, gere a versão de produção e inicie a prévia local.
 
-Para publicar, envie a pasta inteira para qualquer hospedagem estática com HTTPS (GitHub Pages, Netlify, Vercel etc.).
+```bash
+npm ci && npm run build
+npm run preview
+```
+
+Abra a prévia com internet uma vez, aguarde o indicador de disponibilidade offline no menu, desligue a rede e recarregue a página. Uma atualização recebida durante a partida fica disponível na tela inicial pelo botão **Atualizar agora**.
+
+## Publicação
+
+Sirva o conteúdo de `dist/` por HTTPS. Os caminhos relativos permitem hospedar o mesmo build na raiz do domínio ou em uma pasta como `/GamesEduRelogioMaluco/` no GitHub Pages. Para a prévia local, o navegador também permite o service worker em `localhost`.
+
+Gere a distribuição a partir de um checkout limpo do commit que será disponibilizado como código-fonte. O build lê o SHA do Git ou de `GITHUB_SHA` e exige que esse commit exista no checkout.
 
 ## Modos
 
@@ -44,19 +56,15 @@ O texto completo para educadores está no botão **“Para educadores”** dentr
 
 ## Estrutura
 
-```
-index.html            telas e texto para educadores
-css/style.css         visual
-js/app.js             fluxo do jogo, modos, níveis, dicas
-js/clock.js           relógio analógico SVG com ponteiros arrastáveis
-js/time.js            números por extenso e frases da hora
-js/dnd.js             arrastar e soltar
-js/sound.js           efeitos sonoros (Web Audio) e voz
-sw.js                 cache offline
-manifest.webmanifest  instalação (PWA)
-```
-
-> Ao alterar qualquer arquivo, aumente `CACHE` em `sw.js` (ex.: `relogio-maluco-v2`) para os aparelhos receberem a nova versão.
+| Caminho | Conteúdo |
+|---|---|
+| `src/app/`, `src/screens/` | Navegação, telas e controle da partida |
+| `src/domain/`, `src/storage/` | Regras das horas, desafios, níveis e preferências |
+| `src/components/`, `src/hooks/`, `src/audio/` | Relógios, fichas, arrasto, teclado, efeitos sonoros e voz |
+| `src/content/` | Textos do jogo e material para educadores |
+| `src/styles/`, `src/assets/`, `design/` | Estilos, fonte, ilustrações e seus arquivos de origem |
+| `public/`, `vite.config.ts` | Ícones de instalação, licenças e geração do service worker e do manifesto |
+| `e2e/`, `docs/qa/` | Testes de navegador e critérios de aceite |
 
 ## Licença
 
@@ -66,4 +74,6 @@ Este programa é software livre: você pode redistribuí-lo e/ou modificá-lo so
 
 Ele é distribuído na esperança de ser útil, mas **sem qualquer garantia**, nem mesmo a garantia implícita de comerciabilidade ou adequação a um propósito específico. Veja o texto completo em [LICENSE](LICENSE).
 
-Se você hospedar uma versão modificada para outras pessoas usarem pela rede, a AGPL (seção 13) exige que o código-fonte dessa versão seja oferecido a elas. Como o jogo é servido sem compilação, os próprios arquivos publicados já são o código-fonte; o jogo também mostra o aviso e o link da licença na tela **“Para educadores”**.
+O site serve arquivos compilados e minificados. No menu **Código-fonte** e no diálogo **Para educadores**, o jogo oferece o código correspondente à versão em execução pelo endereço `https://github.com/beltraoluis/GamesEduRelogioMaluco/tree/<SHA-do-build>`. O repositório inclui as fontes, os arquivos de design e as instruções de build acima.
+
+Se você modificar o jogo e o oferecer pela rede, mantenha essa oferta acessível aos usuários conforme a seção 13 da AGPL. Ao publicar um fork, ajuste `SOURCE_REPO_URL` em `src/content/copy.ts` para apontar ao seu repositório e disponibilize nele o commit exato da sua distribuição. O build inclui `LICENSE.txt`, `THIRD_PARTY_LICENSES.txt` e `ASSETS-LICENSE.md` para consulta, inclusive offline.
