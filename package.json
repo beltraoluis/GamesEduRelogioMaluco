@@ -9,13 +9,18 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "copy-license": "node scripts/copy-license.mjs",
+    "build": "npm run copy-license && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:no-emoji": "node scripts/check-no-emoji.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "check:size": "node scripts/check-size.mjs",
+    "check:entry": "node scripts/check-entry.mjs"
   },
   "dependencies": {
     "react": "19.3.1",
