@@ -29,7 +29,7 @@ export function modeCard(page: Page, id: ModeId): Locator {
 
 export function levelSelectorButton(page: Page): Locator {
   return page.getByRole('group', { name: 'Níveis', exact: true })
-    .getByRole('button', { name: /^Nível [1-4]:/ });
+    .getByRole('button', { name: /^Nível [1-4] / });
 }
 
 export function levelRadio(page: Page, id: 1 | 2 | 3 | 4): Locator {
