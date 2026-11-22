@@ -20,6 +20,7 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   build: {
     target: 'baseline-widely-available',
+    assetsInlineLimit: 0,
     // The single application chunk has no module dependencies to preload.
     modulePreload: { polyfill: false },
     rolldownOptions: { output: { codeSplitting: false } },
