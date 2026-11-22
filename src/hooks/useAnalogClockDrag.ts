@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 import { useLayoutEffect, useRef, useState } from 'react';
+import type { KeyboardEvent, PointerEvent } from 'react';
 import type { AnalogClockDragApi, AnalogClockDragOptions, ClockTime, HandName } from '../contracts';
-import type { PointerEvent, KeyboardEvent } from 'react';
-import { angleToHour, angleToMinute, pickHand, withMinute, CLOCK_CENTER } from '../domain/clockMath';
+import { angleToHour, angleToMinute, CLOCK_CENTER, pickHand, withMinute } from '../domain/clockMath';
 
 export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClockDragApi & { bind: AnalogClockDragApi['bind'] & { onLostPointerCapture: (event: PointerEvent<SVGSVGElement>) => void } } {
   const [dragging, setDragging] = useState<HandName | null>(null);
@@ -22,16 +22,12 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
   };
   const change = (time: ClockTime, hand: HandName) => { timeRef.current = time; options.onChange(time, hand); };
   const move = (e: PointerEvent<SVGSVGElement>) => {
-    if (!active.current || active.current.id !== e.pointerId) return;
+    if (active.current?.id !== e.pointerId) return;
     const p = point(e); if (!p) return;
     const t = timeRef.current;
     if (active.current.hand === 'hour') {
       let h = angleToHour(p.angle, t);
-      if (options.linkHands) {
-        // No relógio livre, acompanhe a posição mais próxima no ciclo de 24 horas.
-        const delta = h - t.h;
-        if (Math.abs(delta) > 6) h = (h + 12) % 24;
-      }
+      if (options.linkHands && Math.abs(h - t.h) > 6) h = (h + 12) % 24;
       change({ ...t, h }, 'hour');
     } else {
       change(withMinute(t, angleToMinute(p.angle, options.minuteStep), options.linkHands), 'minute');
@@ -53,13 +49,27 @@ export function useAnalogClockDrag(options: AnalogClockDragOptions): AnalogClock
       change({ ...t, m: (total + 60) % 60, h: (t.h + (options.linkHands ? Math.floor(total / 60) : 0) + 24) % 24 }, 'minute');
     }
   };
-  return { dragging, bind: { tabIndex: options.interactive ? 0 : -1, onKeyDown,
-    onPointerDown(e) {
-      if (!options.interactive || !e.isPrimary || e.button !== 0 || active.current) return;
-      const p = point(e); if (!p) return;
-      const hand: HandName = options.lockMinute ? 'hour' : pickHand(p.angle, p.radius, timeRef.current);
-      const g = e.currentTarget.querySelector<SVGGElement>(`[data-hand="${hand}"]`);
-      if (g) { const transform = getComputedStyle(g).transform; const match = /^matrix\(([^)]+)\)$/.exec(transform); if (match) { const values = match[1]?.split(',').map(Number); const a = values?.[0], b = values?.[1]; if (a !== undefined && b !== undefined && Number.isFinite(a) && Number.isFinite(b)) { const angle = Math.atan2(b, a) * 180 / Math.PI; g.style.transition = 'none'; g.style.transform = `rotate(${angle}deg)`; } } }
-      active.current = { id: e.pointerId, hand }; setDragging(hand); e.currentTarget.setPointerCapture(e.pointerId); options.onGrab?.(hand);
-    }, onPointerMove: move, onPointerUp: finish, onPointerCancel: finish, onLostPointerCapture: finish } };
+  return {
+    dragging,
+    bind: {
+      tabIndex: options.interactive ? 0 : -1,
+      onKeyDown,
+      onPointerDown(e) {
+        if (!options.interactive || !e.isPrimary || e.button !== 0 || active.current) return;
+        const p = point(e); if (!p) return;
+        const hand: HandName = options.lockMinute ? 'hour' : pickHand(p.angle, p.radius, timeRef.current);
+        const g = e.currentTarget.querySelector<SVGGElement>(`[data-hand="${hand}"]`);
+        const vals = g ? /^matrix\(([^)]+)\)$/.exec(getComputedStyle(g).transform)?.[1]?.split(',').map(Number) : undefined;
+        if (g && vals?.[0] !== undefined && vals[1] !== undefined && Number.isFinite(vals[0]) && Number.isFinite(vals[1])) {
+          g.style.transition = 'none';
+          g.style.transform = `rotate(${Math.atan2(vals[1], vals[0]) * 180 / Math.PI}deg)`;
+        }
+        active.current = { id: e.pointerId, hand }; setDragging(hand); e.currentTarget.setPointerCapture(e.pointerId); options.onGrab?.(hand);
+      },
+      onPointerMove: move,
+      onPointerUp: finish,
+      onPointerCancel: finish,
+      onLostPointerCapture: finish,
+    },
+  };
 }

@@ -18,13 +18,10 @@ const MODE_ICON: Readonly<Record<ModeId, UiIconName>> = {
 };
 
 export function ModeCard({ mode, stars, onSelect }: ModeCardProps): ReactElement {
-  const modeClass = styles[mode.id];
-  const cardClass = [styles.card, modeClass].filter(Boolean).join(' ');
-
   return (
     <button
       type="button"
-      className={cardClass}
+      className={`${styles.card} ${styles[mode.id] ?? ''}`}
       onClick={() => onSelect(mode.id)}
       data-mode-card={mode.id}
       data-motion="spring"
@@ -40,12 +37,10 @@ export function ModeCard({ mode, stars, onSelect }: ModeCardProps): ReactElement
           <UiIcon name={MODE_ICON[mode.id]} size={18} />
         </span>
       </div>
-
       <div className={styles.body}>
         <span className={styles.title}>{mode.title}</span>
         <span className={styles.description}>{mode.description}</span>
       </div>
-
       <div className={styles.footer}>
         {stars !== null ? (
           <StarRating value={stars} label={`${stars} de 3 estrelas`} size="sm" />

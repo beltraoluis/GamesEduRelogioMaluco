@@ -1,26 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-/**
- * Controlador do jogo (ADR-002 §2).
- *
- * `useGameController` é o contrato `GameControllerApi`: dono do
- * `useReducer(gameReducer)` e do cursor de deduplicação
- * (`useRef<GameEventCursor | null>`), com o mesmo ciclo de vida. Consome
- * `pendingEvents` num `useEffect`, em ordem de `seq`, executa cada envelope
- * no máximo uma vez e confirma a fila com `events/ack`.
- *
- * `useGameSession` compõe o controlador com os efeitos do jogo (som, fala,
- * confete, estrelas, fim de rodada) e com os sinais visuais derivados dos
- * eventos (tremor de ficha, realce de ponteiro, brilho de lacuna, humor do
- * mascote). É a API que a `GameScreen` (F2b) consome: componentes não tocam
- * som nem fala por conta própria durante o jogo.
- */
-
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef } from 'react';
 
 import type {
   ClockTime,
+  Feedback,
   GameAction,
   GameControllerApi,
   GameEventCursor,
@@ -36,7 +21,6 @@ import type {
   RoundSummary,
   SoundApi,
   SpeechApi,
-  Feedback,
 } from '../../contracts';
 import { gameReducer, initGame } from '../../domain/gameReducer';
 import { renderMessage } from '../../domain/hints';
@@ -44,97 +28,64 @@ import { toPlainText } from '../../domain/messages';
 import { spokenPhrase } from '../../domain/question';
 import { RESULT_TITLES } from '../../domain/scoring';
 
-/* ------------------------------------------------------------------ */
-/* Controlador (contrato)                                              */
-/* ------------------------------------------------------------------ */
-
-/** Identidade de uma partida, gerada fora do reducer. */
 export interface SessionSeed {
   readonly sessionId: string;
-  /** uint32. */
   readonly seed: number;
 }
 
-/**
- * Opções do hook. Um `onEvent(envelope)` do contrato (`GameControllerOptions`)
- * também serve: `origin` é um argumento extra que ele pode ignorar.
- */
 export interface GameControllerHookOptions {
-  /**
-   * Executa UM efeito, no máximo uma vez por `(sessionId, seq)`, em ordem de
-   * `seq`. `origin` é o estado logo após a ação que emitiu o envelope (não o
-   * do commit em que ele é consumido): com o automatic batching, ações
-   * posteriores (ex.: `next` no mesmo lote do acerto) já podem ter trocado a
-   * pergunta atual.
-   */
   readonly onEvent: (envelope: GameEventEnvelope, origin: GameState) => void;
-  /** Injetável em testes; padrão: `crypto.randomUUID` + `crypto.getRandomValues`. */
   readonly createSession?: () => SessionSeed;
-  /**
-   * Só para testes de replay do consumidor: estado inicial com fila ainda
-   * não confirmada (o app sempre começa em `null`, ver `drainEvents`).
-   */
   readonly initialState?: GameState;
 }
 
-/** Contrato + `abandon()` (delimita a sessão ao sair da partida). */
 export interface GameControllerHookApi extends GameControllerApi {
-  /**
-   * Abandona a sessão atual: descarta a fila pendente sem executar nada
-   * (ADR-002: efeitos de sessão abandonada não rodam). Estado volta a `null`.
-   */
   abandon(): void;
 }
 
-/** Estado logo após a ação que emitiu o envelope `seq`. */
 export interface EventOrigin {
   readonly seq: number;
   readonly state: GameState;
 }
 
-/** Estado interno do hook: jogo + numeração + origem de cada envelope pendente. */
 export interface ControllerState {
   readonly game: GameState | null;
-  /** Maior `seq` já emitido; sobrevive ao `abandon` (numeração monotônica). */
   readonly lastEventSeq: number;
-  /** Uma entrada por envelope em `game.pendingEvents`, mesma ordem. */
   readonly origins: readonly EventOrigin[];
 }
 
 export type ControllerAction = GameAction | { readonly type: 'controller/abandon' };
 
-export const INITIAL_CONTROLLER_STATE: ControllerState = Object.freeze({ game: null, lastEventSeq: 0, origins: Object.freeze([]) });
+export const INITIAL_CONTROLLER_STATE: ControllerState = Object.freeze({
+  game: null,
+  lastEventSeq: 0,
+  origins: Object.freeze([]),
+});
 
-/** Estado do hook a partir de um `GameState` já existente (testes de replay). */
 export function controllerStateFrom(game: GameState): ControllerState {
-  return { game, lastEventSeq: game.lastEventSeq, origins: game.pendingEvents.map((e) => ({ seq: e.seq, state: game })) };
+  return {
+    game,
+    lastEventSeq: game.lastEventSeq,
+    origins: game.pendingEvents.map((e) => ({ seq: e.seq, state: game })),
+  };
 }
 
 const EMPTY_QUEUE: readonly GameEventEnvelope[] = Object.freeze([]);
-
 let fallbackCounter = 0;
 
-/** `sessionId` e `seed` novos (fora do reducer, que é puro). */
 export function createSessionSeed(): SessionSeed {
-  const c: Crypto | undefined = typeof crypto === 'undefined' ? undefined : crypto;
-  let seed: number;
-  if (c !== undefined && typeof c.getRandomValues === 'function') {
-    seed = c.getRandomValues(new Uint32Array(1))[0] ?? 0;
-  } else {
-    seed = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
-  }
+  const c = typeof crypto === 'undefined' ? undefined : crypto;
+  const seed =
+    c && typeof c.getRandomValues === 'function'
+      ? (c.getRandomValues(new Uint32Array(1))[0] ?? 0)
+      : (Math.floor(Math.random() * 0x1_0000_0000) >>> 0);
   const sessionId =
-    c !== undefined && typeof c.randomUUID === 'function'
+    c && typeof c.randomUUID === 'function'
       ? c.randomUUID()
       : `s-${Date.now().toString(36)}-${(++fallbackCounter).toString(36)}-${seed.toString(36)}`;
   return { sessionId, seed };
 }
 
-/**
- * Reducer puro do hook: aplica `gameReducer` (estendido para `null` antes do
- * primeiro `start`), registra a origem de cada envelope NOVO e descarta as
- * origens de envelopes que saíram da fila (`ack`, `start`, `abandon`).
- */
 export function controllerReducer(state: ControllerState, action: ControllerAction): ControllerState {
   if (action.type === 'controller/abandon') {
     return state.game === null ? state : { game: null, lastEventSeq: state.lastEventSeq, origins: [] };
@@ -147,45 +98,32 @@ export function controllerReducer(state: ControllerState, action: ControllerActi
     game = gameReducer(state.game, action);
     if (game === state.game) return state;
   }
-  const previousLast = state.game?.lastEventSeq ?? state.lastEventSeq;
+  const prevLast = state.game?.lastEventSeq ?? state.lastEventSeq;
   const pending = new Set(game.pendingEvents.map((e) => e.seq));
-  const origins: EventOrigin[] = state.origins.filter((o) => pending.has(o.seq));
-  for (const e of game.pendingEvents) if (e.seq > previousLast) origins.push({ seq: e.seq, state: game });
+  const origins = state.origins.filter((o) => pending.has(o.seq));
+  for (const e of game.pendingEvents) {
+    if (e.seq > prevLast) origins.push({ seq: e.seq, state: game });
+  }
   return { game, lastEventSeq: game.lastEventSeq, origins };
 }
 
-/** Envelope ainda não executado segundo o cursor. */
 export function isNewEnvelope(cursor: GameEventCursor | null, envelope: GameEventEnvelope): boolean {
   return cursor === null || cursor.sessionId !== envelope.sessionId || envelope.seq > cursor.seq;
 }
 
-/** Erro de um efeito não pode travar a fila: reporta fora do fluxo e segue. */
 function reportEffectError(error: unknown): void {
   queueMicrotask(() => {
     throw error;
   });
 }
 
-/**
- * Passo do consumidor: executa, em ordem, os envelopes que o cursor ainda
- * não viu (avançando o cursor ANTES de cada um, então um efeito que lança
- * não é repetido) e devolve o `upToSeq` do `ack` (maior `seq` da fila), ou
- * `null` com a fila vazia.
- *
- * O que o runtime exercita: no app, o estado nasce `null`, então a
- * remontagem simulada do StrictMode (só na montagem) encontra a fila vazia;
- * depois disso o efeito roda uma vez por fila nova e o `ack` sai no mesmo
- * efeito. A deduplicação protege a re-execução do efeito sobre uma fila
- * ainda não confirmada: remontagem do StrictMode com fila pendente
- * (coberta com `initialState` nos testes) ou reexibição por `<Activity>`.
- */
 export function drainEvents(
   cursorRef: { current: GameEventCursor | null },
   queue: readonly GameEventEnvelope[],
   run: (envelope: GameEventEnvelope) => void,
 ): number | null {
   const last = queue[queue.length - 1];
-  if (last === undefined) return null;
+  if (!last) return null;
   for (const envelope of queue) {
     if (!isNewEnvelope(cursorRef.current, envelope)) continue;
     cursorRef.current = { sessionId: envelope.sessionId, seq: envelope.seq };
@@ -198,14 +136,16 @@ export function drainEvents(
   return last.seq;
 }
 
-function initControllerState(initial: GameState | undefined): ControllerState {
-  return initial === undefined ? INITIAL_CONTROLLER_STATE : controllerStateFrom(initial);
-}
-
 export function useGameController(options: GameControllerHookOptions): GameControllerHookApi {
-  const [inner, dispatch] = useReducer(controllerReducer, options.initialState, initControllerState);
+  const [inner, dispatch] = useReducer(
+    controllerReducer,
+    options.initialState,
+    (init) => (init === undefined ? INITIAL_CONTROLLER_STATE : controllerStateFrom(init)),
+  );
   const cursorRef = useRef<GameEventCursor | null>(null);
-  const runEvent = useEffectEvent((envelope: GameEventEnvelope, origin: GameState) => options.onEvent(envelope, origin));
+  const runEvent = useEffectEvent((envelope: GameEventEnvelope, origin: GameState) =>
+    options.onEvent(envelope, origin),
+  );
   const createSessionRef = useRef(options.createSession ?? createSessionSeed);
   useLayoutEffect(() => {
     createSessionRef.current = options.createSession ?? createSessionSeed;
@@ -218,7 +158,7 @@ export function useGameController(options: GameControllerHookOptions): GameContr
   useEffect(() => {
     const upToSeq = drainEvents(cursorRef, queue, (envelope) => {
       const origin = origins.find((o) => o.seq === envelope.seq)?.state;
-      if (origin !== undefined) runEvent(envelope, origin);
+      if (origin) runEvent(envelope, origin);
     });
     if (upToSeq !== null) dispatch({ type: 'events/ack', upToSeq });
   }, [queue, origins]);
@@ -230,8 +170,8 @@ export function useGameController(options: GameControllerHookOptions): GameContr
         const { sessionId, seed } = createSessionRef.current();
         dispatch({ type: 'start', sessionId, seed, mode, levelId });
       },
-      dropTile: (tileId: string, slotId: string) => dispatch({ type: 'drop-tile', tileId, slotId }),
-      tapTile: (tileId: string) => dispatch({ type: 'tap-tile', tileId }),
+      dropTile: (tileId, slotId) => dispatch({ type: 'drop-tile', tileId, slotId }),
+      tapTile: (tileId) => dispatch({ type: 'tap-tile', tileId }),
       moveHands: (time: ClockTime) => dispatch({ type: 'move-hands', time }),
       checkHands: () => dispatch({ type: 'check-hands' }),
       requestHelp: () => dispatch({ type: 'request-help' }),
@@ -242,30 +182,18 @@ export function useGameController(options: GameControllerHookOptions): GameContr
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Sinais visuais derivados dos eventos                                */
-/* ------------------------------------------------------------------ */
-
 export interface MascotSignal {
   readonly mood: MascotMood;
-  /** Repetir o pulinho (`MascotProps.bounceSeq`). */
   readonly bounceSeq: number;
 }
 
-/** Sinais "incrementar para repetir" e estados de apoio da pergunta atual. */
 export interface GameView {
-  /** Contador interno: cada sinal novo recebe `seq + 1`. */
   readonly seq: number;
   readonly mascot: MascotSignal;
-  /** `TileProps.shakeSeq` por ficha (só fichas que já tremeram). */
   readonly shakeSeq: Readonly<Record<string, number>>;
-  /** `AnalogClockProps.highlight`. */
   readonly handHighlight: HandHighlight | null;
-  /** `SlotProps.glowSeq` da lacuna indicada pela dica. */
   readonly slotGlow: { readonly slotId: string; readonly seq: number } | null;
-  /** `DigitalClockProps.glow` (estímulo digital). */
   readonly digitalGlow: { readonly group: HandName; readonly seq: number } | null;
-  /** A dica pediu os números vermelhos dos minutos (até a pergunta acabar). */
   readonly minuteLabels: boolean;
 }
 
@@ -279,13 +207,13 @@ export const INITIAL_GAME_VIEW: GameView = Object.freeze({
   minuteLabels: false,
 });
 
-/** Redutor puro dos sinais visuais (um envelope por vez, já deduplicado). */
 export function reduceGameView(view: GameView, envelope: GameEventEnvelope): GameView {
   const seq = view.seq + 1;
   const { event } = envelope;
+  const keepBounce = (mood: MascotMood): MascotSignal => ({ mood, bounceSeq: view.mascot.bounceSeq });
   switch (event.type) {
     case 'question-started':
-      return { ...INITIAL_GAME_VIEW, seq, mascot: { mood: 'happy', bounceSeq: view.mascot.bounceSeq } };
+      return { ...INITIAL_GAME_VIEW, seq, mascot: keepBounce('happy') };
     case 'tile-placed':
       return { ...view, seq, mascot: { mood: 'happy', bounceSeq: seq } };
     case 'tile-rejected':
@@ -293,14 +221,14 @@ export function reduceGameView(view: GameView, envelope: GameEventEnvelope): Gam
         ...view,
         seq,
         shakeSeq: { ...view.shakeSeq, [event.tileId]: seq },
-        mascot: { mood: 'think', bounceSeq: view.mascot.bounceSeq },
+        mascot: keepBounce('think'),
       };
     case 'hands-rejected':
       return {
         ...view,
         seq,
         handHighlight: { target: event.highlight, seq },
-        mascot: { mood: 'think', bounceSeq: view.mascot.bounceSeq },
+        mascot: keepBounce('think'),
       };
     case 'help-shown': {
       const h = event.highlight;
@@ -311,22 +239,16 @@ export function reduceGameView(view: GameView, envelope: GameEventEnvelope): Gam
         slotGlow: h.slotId === undefined ? view.slotGlow : { slotId: h.slotId, seq },
         digitalGlow: h.digitalGroup === undefined ? view.digitalGlow : { group: h.digitalGroup, seq },
         minuteLabels: view.minuteLabels || h.minuteLabels,
-        mascot: { mood: 'hint', bounceSeq: view.mascot.bounceSeq },
+        mascot: keepBounce('hint'),
       };
     }
     case 'question-completed':
-      // Legado: os números vermelhos de apoio somem ao acertar.
       return { ...view, seq, minuteLabels: false, mascot: { mood: 'celebrate', bounceSeq: seq } };
     case 'round-finished':
       return { ...view, seq, mascot: { mood: 'celebrate', bounceSeq: seq } };
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Efeitos colaterais                                                  */
-/* ------------------------------------------------------------------ */
-
-/** Confete por acerto (legado): 40 de primeira, 18 com erros; 80 no fim da rodada. */
 export const CONFETTI_COUNTS = { perfect: 40, withMistakes: 18, round: 80 } as const;
 
 export interface GameEffects {
@@ -337,23 +259,18 @@ export interface GameEffects {
   readonly finished: (summary: RoundSummary, newRecord: boolean) => void;
 }
 
-/**
- * Elogio + frase da hora da pergunta concluída (12 h ou 24 h conforme o nível).
- * `state` deve ser a ORIGEM do `question-completed` (ver `EventOrigin`).
- */
 export function praiseSpeech(state: GameState | null, index: number): string | null {
-  if (state === null || state.index !== index || !state.current.done) return null;
-  if (state.feedback.code === 'praise') return toPlainText(renderMessage('praise', state.feedback.context));
-  return spokenPhrase(state.mode, state.level, state.current.question.time);
+  if (!state || state.index !== index || !state.current.done) return null;
+  return state.feedback.code === 'praise'
+    ? toPlainText(renderMessage('praise', state.feedback.context))
+    : spokenPhrase(state.mode, state.level, state.current.question.time);
 }
 
-/**
- * Executa os efeitos de UM envelope (já deduplicado pelo cursor).
- * `origin` é o estado logo após a ação que o emitiu: o contexto (pergunta,
- * hora, nível, elogio) fica correto mesmo que ações posteriores do mesmo
- * lote já tenham avançado o jogo.
- */
-export function runGameEffects(envelope: GameEventEnvelope, origin: GameState | null, fx: GameEffects): void {
+export function runGameEffects(
+  envelope: GameEventEnvelope,
+  origin: GameState | null,
+  fx: GameEffects,
+): void {
   const { event } = envelope;
   switch (event.type) {
     case 'question-started':
@@ -367,7 +284,6 @@ export function runGameEffects(envelope: GameEventEnvelope, origin: GameState | 
       fx.sound.play('wrong');
       return;
     case 'help-shown':
-      // ADR-002 §4: dicas só no balão `aria-live`, nunca faladas.
       return;
     case 'question-completed': {
       fx.sound.play('success');
@@ -383,43 +299,36 @@ export function runGameEffects(envelope: GameEventEnvelope, origin: GameState | 
       const newRecord = fx.recordStars(summary.starsKey, summary.stars);
       fx.speech.speak(RESULT_TITLES[summary.stars]);
       fx.finished(summary, newRecord);
-      return;
     }
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Sessão (controlador + efeitos + sinais)                             */
-/* ------------------------------------------------------------------ */
 
 export interface GameSessionOptions {
   readonly sound: Pick<SoundApi, 'play' | 'unlock'>;
   readonly speech: Pick<SpeechApi, 'speak' | 'cancel'>;
   readonly recordStars: PreferencesApi['recordStars'];
-  /** Dispara uma rajada de confete (a camada de confete vive no `App`). */
   readonly onConfetti: (count: number) => void;
-  /** `round-finished` consumido: estrelas já gravadas. */
   readonly onFinished: (summary: RoundSummary, newRecord: boolean) => void;
   readonly createSession?: () => SessionSeed;
-  /** Só testes de replay (ver `GameControllerHookOptions.initialState`). */
   readonly initialState?: GameState;
 }
 
 export interface GameSessionApi extends GameControllerHookApi {
-  /** Balão do Tic (`SpeechBubbleProps.message`); `null` antes do `start`. */
   readonly message: Message | null;
   readonly tone: Feedback['tone'];
   readonly view: GameView;
-  /** `TileProps.onPick`: início do arrasto (som "pick"). */
   pickTile(tileId: string): void;
-  /** Botão "Ouvir": frase da hora atual (12 h ou 24 h conforme o nível). */
   listen(): void;
 }
 
-type ViewAction = { readonly type: 'event'; readonly envelope: GameEventEnvelope } | { readonly type: 'reset' };
+type ViewAction =
+  | { readonly type: 'event'; readonly envelope: GameEventEnvelope }
+  | { readonly type: 'reset' };
 
 function viewReducer(view: GameView, action: ViewAction): GameView {
-  return action.type === 'reset' ? { ...INITIAL_GAME_VIEW, seq: view.seq } : reduceGameView(view, action.envelope);
+  return action.type === 'reset'
+    ? { ...INITIAL_GAME_VIEW, seq: view.seq }
+    : reduceGameView(view, action.envelope);
 }
 
 export function useGameSession(options: GameSessionOptions): GameSessionApi {
@@ -447,11 +356,9 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
     },
   });
 
-  // O consumidor acima já percorreu os envelopes deste commit. Cada speak()
-  // interrompe a fala anterior: entregue elogio e título juntos, na ordem da fila.
   useEffect(() => {
     const texts = speechForCommit.current;
-    if (texts.length === 0) return;
+    if (!texts.length) return;
     speechForCommit.current = [];
     try {
       optionsRef.current.speech.speak(texts.join(' '));
@@ -466,7 +373,10 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
   }, [state]);
 
   const feedback = state?.feedback ?? null;
-  const message = useMemo(() => (feedback === null ? null : renderMessage(feedback.code, feedback.context)), [feedback]);
+  const message = useMemo(
+    () => (feedback === null ? null : renderMessage(feedback.code, feedback.context)),
+    [feedback],
+  );
 
   return useMemo<GameSessionApi>(() => {
     const unlock = (): void => optionsRef.current.sound.unlock();
@@ -496,7 +406,9 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
       },
       moveHands(time) {
         const hands = stateRef.current?.current.hands ?? null;
-        if (hands !== null && (hands.h !== time.h || hands.m !== time.m)) optionsRef.current.sound.play('tick');
+        if (hands && (hands.h !== time.h || hands.m !== time.m)) {
+          optionsRef.current.sound.play('tick');
+        }
         controller.moveHands(time);
       },
       checkHands() {
@@ -517,8 +429,7 @@ export function useGameSession(options: GameSessionOptions): GameSessionApi {
       },
       listen() {
         const s = stateRef.current;
-        if (s === null) return;
-        optionsRef.current.speech.speak(spokenPhrase(s.mode, s.level, s.current.question.time));
+        if (s) optionsRef.current.speech.speak(spokenPhrase(s.mode, s.level, s.current.question.time));
       },
     };
   }, [controller, message, feedback, view]);

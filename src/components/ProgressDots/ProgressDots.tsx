@@ -17,66 +17,6 @@ export function ProgressDots({
   const safeTotal = Math.max(0, total);
   const displayIndex = safeTotal === 0 ? 0 : Math.min(current + 1, safeTotal);
 
-  const items: ReactElement[] = [];
-  for (let i = 0; i < safeTotal; i++) {
-    const mistakes = results[i];
-    let state: DotState = 'pending';
-    if (mistakes !== undefined) {
-      state = mistakes === 0 ? 'perfect' : 'completed';
-    } else if (i === current) {
-      state = 'current';
-    }
-
-    const stateClass =
-      state === 'perfect'
-        ? styles.perfect
-        : state === 'completed'
-          ? styles.completed
-          : state === 'current'
-            ? styles.current
-            : undefined;
-
-    const dotClass = [styles.dot, stateClass].filter(Boolean).join(' ');
-
-    items.push(
-      <span
-        key={i}
-        className={dotClass}
-        data-dot-index={i}
-        data-state={state}
-        aria-hidden="true"
-      >
-        {state === 'perfect' ? (
-          <svg
-            viewBox="0 0 12 12"
-            className={styles.glyph}
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path
-              d="M2.5 6.3 L5 8.8 L9.5 3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : null}
-        {state === 'completed' ? (
-          <svg
-            viewBox="0 0 12 12"
-            className={styles.glyph}
-            aria-hidden="true"
-            focusable="false"
-          >
-            <circle cx={6} cy={6} r={2.2} fill="currentColor" />
-          </svg>
-        ) : null}
-      </span>,
-    );
-  }
-
   return (
     <div
       className={styles.progressDots}
@@ -85,7 +25,38 @@ export function ProgressDots({
       data-total={safeTotal}
       data-current={current}
     >
-      {items}
+      {Array.from({ length: safeTotal }, (_, i) => {
+        const m = results[i];
+        const state: DotState =
+          m !== undefined ? (m === 0 ? 'perfect' : 'completed') : i === current ? 'current' : 'pending';
+        const dotClass = [styles.dot, styles[state]].filter(Boolean).join(' ');
+        return (
+          <span
+            key={i}
+            className={dotClass}
+            data-dot-index={i}
+            data-state={state}
+            aria-hidden="true"
+          >
+            {(state === 'perfect' || state === 'completed') && (
+              <svg viewBox="0 0 12 12" className={styles.glyph} aria-hidden="true" focusable="false">
+                {state === 'perfect' ? (
+                  <path
+                    d="M2.5 6.3L5 8.8 9.5 3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : (
+                  <circle cx={6} cy={6} r={2.2} fill="currentColor" />
+                )}
+              </svg>
+            )}
+          </span>
+        );
+      })}
     </div>
   );
 }

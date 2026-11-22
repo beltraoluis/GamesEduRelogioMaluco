@@ -29,39 +29,32 @@ export function AppMenu({
   sourceUrl,
   pwa,
 }: AppMenuProps): ReactElement {
-  const panelId = `${useId()}-menu-panel`;
+  const panelId = `${useId()}-mp`;
   const containerRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-
   const [open, setOpen] = useState(false);
 
-  const offlineReady =
-    'offlineReady' in pwa &&
-    Boolean((pwa as { readonly offlineReady?: boolean }).offlineReady);
+  const offlineReady = Boolean((pwa as { readonly offlineReady?: boolean }).offlineReady);
 
-  const computeFallbackPosition = useCallback(() => {
+  const computePos = useCallback(() => {
     const trigger = triggerRef.current;
     const panel = panelRef.current;
-    if (!trigger || !panel) return;
     if (
-      globalThis.CSS?.supports('position-area', 'block-end') &&
-      panel.matches(':popover-open')
-    ) return;
-
-    const triggerRect = trigger.getBoundingClientRect();
-    const panelRect = panel.getBoundingClientRect();
-    const margin = 8;
-    const left = Math.max(
-      margin,
-      Math.min(triggerRect.right - panelRect.width, window.innerWidth - panelRect.width - margin),
-    );
-    const belowTop = triggerRect.bottom + margin;
-    const aboveTop = triggerRect.top - panelRect.height - margin;
-    const maxTop = window.innerHeight - panelRect.height - margin;
-    const top = belowTop > maxTop && aboveTop >= margin ? aboveTop : Math.min(belowTop, maxTop);
-
-    panel.style.setProperty('--menu-top', `${Math.max(margin, top)}px`);
+      !trigger ||
+      !panel ||
+      (globalThis.CSS?.supports('position-area', 'block-end') && panel.matches(':popover-open'))
+    ) {
+      return;
+    }
+    const tr = trigger.getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    const left = Math.max(8, Math.min(tr.right - pr.width, window.innerWidth - pr.width - 8));
+    const below = tr.bottom + 8;
+    const above = tr.top - pr.height - 8;
+    const maxTop = window.innerHeight - pr.height - 8;
+    const top = below > maxTop && above >= 8 ? above : Math.min(below, maxTop);
+    panel.style.setProperty('--menu-top', `${Math.max(8, top)}px`);
     panel.style.setProperty('--menu-left', `${left}px`);
   }, []);
 
@@ -69,12 +62,8 @@ export function AppMenu({
     setOpen(false);
     try {
       panelRef.current?.hidePopover?.();
-    } catch {
-      // Ignora
-    }
-    if (restoreFocus) {
-      triggerRef.current?.focus();
-    }
+    } catch { /* ignore */ }
+    if (restoreFocus) triggerRef.current?.focus();
   }, []);
 
   useLayoutEffect(() => {
@@ -83,58 +72,45 @@ export function AppMenu({
     try {
       if (open) panel.showPopover?.();
       else panel.hidePopover?.();
-    } catch {
-      // O painel também pode ser posicionado fora da camada nativa.
-    }
-    if (open) computeFallbackPosition();
-  }, [open, computeFallbackPosition]);
+    } catch { /* ignore */ }
+    if (open) computePos();
+  }, [open, computePos]);
 
   useEffect(() => {
     if (!open) return;
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (target && containerRef.current && !containerRef.current.contains(target)) {
-        closeMenu(false);
-      }
+    const onOut = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (t && containerRef.current && !containerRef.current.contains(t)) closeMenu(false);
     };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
         closeMenu(true);
       }
     };
-    document.addEventListener('click', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', computeFallbackPosition);
+    document.addEventListener('click', onOut);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', computePos);
     return () => {
-      document.removeEventListener('click', handleOutsideClick);
-      document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', computeFallbackPosition);
+      document.removeEventListener('click', onOut);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', computePos);
     };
-  }, [open, closeMenu, computeFallbackPosition]);
+  }, [open, closeMenu, computePos]);
 
-  const switches: readonly {
-    readonly key: 'sound' | 'voice';
-    readonly checked: boolean;
-    readonly icon: UiIconName;
-    readonly label: string;
-    readonly onToggle: () => void;
-  }[] = [
-    {
-      key: 'sound',
-      checked: sound,
-      icon: sound ? 'BellOn' : 'BellOff',
-      label: sound ? APP_COPY.menu.soundOn : APP_COPY.menu.soundOff,
-      onToggle: onToggleSound,
-    },
-    {
-      key: 'voice',
-      checked: voice,
-      icon: voice ? 'VoiceOn' : 'VoiceOff',
-      label: voice ? APP_COPY.menu.voiceOn : APP_COPY.menu.voiceOff,
-      onToggle: onToggleVoice,
-    },
+  const switches: readonly [string, boolean, UiIconName, string, () => void][] = [
+    ['sound', sound, sound ? 'BellOn' : 'BellOff', sound ? APP_COPY.menu.soundOn : APP_COPY.menu.soundOff, onToggleSound],
+    ['voice', voice, voice ? 'VoiceOn' : 'VoiceOff', voice ? APP_COPY.menu.voiceOn : APP_COPY.menu.voiceOff, onToggleVoice],
   ];
+
+  const renderIconLabel = (icon: UiIconName, label: string, size = 22) => (
+    <>
+      <span className={styles.itemIcon} aria-hidden="true">
+        <UiIcon name={icon} size={size} />
+      </span>
+      <span className={styles.itemLabel}>{label}</span>
+    </>
+  );
 
   return (
     <nav ref={containerRef} className={styles.menu} aria-label="Menu principal" data-app-menu="true">
@@ -145,7 +121,7 @@ export function AppMenu({
         aria-label={open ? 'Fechar menu' : 'Menu'}
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen((p) => !p)}
         data-menu-trigger="true"
       >
         <span className={styles.burger} aria-hidden="true">
@@ -162,29 +138,22 @@ export function AppMenu({
         hidden={!open}
         data-open={String(open)}
         popover={supportsPopover ? 'auto' : undefined}
-        onToggle={(event) => {
-          if (event.newState === 'closed') setOpen(false);
+        onToggle={(e) => {
+          if (e.newState === 'closed') setOpen(false);
         }}
       >
-        {switches.map((sw) => (
+        {switches.map(([key, checked, icon, label, onToggle]) => (
           <button
-            key={sw.key}
+            key={key}
             type="button"
             role="switch"
-            aria-checked={sw.checked}
+            aria-checked={checked}
             className={styles.menuItem}
-            onClick={sw.onToggle}
-            data-menu-item={sw.key}
+            onClick={onToggle}
+            data-menu-item={key}
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name={sw.icon} size={22} />
-            </span>
-            <span className={styles.itemLabel}>{sw.label}</span>
-            <span
-              className={styles.switchTrack}
-              data-checked={String(sw.checked)}
-              aria-hidden="true"
-            >
+            {renderIconLabel(icon, label)}
+            <span className={styles.switchTrack} data-checked={String(checked)} aria-hidden="true">
               <span className={styles.switchThumb} />
             </span>
           </button>
@@ -201,10 +170,7 @@ export function AppMenu({
           }}
           data-menu-item="teachers"
         >
-          <span className={styles.itemIcon} aria-hidden="true">
-            <UiIcon name="TeacherBook" size={22} />
-          </span>
-          <span className={styles.itemLabel}>{APP_COPY.menu.teachers}</span>
+          {renderIconLabel('TeacherBook', APP_COPY.menu.teachers)}
         </button>
 
         <a
@@ -215,54 +181,42 @@ export function AppMenu({
           onClick={() => closeMenu(false)}
           data-menu-item="source"
         >
-          <span className={styles.itemIcon} aria-hidden="true">
-            <UiIcon name="CompassExplore" size={22} />
-          </span>
-          <span className={styles.itemLabel}>{APP_COPY.menu.source}</span>
+          {renderIconLabel('CompassExplore', APP_COPY.menu.source)}
         </a>
 
-        {pwa.canInstall && !pwa.isStandalone ? (
+        {pwa.canInstall && !pwa.isStandalone && (
           <button
             type="button"
-            className={[styles.menuItem, styles.installItem].filter(Boolean).join(' ')}
+            className={`${styles.menuItem} ${styles.installItem}`}
             onClick={() => {
               closeMenu(false);
               void pwa.install();
             }}
             data-menu-item="install"
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name="InstallApp" size={22} />
-            </span>
-            <span className={styles.itemLabel}>{APP_COPY.menu.install}</span>
+            {renderIconLabel('InstallApp', APP_COPY.menu.install)}
           </button>
-        ) : null}
+        )}
 
-        {pwa.showIosInstallTip && !pwa.isStandalone && !pwa.canInstall ? (
+        {pwa.showIosInstallTip && !pwa.isStandalone && !pwa.canInstall && (
           <div
-            className={[styles.menuItem, styles.iosTipItem].filter(Boolean).join(' ')}
+            className={`${styles.menuItem} ${styles.iosTipItem}`}
             role="note"
             data-menu-item="ios-install-tip"
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name="InstallApp" size={20} />
-            </span>
-            <span className={styles.itemLabel}>{APP_COPY.menu.iosInstallTip}</span>
+            {renderIconLabel('InstallApp', APP_COPY.menu.iosInstallTip, 20)}
           </div>
-        ) : null}
+        )}
 
-        {offlineReady ? (
+        {offlineReady && (
           <div
-            className={[styles.menuItem, styles.offlineBadge].filter(Boolean).join(' ')}
+            className={`${styles.menuItem} ${styles.offlineBadge}`}
             role="status"
             data-menu-item="offline-ready"
           >
-            <span className={styles.itemIcon} aria-hidden="true">
-              <UiIcon name="OfflineCheck" size={20} />
-            </span>
-            <span className={styles.itemLabel}>{APP_COPY.menu.offlineReady}</span>
+            {renderIconLabel('OfflineCheck', APP_COPY.menu.offlineReady, 20)}
           </div>
-        ) : null}
+        )}
       </div>
     </nav>
   );

@@ -4,6 +4,7 @@
 import type { ReactElement } from 'react';
 
 import { Button } from '@/components/Button';
+import { APP_COPY } from '@/content/copy';
 import type { UpdateToastProps } from '@/contracts';
 import { UiIcon } from '@/ui/icons/UiIcons';
 
@@ -14,9 +15,8 @@ export function UpdateToast({
   onApply,
   onDismiss,
 }: UpdateToastProps): ReactElement | null {
-  if (!visible) {
-    return null;
-  }
+  if (!visible) return null;
+  const { title, apply, dismiss } = APP_COPY.updateToast;
 
   return (
     <div
@@ -31,14 +31,14 @@ export function UpdateToast({
           size={22}
           {...(styles.icon === undefined ? {} : { className: styles.icon })}
         />
-        <span>Nova versão pronta.</span>
+        <span>{title}.</span>
       </div>
       <div className={styles.actions}>
         <Button variant="primary" size="sm" onClick={onApply}>
-          Atualizar agora
+          {apply}
         </Button>
         <Button variant="soft" size="sm" onClick={onDismiss}>
-          Agora não
+          {dismiss}
         </Button>
       </div>
     </div>

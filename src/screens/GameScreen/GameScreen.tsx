@@ -41,47 +41,31 @@ import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './GameScreen.module.css';
 
-// Fallback seguro para ambientes de teste (JSDOM) onde setPointerCapture não existe por padrão
-if (
-  typeof HTMLElement !== 'undefined' &&
-  typeof HTMLElement.prototype.setPointerCapture !== 'function'
-) {
-  HTMLElement.prototype.setPointerCapture = function setPointerCaptureFallback() {};
-}
-
 export interface AnalogDescriptionOptions {
   readonly period?: Period | undefined;
   readonly minuteLabels?: boolean | undefined;
 }
 
-/**
- * Descreve geometricamente as posições e a identidade dos ponteiros no mostrador
- * (ponteiro curto das horas e ponteiro longo dos minutos, incluindo posições
- * intermediárias e período quando visível), permitindo resolver o desafio com
- * leitor de tela sem anunciar a resposta numérica/por extenso pronta.
- */
+const SHORT_HAND = 'ponteiro curto das horas';
+const LONG_HAND = 'ponteiro longo dos minutos';
+const POINT_TO = 'apontando para o número';
+const BETWEEN = 'entre os números';
+
 export function describeAnalogHandPositions(time: ClockTime): string {
   const h12 = clockMath.to12(time.h);
-  const nextH12 = (h12 % 12) + 1;
-
   const hourDesc =
     time.m === 0
-      ? `ponteiro curto das horas apontando para o número ${h12}`
-      : `ponteiro curto das horas entre os números ${h12} e ${nextH12}`;
+      ? `${SHORT_HAND} ${POINT_TO} ${h12}`
+      : `${SHORT_HAND} ${BETWEEN} ${h12} e ${(h12 % 12) + 1}`;
 
   let minuteDesc: string;
   if (time.m % 5 === 0) {
-    const dialNum = time.m === 0 ? 12 : time.m / 5;
-    minuteDesc = `ponteiro longo dos minutos apontando para o número ${dialNum}`;
+    minuteDesc = `${LONG_HAND} ${POINT_TO} ${time.m === 0 ? 12 : time.m / 5}`;
   } else {
-    const prevMark = Math.floor(time.m / 5);
-    const prevDialNum = prevMark === 0 ? 12 : prevMark;
-    const nextDialNum = (prevDialNum % 12) + 1;
-    const ticksAfter = time.m % 5;
-    const ticksText = ticksAfter === 1 ? '1 tracinho' : `${ticksAfter} tracinhos`;
-    minuteDesc = `ponteiro longo dos minutos entre os números ${prevDialNum} e ${nextDialNum}, ${ticksText} depois do número ${prevDialNum}`;
+    const prev = Math.floor(time.m / 5) || 12;
+    const ticks = time.m % 5;
+    minuteDesc = `${LONG_HAND} ${BETWEEN} ${prev} e ${(prev % 12) + 1}, ${ticks === 1 ? '1 tracinho' : `${ticks} tracinhos`} depois do número ${prev}`;
   }
-
   return `${hourDesc}; ${minuteDesc}`;
 }
 
@@ -89,15 +73,9 @@ export function describeAnalogStimulus(
   time: ClockTime,
   options: AnalogDescriptionOptions = {},
 ): string {
-  const parts: string[] = [
-    `Relógio analógico do desafio: ${describeAnalogHandPositions(time)}`,
-  ];
-  if (options.period !== undefined) {
-    parts.push(`período ${options.period}`);
-  }
-  if (options.minuteLabels) {
-    parts.push('marcadores de 5 em 5 minutos visíveis no mostrador');
-  }
+  const parts = [`Relógio analógico do desafio: ${describeAnalogHandPositions(time)}`];
+  if (options.period !== undefined) parts.push(`período ${options.period}`);
+  if (options.minuteLabels) parts.push('marcadores de 5 em 5 minutos visíveis no mostrador');
   return `${parts.join('; ')}.`;
 }
 
@@ -105,10 +83,10 @@ export function describeInteractiveAnalogClock(
   time: ClockTime,
   lockMinute: boolean,
 ): string {
-  const controlHint = lockMinute
-    ? 'Use as setas esquerda e direita ou arraste o ponteiro curto das horas (ponteiro longo dos minutos travado no 12).'
+  const hint = lockMinute
+    ? `Use as setas esquerda e direita ou arraste o ${SHORT_HAND} (${LONG_HAND} travado no 12).`
     : 'Use as setas ou arraste os ponteiros.';
-  return `Relógio analógico interativo. ${controlHint} Posição atual: ${describeAnalogHandPositions(time)}.`;
+  return `Relógio analógico interativo. ${hint} Posição atual: ${describeAnalogHandPositions(time)}.`;
 }
 
 export interface MascotSignal {
@@ -137,9 +115,7 @@ export interface GameSessionApi extends GameControllerApi {
 export interface GameScreenProps {
   readonly mode: GameMode;
   readonly levelId: LevelId;
-  /** Estado, ações, mensagem do balão e sinais visuais da partida. */
   readonly session: GameSessionApi;
-  /** "Voltar ao início" (cancela a fala e consome a entrada do histórico). */
   readonly onHome: () => void;
 }
 
@@ -148,29 +124,27 @@ function getFilledTileValue(
   filled: Readonly<Record<string, string>>,
   slot: SlotSpec,
 ): string | null {
-  const placedTileId = filled[slot.id];
-  if (placedTileId === undefined) {
-    return null;
-  }
+  const id = filled[slot.id];
+  if (id === undefined) return null;
   if (question.mode !== 'hands') {
-    for (const bank of question.banks) {
-      const tile = bank.tiles.find((tl) => tl.id === placedTileId);
-      if (tile !== undefined) {
-        return tile.value;
-      }
+    for (const b of question.banks) {
+      const t = b.tiles.find((tl) => tl.id === id);
+      if (t) return t.value;
     }
   }
   return slot.answer;
 }
 
-interface GameStageProps {
+function GameStage({
+  state,
+  session,
+  onHome,
+}: {
   readonly state: GameState;
   readonly session: GameSessionApi;
   readonly onHome: () => void;
-}
-
-function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
-  const promptId = `${useId()}-game-prompt`;
+}): ReactElement {
+  const promptId = `${useId()}-p`;
   const actionsRef = useRef<HTMLDivElement>(null);
   const { overSlotId } = useDragLayer();
 
@@ -178,20 +152,17 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
   const { question, filled, usedTileIds, done } = current;
   const { view } = session;
 
-  // Foca o botão "Próxima" automaticamente ao concluir a pergunta
   useEffect(() => {
-    if (!done) return;
-    const nextBtn = actionsRef.current?.querySelector<HTMLButtonElement>(
-      'button[data-game-action="next"]',
-    );
-    nextBtn?.focus({ preventScroll: true });
+    if (done) {
+      actionsRef.current
+        ?.querySelector<HTMLButtonElement>('button[data-game-action="next"]')
+        ?.focus({ preventScroll: true });
+    }
   }, [done, state.index]);
 
-  const activeMessage =
-    session.message ?? renderMessage(feedback.code, feedback.context);
+  const activeMessage = session.message ?? renderMessage(feedback.code, feedback.context);
   const score = perfectCount(state.results);
-  const showMinuteLabels =
-    (question.mode === 'hands' && question.minuteLabels) || view.minuteLabels;
+  const showMinuteLabels = (question.mode === 'hands' && question.minuteLabels) || view.minuteLabels;
 
   const renderSlot = (slot: SlotSpec): ReactElement => {
     const filledWith = getFilledTileValue(question, filled, slot);
@@ -224,18 +195,8 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
           onClick={onHome}
           icon={<UiIcon name="BackArrow" size={24} />}
         />
-
-        <ProgressDots
-          total={state.roundLength}
-          current={state.index}
-          results={state.results}
-        />
-
-        <div
-          className={styles.scoreBadge}
-          aria-label={`Estrelas: ${score}`}
-          data-game-score={score}
-        >
+        <ProgressDots total={state.roundLength} current={state.index} results={state.results} />
+        <div className={styles.scoreBadge} aria-label={`Estrelas: ${score}`} data-game-score={score}>
           <span className={styles.scoreStar} aria-hidden="true">
             <UiIcon name="SparkleStar" size={20} />
           </span>
@@ -247,12 +208,9 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
         {APP_COPY.game.prompts[question.mode]}
       </h1>
 
-      {question.mode !== 'hands' ? (
-        <VisuallyHidden>{APP_COPY.game.tileFirstHint}</VisuallyHidden>
-      ) : null}
+      {question.mode !== 'hands' && <VisuallyHidden>{APP_COPY.game.tileFirstHint}</VisuallyHidden>}
 
       <div className={styles.stage}>
-        {/* Estímulo unificado por tipo (analógico ou digital) */}
         <div className={styles.stimulus} data-game-stimulus={question.stimulus}>
           {question.stimulus === 'analog' ? (
             <>
@@ -268,7 +226,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                   size="md"
                 />
               </div>
-              {stimulusPeriod !== undefined ? <PeriodBadge period={stimulusPeriod} /> : null}
+              {stimulusPeriod !== undefined && <PeriodBadge period={stimulusPeriod} />}
             </>
           ) : (
             <>
@@ -277,20 +235,16 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                 minutes={question.time.m}
                 glow={view.digitalGlow}
               />
-              {question.mode === 'hands' && question.phrase !== undefined ? (
+              {question.mode === 'hands' && question.phrase !== undefined && (
                 <p className={styles.stimulusPhrase}>{question.phrase}</p>
-              ) : null}
+              )}
             </>
           )}
         </div>
 
-        {/* Região de Resposta (role="group") */}
         <div className={styles.answerWrap}>
-          <AnswerRegion
-            mode={question.mode}
-            ariaLabel={ANSWER_REGION_LABELS[question.mode]}
-          >
-            {question.mode === 'numbers' ? (
+          <AnswerRegion mode={question.mode} ariaLabel={ANSWER_REGION_LABELS[question.mode]}>
+            {question.mode === 'numbers' && (
               <DigitalClock
                 hours={question.displayH}
                 minutes={question.time.m}
@@ -298,18 +252,18 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
               >
                 {question.slots.map((slot, idx) => (
                   <span key={slot.id}>
-                    {idx === 1 ? (
+                    {idx === 1 && (
                       <span className={styles.digitalColon} aria-hidden="true">
                         :
                       </span>
-                    ) : null}
+                    )}
                     {renderSlot(slot)}
                   </span>
                 ))}
               </DigitalClock>
-            ) : null}
+            )}
 
-            {question.mode === 'words' ? (
+            {question.mode === 'words' && (
               <p className={styles.phraseCard}>
                 {question.parts.map((part, idx) => {
                   if (part.kind === 'text') {
@@ -320,12 +274,12 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                     );
                   }
                   const slot = question.slots.find((sl) => sl.group === part.group);
-                  return slot === undefined ? null : renderSlot(slot);
+                  return slot ? renderSlot(slot) : null;
                 })}
               </p>
-            ) : null}
+            )}
 
-            {question.mode === 'hands' ? (
+            {question.mode === 'hands' && (
               <>
                 <div className={styles.clockBoxLg}>
                   <AnalogClock
@@ -354,20 +308,15 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                   </span>
                 </p>
               </>
-            ) : null}
+            )}
           </AnswerRegion>
         </div>
       </div>
 
-      {/* Bancos de fichas (modos numbers e words) */}
-      {question.mode !== 'hands' ? (
+      {question.mode !== 'hands' && (
         <div className={styles.banks}>
           {question.banks.map((bank) => (
-            <div
-              key={bank.group}
-              className={styles.bank}
-              data-bank-group={bank.group}
-            >
+            <div key={bank.group} className={styles.bank} data-bank-group={bank.group}>
               <div className={styles.bankHeader}>
                 <HandBadge
                   kind={
@@ -400,9 +349,8 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
             </div>
           ))}
         </div>
-      ) : null}
+      )}
 
-      {/* Mascote Tic + Balão de fala + Botões de ação */}
       <div className={styles.helper}>
         <div className={styles.mascotWrap}>
           <div className={styles.mascotHolder}>
@@ -410,16 +358,14 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
               mood={view.mascot.mood}
               size="sm"
               ambient="day"
-              {...(view.mascot.bounceSeq > 0
-                ? { bounceSeq: view.mascot.bounceSeq }
-                : {})}
+              {...(view.mascot.bounceSeq > 0 ? { bounceSeq: view.mascot.bounceSeq } : {})}
             />
           </div>
           <SpeechBubble message={activeMessage} tone={session.tone} />
         </div>
 
         <div ref={actionsRef} className={styles.actions}>
-          {!done ? (
+          {!done && (
             <Button
               variant="soft"
               onClick={() => session.requestHelp()}
@@ -428,9 +374,8 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
             >
               {APP_COPY.game.hint}
             </Button>
-          ) : null}
-
-          {question.mode === 'hands' || done ? (
+          )}
+          {(question.mode === 'hands' || done) && (
             <Button
               variant="soft"
               onClick={() => session.listen()}
@@ -439,9 +384,8 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
             >
               {APP_COPY.game.listen}
             </Button>
-          ) : null}
-
-          {question.mode === 'hands' && !done ? (
+          )}
+          {question.mode === 'hands' && !done && (
             <Button
               variant="go"
               onClick={() => session.checkHands()}
@@ -450,9 +394,8 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
             >
               {APP_COPY.game.ready}
             </Button>
-          ) : null}
-
-          {done ? (
+          )}
+          {done && (
             <Button
               variant="go"
               onClick={() => session.next()}
@@ -461,7 +404,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
             >
               {APP_COPY.game.next}
             </Button>
-          ) : null}
+          )}
         </div>
       </div>
     </section>
@@ -475,8 +418,7 @@ export function GameScreen({
   onHome,
 }: GameScreenProps): ReactElement | null {
   const { state } = session;
-
-  if (state === null) {
+  if (!state) {
     return (
       <section
         className={styles.screen}
@@ -486,7 +428,6 @@ export function GameScreen({
       />
     );
   }
-
   return (
     <DragLayerProvider>
       <GameStage state={state} session={session} onHome={onHome} />

@@ -18,4 +18,11 @@ if (typeof HTMLDialogElement !== 'undefined') {
   }
 }
 
+if (
+  typeof HTMLElement !== 'undefined' &&
+  typeof HTMLElement.prototype.setPointerCapture !== 'function'
+) {
+  HTMLElement.prototype.setPointerCapture = function () {};
+}
+
 afterEach(() => cleanup());

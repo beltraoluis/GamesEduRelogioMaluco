@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-/**
- * Leitura tolerante, gravação e operações puras das preferências salvas em
- * `localStorage['relogio-maluco-v1']` (formato do legado:
- * `{ level, sound, voice, stars }`).
- */
-
 import { isLevelId } from '../domain/levels';
 import type {
   ParsedPreferences,
@@ -25,18 +19,13 @@ export const DEFAULT_PREFERENCES: Preferences = Object.freeze({
   stars: Object.freeze({}),
 });
 
-/** Chaves de estrelas válidas: `numbers-1` ... `hands-4`. */
 export const STARS_KEY_PATTERN = /^(numbers|words|hands)-[1-4]$/;
-
 const KNOWN_KEYS: ReadonlySet<string> = new Set(['level', 'sound', 'voice', 'stars']);
 
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
-/** Resultado da leitura, com as chaves desconhecidas separadas. */
 export interface StoredPreferences extends ParsedPreferences {
-  /** Chaves de topo desconhecidas (mesmo conteúdo de `extra`). */
   readonly passthrough: UnknownRecord;
-  /** Entradas de `stars` com chave desconhecida (ex.: modos futuros). */
   readonly passthroughStars: UnknownRecord;
 }
 
@@ -52,22 +41,10 @@ function isPlainObject(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function emptyRecord(): Record<string, unknown> {
-  return Object.create(null) as Record<string, unknown>;
-}
-
 function defaults(source: StoredPreferences['source']): StoredPreferences {
   return { prefs: DEFAULT_PREFERENCES, source, extra: {}, passthrough: {}, passthroughStars: {} };
 }
 
-/**
- * Lê o JSON salvo sem nunca lançar erro.
- * - `null` (nada salvo) -> `default`;
- * - JSON ilegível ou que não é objeto (inclusive `"null"`) -> `corrupt`;
- * - campo presente com tipo/valor inválido (ex.: `level: 7`) -> padrão do
- *   campo e `repaired`; campos ausentes usam o padrão sem marcar reparo;
- * - chaves desconhecidas são preservadas em `passthrough`/`passthroughStars`.
- */
 export function parsePreferences(raw: string | null): StoredPreferences {
   if (raw === null) return defaults('default');
   let data: unknown;
@@ -88,19 +65,18 @@ export function parsePreferences(raw: string | null): StoredPreferences {
   };
   const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
 
-  const level = field('level', isLevelId, DEFAULT_PREFERENCES.level);
-  const sound = field('sound', isBool, DEFAULT_PREFERENCES.sound);
-  const voice = field('voice', isBool, DEFAULT_PREFERENCES.voice);
+  const level = field('level', isLevelId, 1);
+  const sound = field('sound', isBool, true);
+  const voice = field('voice', isBool, true);
 
   const stars: Partial<Record<StarsKey, Stars>> = {};
-  // Sem protótipo: uma chave "__proto__" vira propriedade comum, não protótipo.
-  const passthroughStars = emptyRecord();
+  const passthroughStars = Object.create(null) as Record<string, unknown>;
   if ('stars' in data) {
     const rawStars = data['stars'];
     if (isPlainObject(rawStars)) {
-      for (const [key, value] of Object.entries(rawStars)) {
-        if (!isStarsKey(key)) passthroughStars[key] = value;
-        else if (isStars(value)) stars[key] = value;
+      for (const [k, v] of Object.entries(rawStars)) {
+        if (!isStarsKey(k)) passthroughStars[k] = v;
+        else if (isStars(v)) stars[k] = v;
         else repaired = true;
       }
     } else {
@@ -108,9 +84,9 @@ export function parsePreferences(raw: string | null): StoredPreferences {
     }
   }
 
-  const passthrough = emptyRecord();
-  for (const [key, value] of Object.entries(data)) {
-    if (!KNOWN_KEYS.has(key)) passthrough[key] = value;
+  const passthrough = Object.create(null) as Record<string, unknown>;
+  for (const [k, v] of Object.entries(data)) {
+    if (!KNOWN_KEYS.has(k)) passthrough[k] = v;
   }
 
   return {
@@ -122,7 +98,6 @@ export function parsePreferences(raw: string | null): StoredPreferences {
   };
 }
 
-/** JSON a gravar: chaves desconhecidas preservadas + campos conhecidos. */
 export function serializePreferences(
   prefs: Preferences,
   passthrough: UnknownRecord = {},
@@ -139,40 +114,39 @@ export function serializePreferences(
 
 function sameStars(a: StarsMap, b: StarsMap): boolean {
   const ka = Object.keys(a) as StarsKey[];
-  if (ka.length !== Object.keys(b).length) return false;
-  return ka.every((k) => a[k] === b[k]);
+  return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k]);
 }
 
-/** Igualdade estrutural de preferências. */
 export function samePreferences(a: Preferences, b: Preferences): boolean {
   return a.level === b.level && a.sound === b.sound && a.voice === b.voice && sameStars(a.stars, b.stars);
 }
 
 const unchanged = (prefs: Preferences): PreferencesWriteResult => ({ prefs, changed: false });
 
-/**
- * Aplica uma operação sobre `prefs` (normalmente a releitura do storage).
- * Sem mudança, devolve a mesma referência com `changed: false`.
- */
-export function applyPreferencesOp(prefs: Preferences, op: PreferencesWriteOp): PreferencesWriteResult {
+export function applyPreferencesOp(
+  prefs: Preferences,
+  op: PreferencesWriteOp,
+): PreferencesWriteResult {
   switch (op.op) {
     case 'set-level':
-      if (!isLevelId(op.level) || op.level === prefs.level) return unchanged(prefs);
-      return { prefs: { ...prefs, level: op.level }, changed: true };
+      return !isLevelId(op.level) || op.level === prefs.level
+        ? unchanged(prefs)
+        : { prefs: { ...prefs, level: op.level }, changed: true };
     case 'set-sound':
-      if (op.on === prefs.sound) return unchanged(prefs);
-      return { prefs: { ...prefs, sound: op.on }, changed: true };
+      return op.on === prefs.sound
+        ? unchanged(prefs)
+        : { prefs: { ...prefs, sound: op.on }, changed: true };
     case 'set-voice':
-      if (op.on === prefs.voice) return unchanged(prefs);
-      return { prefs: { ...prefs, voice: op.on }, changed: true };
-    case 'record-stars': {
-      if (!isStarsKey(op.key) || !isStars(op.stars)) return unchanged(prefs);
-      const best = prefs.stars[op.key] ?? 0;
-      if (op.stars <= best) return unchanged(prefs);
-      return { prefs: { ...prefs, stars: { ...prefs.stars, [op.key]: op.stars } }, changed: true };
-    }
+      return op.on === prefs.voice
+        ? unchanged(prefs)
+        : { prefs: { ...prefs, voice: op.on }, changed: true };
+    case 'record-stars':
+      return !isStarsKey(op.key) || !isStars(op.stars) || op.stars <= (prefs.stars[op.key] ?? 0)
+        ? unchanged(prefs)
+        : { prefs: { ...prefs, stars: { ...prefs.stars, [op.key]: op.stars } }, changed: true };
     case 'reset-stars':
-      if (Object.keys(prefs.stars).length === 0) return unchanged(prefs);
-      return { prefs: { ...prefs, stars: {} }, changed: true };
+      return Object.keys(prefs.stars).length === 0
+        ? unchanged(prefs)
+        : { prefs: { ...prefs, stars: {} }, changed: true };
   }
 }

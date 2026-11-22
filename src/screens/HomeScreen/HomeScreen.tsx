@@ -25,19 +25,14 @@ import styles from './HomeScreen.module.css';
 
 export interface HomeScreenProps {
   readonly prefs: Preferences;
-  /** `PreferencesApi.persistent` (aviso no diálogo dos educadores). */
   readonly persistent: boolean;
   readonly onSelectMode: (id: ModeId) => void;
   readonly onChangeLevel: (id: LevelId) => void;
   readonly onToggleSound: () => void;
   readonly onToggleVoice: () => void;
-  /** Confirmação em 2 etapas fica no `TeachersDialog`; aqui só grava. */
   readonly onResetStars: () => void;
-  /** Toast "Nova versão pronta" (`UpdateToast`), só nesta tela (ADR-003). */
   readonly update: ServiceWorkerUpdateApi;
-  /** `tree/{commit}` (AGPL §13). */
   readonly sourceUrl: string;
-  /** Opcional (F2c/F3): estado de instalação/offline do PWA para o AppMenu. */
   readonly pwa?: Pick<PwaApi, 'canInstall' | 'install' | 'isStandalone' | 'showIosInstallTip'> & {
     readonly offlineReady?: boolean;
   };
@@ -66,10 +61,9 @@ export function HomeScreen({
   pwa = DEFAULT_PWA,
 }: HomeScreenProps): ReactElement {
   const baseId = useId();
-  const titleId = `${baseId}-home-title`;
-  const levelHeadingId = `${baseId}-level-heading`;
-  const modeHeadingId = `${baseId}-mode-heading`;
-
+  const titleId = `${baseId}-ht`;
+  const levelId = `${baseId}-lh`;
+  const modeId = `${baseId}-mh`;
   const [teachersOpen, setTeachersOpen] = useState(false);
 
   return (
@@ -104,31 +98,22 @@ export function HomeScreen({
         />
       </header>
 
-      <section className={styles.section} aria-labelledby={levelHeadingId}>
-        <h2 id={levelHeadingId} className={styles.sectionTitle}>
+      <section className={styles.section} aria-labelledby={levelId}>
+        <h2 id={levelId} className={styles.sectionTitle}>
           {APP_COPY.home.levelSection}
         </h2>
         <LevelSelector levels={LEVELS} current={prefs.level} onChange={onChangeLevel} />
       </section>
 
-      <section className={styles.section} aria-labelledby={modeHeadingId}>
-        <h2 id={modeHeadingId} className={styles.sectionTitle}>
+      <section className={styles.section} aria-labelledby={modeId}>
+        <h2 id={modeId} className={styles.sectionTitle}>
           {APP_COPY.home.modeSection}
         </h2>
         <div className={styles.modesGrid}>
           {MODES.map((mode) => {
-            const modeStars: StarCount | null =
-              mode.id === 'explore'
-                ? null
-                : (prefs.stars[`${mode.id}-${prefs.level}`] ?? 0);
-            return (
-              <ModeCard
-                key={mode.id}
-                mode={mode}
-                stars={modeStars}
-                onSelect={onSelectMode}
-              />
-            );
+            const stars: StarCount | null =
+              mode.id === 'explore' ? null : (prefs.stars[`${mode.id}-${prefs.level}`] ?? 0);
+            return <ModeCard key={mode.id} mode={mode} stars={stars} onSelect={onSelectMode} />;
           })}
         </div>
       </section>
