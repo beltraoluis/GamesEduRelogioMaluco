@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { useCallback, useMemo, useReducer, useState, type ReactElement } from 'react';
+/**
+ * Raiz da aplicação: máquina de telas + serviços compartilhados.
+ *
+ * - um único `useSound`/`useSpeech` (ligados às preferências) para todas as
+ *   telas; em TODA rota de volta ao início (botões e voltar do sistema) a
+ *   fala é cancelada e a sessão de jogo é abandonada (`toHome`); ao começar
+ *   uma partida, a fala é cancelada e a fila anterior é descartada;
+ * - a sessão de jogo (`useGameSession`) vive aqui, então a fanfarra, o
+ *   confete e a fala do fim da rodada sobrevivem à troca jogo -> resultado;
+ * - `useServiceWorkerUpdate` fica montado entre telas; o toast só aparece
+ *   na `HomeScreen` (ADR-003);
+ * - as telas visuais são injetadas (`screens`); F3 liga as de F2b.
+ */
+
+import { useCallback, useMemo, useReducer, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { Confetti } from '../components/Confetti';
 import { buildSourceUrl } from '../content/copy';
@@ -9,9 +24,11 @@ import type { ConfettiProps, LevelId, ModeId, RoundSummary, ServiceWorkerUpdateA
 import { usePreferences } from '../hooks/usePreferences';
 import { useSound } from '../hooks/useSound';
 import { useSpeech } from '../hooks/useSpeech';
-import { useGameSession, type SessionSeed } from '../screens/GameScreen/useGameController';
+import { useGameSession } from '../screens/GameScreen/useGameController';
+import type { SessionSeed } from '../screens/GameScreen/useGameController';
 import type { PreferencesStore } from '../storage/preferencesStore';
-import { HOME_SCREEN, isAwayFromHome, screenReducer, type Screen } from './screen';
+import { HOME_SCREEN, isAwayFromHome, screenReducer } from './screen';
+import type { Screen } from './screen';
 import type { AppScreens } from './screenProps';
 import { useBackToHome } from './useBackToHome';
 
@@ -21,16 +38,25 @@ const NO_UPDATE: ServiceWorkerUpdateApi = Object.freeze({
   dismissToast: () => {},
 });
 
+/** Substituto até F3 ligar `useServiceWorkerUpdate` (F2c). */
 export function useNoServiceWorkerUpdate(): ServiceWorkerUpdateApi {
   return NO_UPDATE;
 }
 
 export interface AppProps {
   readonly screens: AppScreens;
+  /**
+   * Hook de atualização do SW (F2c: `useServiceWorkerUpdate`). Precisa ser
+   * a MESMA função em todas as renderizações (regras dos hooks).
+   */
   readonly useUpdate?: () => ServiceWorkerUpdateApi;
+  /** Injetável em testes; padrão: store único. */
   readonly preferencesStore?: PreferencesStore;
+  /** Padrão: `buildSourceUrl(__APP_COMMIT__)`. */
   readonly sourceUrl?: string;
+  /** Injetável em testes (seed determinística). */
   readonly createSession?: () => SessionSeed;
+  /** Tela inicial (testes). Padrão: início. */
   readonly initialScreen?: Screen;
 }
 
@@ -43,7 +69,7 @@ export function App({
   initialScreen = HOME_SCREEN,
 }: AppProps): ReactElement {
   const preferences = usePreferences(preferencesStore);
-  const { prefs, setLevel, setSound, setVoice, resetStars } = preferences;
+  const { prefs } = preferences;
   const sound = useSound(prefs.sound);
   const speech = useSpeech(prefs.voice);
   const update = useUpdate();
@@ -68,9 +94,13 @@ export function App({
   });
 
   const { cancel } = speech;
-  const { abandon, start } = session;
-  const { play, unlock } = sound;
-
+  const { abandon } = session;
+  /**
+   * TODA saída para o início (botões, voltar do sistema): cala a fala,
+   * abandona a sessão (efeitos ainda não consumidos, mesmo do mesmo lote,
+   * nunca rodam: sem fala, fanfarra, estrelas ou navegação tardias) e limpa
+   * o confete. Um resultado já consumido (tela de resultado) fica salvo.
+   */
   const toHome = useCallback(() => {
     cancel();
     abandon();
@@ -79,6 +109,8 @@ export function App({
   }, [cancel, abandon]);
   const { goHome } = useBackToHome(isAwayFromHome(screen), toHome);
 
+  const { start } = session;
+  const { play, unlock } = sound;
   const onSelectMode = useCallback(
     (id: ModeId) => {
       unlock();
@@ -95,6 +127,7 @@ export function App({
     start(screen.summary.mode, screen.summary.levelId);
   }, [screen, play, start]);
 
+  const { setLevel, setSound, setVoice, resetStars } = preferences;
   const onChangeLevel = useCallback(
     (id: LevelId) => {
       unlock();
@@ -110,31 +143,33 @@ export function App({
   const onToggleVoice = useCallback(() => setVoice(!prefs.voice), [setVoice, prefs.voice]);
 
   const { Home, Game, Explore, Result } = screens;
-  const content =
-    screen.name === 'home' ? (
-      <Home
-        prefs={prefs}
-        persistent={preferences.persistent}
-        onSelectMode={onSelectMode}
-        onChangeLevel={onChangeLevel}
-        onToggleSound={onToggleSound}
-        onToggleVoice={onToggleVoice}
-        onResetStars={resetStars}
-        update={update}
-        sourceUrl={resolvedSourceUrl}
-      />
-    ) : screen.name === 'game' ? (
-      <Game mode={screen.mode} levelId={screen.levelId} session={session} onHome={goHome} />
-    ) : screen.name === 'explore' ? (
-      <Explore speech={speech} sound={sound} onHome={goHome} />
-    ) : (
-      <Result
-        summary={screen.summary}
-        newRecord={screen.newRecord}
-        onPlayAgain={onPlayAgain}
-        onHome={goHome}
-      />
-    );
+  let content: ReactElement;
+  switch (screen.name) {
+    case 'home':
+      content = (
+        <Home
+          prefs={prefs}
+          persistent={preferences.persistent}
+          onSelectMode={onSelectMode}
+          onChangeLevel={onChangeLevel}
+          onToggleSound={onToggleSound}
+          onToggleVoice={onToggleVoice}
+          onResetStars={resetStars}
+          update={update}
+          sourceUrl={resolvedSourceUrl}
+        />
+      );
+      break;
+    case 'game':
+      content = <Game mode={screen.mode} levelId={screen.levelId} session={session} onHome={goHome} />;
+      break;
+    case 'explore':
+      content = <Explore speech={speech} sound={sound} onHome={goHome} />;
+      break;
+    case 'result':
+      content = <Result summary={screen.summary} newRecord={screen.newRecord} onPlayAgain={onPlayAgain} onHome={goHome} />;
+      break;
+  }
 
   return (
     <>

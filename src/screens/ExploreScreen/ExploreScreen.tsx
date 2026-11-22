@@ -32,13 +32,16 @@ import { UiIcon } from '@/ui/icons/UiIcons';
 import styles from './ExploreScreen.module.css';
 
 export interface ExploreScreenProps {
+  /** Fala pedida pela criança ("Ouvir"/"Agora"); cancelada ao sair. */
   readonly speech: SpeechApi;
+  /** "tick" ao girar os ponteiros, "pick" nos botões. */
   readonly sound: SoundApi;
   readonly onHome: () => void;
+  /** Horário inicial opcional (padrão: 09:00). */
   readonly initialTime?: ClockTime;
 }
 
-const THEME_COLOR: Readonly<Record<Atmosphere, string>> = {
+const ATMOSPHERE_THEME_COLOR: Readonly<Record<Atmosphere, string>> = {
   madrugada: '#1b1947',
   manha: '#ffb703',
   tarde: '#fb8500',
@@ -51,7 +54,8 @@ export function ExploreScreen({
   onHome,
   initialTime,
 }: ExploreScreenProps): ReactElement {
-  const titleId = `${useId()}-et`;
+  const titleId = `${useId()}-explore-title`;
+
   const [time, setTime] = useState<ClockTime>(() => initialTime ?? { h: 9, m: 0 });
   const [isLive, setIsLive] = useState(false);
 
@@ -68,92 +72,118 @@ export function ExploreScreen({
   );
   const phrase24 = `ou: ${clockMath.phrase24(time)}`;
 
+  // Aplica data-atmosphere em document.documentElement e atualiza <meta name="theme-color">
   useEffect(() => {
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    const prevAtm = root.getAttribute('data-atmosphere');
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    const prevColor = meta?.getAttribute('content') ?? null;
+    const previousAtmosphere = root.getAttribute('data-atmosphere');
+    const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const previousThemeColor = themeMeta?.getAttribute('content') ?? null;
+
     return () => {
-      if (prevAtm === null) root.removeAttribute('data-atmosphere');
-      else root.setAttribute('data-atmosphere', prevAtm);
-      if (meta && prevColor !== null) meta.setAttribute('content', prevColor);
+      if (previousAtmosphere === null) {
+        root.removeAttribute('data-atmosphere');
+      } else {
+        root.setAttribute('data-atmosphere', previousAtmosphere);
+      }
+      if (themeMeta && previousThemeColor !== null) {
+        themeMeta.setAttribute('content', previousThemeColor);
+      }
     };
   }, []);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
     document.documentElement.setAttribute('data-atmosphere', atmosphere);
-    document
-      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', THEME_COLOR[atmosphere]);
+    const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (themeMeta) {
+      themeMeta.setAttribute('content', ATMOSPHERE_THEME_COLOR[atmosphere]);
+    }
   }, [atmosphere]);
 
   useEffect(() => {
     if (!isLive) return;
-    const id = setInterval(() => {
+    const tick = () => {
       const d = new Date();
       setTime({ h: d.getHours(), m: d.getMinutes(), s: d.getSeconds() });
-    }, 1000);
-    return () => clearInterval(id);
+    };
+    const timerId = setInterval(tick, 1000);
+    return () => clearInterval(timerId);
   }, [isLive]);
 
-  const setCleanTime = useCallback((h: number, m: number) => {
-    const clean: ClockTime = { h, m };
-    timeRef.current = clean;
-    setIsLive(false);
-    setTime(clean);
-  }, []);
-
   const stopLive = useCallback(() => {
+    setIsLive(false);
     const cur = timeRef.current;
-    if (cur.s !== undefined) setCleanTime(cur.h, cur.m);
-    else setIsLive(false);
-  }, [setCleanTime]);
+    if (cur.s !== undefined) {
+      const clean: ClockTime = { h: cur.h, m: cur.m };
+      timeRef.current = clean;
+      setTime(clean);
+    }
+  }, []);
 
   const handleClockChange = useCallback(
     (nextTime: ClockTime) => {
       const prev = timeRef.current;
       const changed = prev.h !== nextTime.h || prev.m !== nextTime.m;
-      setCleanTime(nextTime.h, nextTime.m);
+      const clean: ClockTime = { h: nextTime.h, m: nextTime.m };
+      timeRef.current = clean;
+      setIsLive(false);
+      setTime(clean);
       if (changed) {
         sound.unlock();
         sound.play('tick');
       }
     },
-    [setCleanTime, sound],
+    [sound],
   );
 
-  const pickSound = useCallback(() => {
+  const handleTogglePeriod = useCallback(() => {
+    setIsLive(false);
+    const prev = timeRef.current;
+    const next: ClockTime = { h: (prev.h + 12) % 24, m: prev.m };
+    timeRef.current = next;
+    setTime(next);
     sound.unlock();
     sound.play('pick');
   }, [sound]);
 
-  const handleTogglePeriod = useCallback(() => {
-    const prev = timeRef.current;
-    setCleanTime((prev.h + 12) % 24, prev.m);
-    pickSound();
-  }, [pickSound, setCleanTime]);
-
   const handleToggleNow = useCallback(() => {
-    pickSound();
+    sound.unlock();
+    sound.play('pick');
     if (isLive) {
+      setIsLive(false);
       const prev = timeRef.current;
-      setCleanTime(prev.h, prev.m);
+      const clean: ClockTime = { h: prev.h, m: prev.m };
+      timeRef.current = clean;
+      setTime(clean);
       return;
     }
-    const d = new Date();
-    const nowTime: ClockTime = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds() };
+    const now = new Date();
+    const nowTime: ClockTime = {
+      h: now.getHours(),
+      m: now.getMinutes(),
+      s: now.getSeconds(),
+    };
     timeRef.current = nowTime;
     setTime(nowTime);
     setIsLive(true);
-    speech.speak(
-      `Agora: ${clockMath.phraseText(clockMath.phraseParts(nowTime, { withPeriod: true, useHalf: true }))}`,
+    const nowPhrase = clockMath.phraseText(
+      clockMath.phraseParts(nowTime, { withPeriod: true, useHalf: true }),
     );
-  }, [isLive, pickSound, setCleanTime, speech]);
+    speech.speak(`Agora: ${nowPhrase}`);
+  }, [isLive, sound, speech]);
 
   const handleListen = useCallback(() => {
-    pickSound();
+    sound.unlock();
+    sound.play('pick');
     speech.speak(phrase12);
-  }, [phrase12, pickSound, speech]);
+  }, [phrase12, sound, speech]);
+
+  const handleHome = useCallback(() => {
+    setIsLive(false);
+    speech.cancel();
+    onHome();
+  }, [onHome, speech]);
 
   return (
     <section
@@ -167,11 +197,7 @@ export function ExploreScreen({
         <Button
           variant="icon"
           aria-label={APP_COPY.game.back}
-          onClick={() => {
-            setIsLive(false);
-            speech.cancel();
-            onHome();
-          }}
+          onClick={handleHome}
           icon={<UiIcon name="BackArrow" size={24} />}
         />
         <h1 id={titleId} className={styles.topbarTitle}>
@@ -199,6 +225,7 @@ export function ExploreScreen({
 
         <div className={styles.infoCard}>
           <DigitalClock hours={time.h} minutes={time.m} />
+
           <p className={styles.phrase} data-explore-phrase="12">
             {phrase12}
           </p>
@@ -208,6 +235,7 @@ export function ExploreScreen({
 
           <div className={styles.controls}>
             <PeriodBadge period={period} onToggle={handleTogglePeriod} />
+
             <Button
               variant={isLive ? 'primary' : 'soft'}
               size="sm"
@@ -217,6 +245,7 @@ export function ExploreScreen({
             >
               {APP_COPY.explore.now}
             </Button>
+
             <Button
               variant="soft"
               size="sm"

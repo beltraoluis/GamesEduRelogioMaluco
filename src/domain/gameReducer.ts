@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+/**
+ * Reducer puro do jogo (ADR-002).
+ *
+ * - nunca executa efeitos: anexa `GameEventEnvelope`s a `pendingEvents`;
+ * - `lastEventSeq` é monotônico, inclusive entre sessões (`start`);
+ * - só `events/ack` remove envelopes;
+ * - ação inválida no estado atual devolve exatamente a mesma referência.
+ */
+
 import { timeKey } from './clockMath';
 import { diagnoseDrop, diagnoseHands, helpFor } from './hints';
 import { getLevel, isLevelId } from './levels';
@@ -28,6 +37,8 @@ import type {
 export type StartAction = Extract<GameAction, { readonly type: 'start' }>;
 
 const ZERO_BY_GROUP: Readonly<Record<Group, number>> = { hour: 0, minute: 0, period: 0 };
+
+/** Faixa do índice de variação das frases curtas (elogio, progresso). */
 const VARIANT_MAX = 1023;
 
 function newQuestionState(question: Question): QuestionState {
@@ -50,11 +61,7 @@ interface ContextExtras {
   readonly variant?: number;
 }
 
-function contextOf(
-  state: Pick<GameState, 'mode' | 'level'>,
-  q: QuestionState,
-  extras: ContextExtras = {},
-): HintContext {
+function contextOf(state: Pick<GameState, 'mode' | 'level'>, q: QuestionState, extras: ContextExtras = {}): HintContext {
   const { question } = q;
   return {
     mode: state.mode,
@@ -74,17 +81,18 @@ function feedback(code: MessageCode, context: HintContext, tone: Feedback['tone'
   return { code, context, tone };
 }
 
+/** Anexa eventos à fila, numerando a partir de `lastEventSeq + 1`. */
 function withEvents<S extends GameState>(state: S, events: readonly GameEvent[]): S {
-  if (!events.length) return state;
+  if (events.length === 0) return state;
   let seq = state.lastEventSeq;
-  const envelopes: GameEventEnvelope[] = events.map((event) => ({
-    sessionId: state.sessionId,
-    seq: ++seq,
-    event,
-  }));
+  const envelopes: GameEventEnvelope[] = events.map((event) => ({ sessionId: state.sessionId, seq: ++seq, event }));
   return { ...state, pendingEvents: [...state.pendingEvents, ...envelopes], lastEventSeq: seq };
 }
 
+/**
+ * Estado inicial de uma sessão. `lastEventSeq` continua a numeração da
+ * sessão anterior (padrão 0); a fila anterior é descartada.
+ */
 export function initGame(action: StartAction, lastEventSeq = 0): GameState {
   const level = getLevel(isLevelId(action.levelId) ? action.levelId : 1);
   const roundLength =
@@ -94,64 +102,57 @@ export function initGame(action: StartAction, lastEventSeq = 0): GameState {
   const rng = mulberry32(action.seed);
   const question = buildQuestion(action.mode, level, new Set(), rng, 0);
   const current = newQuestionState(question);
-  return withEvents(
-    {
-      sessionId: action.sessionId,
-      mode: action.mode,
-      level,
-      status: 'playing',
-      roundLength,
-      seed: action.seed >>> 0,
-      rngState: rng.state(),
-      index: 0,
-      results: [],
-      usedTimes: [timeKey(question.time)],
-      current,
-      feedback: feedback('intro', contextOf({ mode: action.mode, level }, current), 'neutral'),
-      pendingEvents: [],
-      lastEventSeq: Math.max(0, lastEventSeq),
-    },
-    [{ type: 'question-started', index: 0 }],
-  );
+  const base: GameState = {
+    sessionId: action.sessionId,
+    mode: action.mode,
+    level,
+    status: 'playing',
+    roundLength,
+    seed: action.seed >>> 0,
+    rngState: rng.state(),
+    index: 0,
+    results: [],
+    usedTimes: [timeKey(question.time)],
+    current,
+    feedback: feedback('intro', contextOf({ mode: action.mode, level }, current), 'neutral'),
+    pendingEvents: [],
+    lastEventSeq: Math.max(0, lastEventSeq),
+  };
+  return withEvents(base, [{ type: 'question-started', index: 0 }]);
 }
 
-const isPlayable = (state: GameState): boolean => state.status === 'playing' && !state.current.done;
+function isPlayable(state: GameState): boolean {
+  return state.status === 'playing' && !state.current.done;
+}
 
 function findTile(question: Question, tileId: string): TileSpec | undefined {
   if (question.mode === 'hands') return undefined;
   for (const bank of question.banks) {
     const tile = bank.tiles.find((tl) => tl.id === tileId);
-    if (tile) return tile;
+    if (tile !== undefined) return tile;
   }
   return undefined;
 }
 
-function completeQuestion(
-  state: GameState,
-  q: QuestionState,
-  rng: SeededRng,
-  extraEvents: readonly GameEvent[],
-): GameState {
+function findSlot(question: Question, slotId: string): SlotSpec | undefined {
+  return question.mode === 'hands' ? undefined : question.slots.find((sl) => sl.id === slotId);
+}
+
+/** Conclui a pergunta atual: registra o resultado e anexa o evento. */
+function completeQuestion(state: GameState, q: QuestionState, rng: SeededRng, extraEvents: readonly GameEvent[]): GameState {
   const done: QuestionState = { ...q, done: true };
   const variant = randInt(0, VARIANT_MAX, rng);
-  return withEvents(
-    {
-      ...state,
-      rngState: rng.state(),
-      results: [...state.results, done.mistakes],
-      current: done,
-      feedback: feedback('praise', contextOf(state, done, { variant }), 'positive'),
-    },
-    [
-      ...extraEvents,
-      {
-        type: 'question-completed',
-        index: state.index,
-        mistakes: done.mistakes,
-        perfect: done.mistakes === 0,
-      },
-    ],
-  );
+  const next: GameState = {
+    ...state,
+    rngState: rng.state(),
+    results: [...state.results, done.mistakes],
+    current: done,
+    feedback: feedback('praise', contextOf(state, done, { variant }), 'positive'),
+  };
+  return withEvents(next, [
+    ...extraEvents,
+    { type: 'question-completed', index: state.index, mistakes: done.mistakes, perfect: done.mistakes === 0 },
+  ]);
 }
 
 function dropTile(state: GameState, tileId: string, slotId: string): GameState {
@@ -159,11 +160,9 @@ function dropTile(state: GameState, tileId: string, slotId: string): GameState {
   const q = state.current;
   const { question } = q;
   const tile = findTile(question, tileId);
-  const slot: SlotSpec | undefined =
-    question.mode === 'hands' ? undefined : question.slots.find((sl) => sl.id === slotId);
-  if (!tile || !slot || q.filled[slot.id] !== undefined || q.usedTileIds.includes(tile.id)) {
-    return state;
-  }
+  const slot = findSlot(question, slotId);
+  if (tile === undefined || slot === undefined) return state;
+  if (q.filled[slot.id] !== undefined || q.usedTileIds.includes(tile.id)) return state;
 
   const correct = tile.group === slot.group && tile.value === slot.answer;
   const attempt: Attempt = {
@@ -177,45 +176,29 @@ function dropTile(state: GameState, tileId: string, slotId: string): GameState {
     correct,
   };
 
-  if (!correct) {
-    const counted = tile.group === slot.group;
-    const wrongByGroup = counted
-      ? { ...q.wrongByGroup, [slot.group]: q.wrongByGroup[slot.group] + 1 }
-      : q.wrongByGroup;
-    const nq: QuestionState = {
-      ...q,
-      mistakes: counted ? q.mistakes + 1 : q.mistakes,
-      wrongByGroup,
-      attempts: [...q.attempts, attempt],
-    };
-    const hint = counted
-      ? diagnoseDrop({ mode: state.mode, level: state.level, question, tile, slot, wrongByGroup })
-      : 'drop.group-mismatch';
+  if (tile.group !== slot.group) {
+    const nq: QuestionState = { ...q, attempts: [...q.attempts, attempt] };
+    const hint = 'drop.group-mismatch';
     return withEvents(
-      {
-        ...state,
-        current: nq,
-        feedback: feedback(hint, contextOf(state, nq, { group: slot.group, attempt }), 'corrective'),
-      },
-      [{ type: 'tile-rejected', tileId: tile.id, slotId: slot.id, hint, counted }],
+      { ...state, current: nq, feedback: feedback(hint, contextOf(state, nq, { group: slot.group, attempt }), 'corrective') },
+      [{ type: 'tile-rejected', tileId: tile.id, slotId: slot.id, hint, counted: false }],
+    );
+  }
+
+  if (!correct) {
+    const wrongByGroup = { ...q.wrongByGroup, [slot.group]: q.wrongByGroup[slot.group] + 1 };
+    const nq: QuestionState = { ...q, mistakes: q.mistakes + 1, wrongByGroup, attempts: [...q.attempts, attempt] };
+    const hint = diagnoseDrop({ mode: state.mode, level: state.level, question, tile, slot, wrongByGroup });
+    return withEvents(
+      { ...state, current: nq, feedback: feedback(hint, contextOf(state, nq, { group: slot.group, attempt }), 'corrective') },
+      [{ type: 'tile-rejected', tileId: tile.id, slotId: slot.id, hint, counted: true }],
     );
   }
 
   const filled = { ...q.filled, [slot.id]: tile.id };
-  const nq: QuestionState = {
-    ...q,
-    filled,
-    usedTileIds: [...q.usedTileIds, tile.id],
-    attempts: [...q.attempts, attempt],
-  };
-  const complete =
-    question.mode !== 'hands' && question.slots.every((sl) => filled[sl.id] !== undefined);
-  const placed: GameEvent = {
-    type: 'tile-placed',
-    tileId: tile.id,
-    slotId: slot.id,
-    questionComplete: complete,
-  };
+  const nq: QuestionState = { ...q, filled, usedTileIds: [...q.usedTileIds, tile.id], attempts: [...q.attempts, attempt] };
+  const complete = question.mode !== 'hands' && question.slots.every((sl) => filled[sl.id] !== undefined);
+  const placed: GameEvent = { type: 'tile-placed', tileId: tile.id, slotId: slot.id, questionComplete: complete };
   const rng = mulberry32(state.rngState);
   if (complete) return completeQuestion(state, nq, rng, [placed]);
 
@@ -225,11 +208,7 @@ function dropTile(state: GameState, tileId: string, slotId: string): GameState {
       ...state,
       rngState: rng.state(),
       current: nq,
-      feedback: feedback(
-        'progress',
-        contextOf(state, nq, { group: slot.group, attempt, variant }),
-        'positive',
-      ),
+      feedback: feedback('progress', contextOf(state, nq, { group: slot.group, attempt, variant }), 'positive'),
     },
     [placed],
   );
@@ -239,50 +218,34 @@ function tapTile(state: GameState, tileId: string): GameState {
   if (!isPlayable(state)) return state;
   const { question, filled } = state.current;
   const tile = findTile(question, tileId);
-  if (!tile || question.mode === 'hands') return state;
+  if (tile === undefined || question.mode === 'hands') return state;
   const slot = question.slots.find((sl) => sl.group === tile.group && filled[sl.id] === undefined);
-  return slot ? dropTile(state, tile.id, slot.id) : state;
+  if (slot === undefined) return state;
+  return dropTile(state, tile.id, slot.id);
+}
+
+function isValidTime(time: ClockTime): boolean {
+  return Number.isInteger(time.h) && time.h >= 0 && time.h <= 23 && Number.isInteger(time.m) && time.m >= 0 && time.m <= 59;
 }
 
 function moveHands(state: GameState, time: ClockTime): GameState {
-  if (
-    !isPlayable(state) ||
-    state.current.question.mode !== 'hands' ||
-    !Number.isInteger(time.h) ||
-    time.h < 0 ||
-    time.h > 23 ||
-    !Number.isInteger(time.m) ||
-    time.m < 0 ||
-    time.m > 59
-  ) {
-    return state;
-  }
+  if (!isPlayable(state) || state.current.question.mode !== 'hands' || !isValidTime(time)) return state;
   const prev = state.current.hands;
-  return prev && prev.h === time.h && prev.m === time.m
-    ? state
-    : { ...state, current: { ...state.current, hands: { h: time.h, m: time.m } } };
+  if (prev !== null && prev.h === time.h && prev.m === time.m) return state;
+  return { ...state, current: { ...state.current, hands: { h: time.h, m: time.m } } };
 }
 
 function checkHands(state: GameState): GameState {
   if (!isPlayable(state)) return state;
   const q = state.current;
-  if (q.question.mode !== 'hands' || !q.hands) return state;
+  if (q.question.mode !== 'hands' || q.hands === null) return state;
+  const target = q.question.time;
   const mistakes = q.mistakes + 1;
-  const diag = diagnoseHands(q.question.time, q.hands, mistakes);
-  const attempt: Attempt = {
-    kind: 'hands',
-    time: q.hands,
-    hourOk: diag.hourOk,
-    minuteOk: diag.minuteOk,
-    correct: diag.hint === undefined,
-  };
-  if (!diag.hint || !diag.highlight) {
-    return completeQuestion(
-      state,
-      { ...q, attempts: [...q.attempts, attempt] },
-      mulberry32(state.rngState),
-      [],
-    );
+  const diag = diagnoseHands(target, q.hands, mistakes);
+  const correct = diag.hint === undefined;
+  const attempt: Attempt = { kind: 'hands', time: q.hands, hourOk: diag.hourOk, minuteOk: diag.minuteOk, correct };
+  if (diag.hint === undefined || diag.highlight === undefined) {
+    return completeQuestion(state, { ...q, attempts: [...q.attempts, attempt] }, mulberry32(state.rngState), []);
   }
   const group: Group = diag.highlight;
   const nq: QuestionState = {
@@ -292,11 +255,7 @@ function checkHands(state: GameState): GameState {
     attempts: [...q.attempts, attempt],
   };
   return withEvents(
-    {
-      ...state,
-      current: nq,
-      feedback: feedback(diag.hint, contextOf(state, nq, { group, attempt }), 'corrective'),
-    },
+    { ...state, current: nq, feedback: feedback(diag.hint, contextOf(state, nq, { group, attempt }), 'corrective') },
     [{ type: 'hands-rejected', hint: diag.hint, highlight: diag.highlight }],
   );
 }
@@ -305,18 +264,11 @@ function requestHelp(state: GameState): GameState {
   if (!isPlayable(state)) return state;
   const q = state.current;
   const help = helpFor(q.question, q.filled);
-  if (!help) return state;
+  if (help === null) return state;
   const nq: QuestionState = q.hinted ? q : { ...q, hinted: true };
+  const extras: ContextExtras = help.group === undefined ? {} : { group: help.group };
   return withEvents(
-    {
-      ...state,
-      current: nq,
-      feedback: feedback(
-        help.hint,
-        contextOf(state, nq, help.group ? { group: help.group } : {}),
-        'neutral',
-      ),
-    },
+    { ...state, current: nq, feedback: feedback(help.hint, contextOf(state, nq, extras), 'neutral') },
     [{ type: 'help-shown', hint: help.hint, highlight: help.highlight }],
   );
 }
@@ -327,12 +279,7 @@ function next(state: GameState): GameState {
   if (index >= state.roundLength) {
     const summary = buildRoundSummary(state.mode, state.level.id, state.results);
     return withEvents(
-      {
-        ...state,
-        status: 'finished',
-        summary,
-        feedback: feedback('done', contextOf(state, state.current), 'positive'),
-      },
+      { ...state, status: 'finished', summary, feedback: feedback('done', contextOf(state, state.current), 'positive') },
       [{ type: 'round-finished', summary }],
     );
   }
@@ -352,6 +299,13 @@ function next(state: GameState): GameState {
   );
 }
 
+function ack(state: GameState, upToSeq: number): GameState {
+  const limit = Math.min(upToSeq, state.lastEventSeq);
+  const pendingEvents = state.pendingEvents.filter((e) => e.seq > limit);
+  if (pendingEvents.length === state.pendingEvents.length) return state;
+  return { ...state, pendingEvents };
+}
+
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'start':
@@ -368,13 +322,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return requestHelp(state);
     case 'next':
       return next(state);
-    case 'events/ack': {
-      const limit = Math.min(action.upToSeq, state.lastEventSeq);
-      const pendingEvents = state.pendingEvents.filter((e) => e.seq > limit);
-      return pendingEvents.length === state.pendingEvents.length
-        ? state
-        : { ...state, pendingEvents };
-    }
+    case 'events/ack':
+      return ack(state, action.upToSeq);
     default:
       return state;
   }

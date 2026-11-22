@@ -8,7 +8,7 @@ import { StarIcon } from '@/ui/icons/StarIcon';
 
 import styles from './StarRating.module.css';
 
-const DELAYS = [styles.delay1, styles.delay2, styles.delay3] as const;
+const STAR_INDICES = [1, 2, 3] as const;
 
 export function StarRating({
   value,
@@ -29,25 +29,31 @@ export function StarRating({
       data-star-rating={value}
       data-size={size}
     >
-      {([1, 2, 3] as const).map((i) => {
-        const filled = i <= value;
+      {STAR_INDICES.map((starIndex) => {
+        const isFilled = starIndex <= value;
+        const delayClass =
+          starIndex === 1
+            ? styles.delay1
+            : starIndex === 2
+              ? styles.delay2
+              : styles.delay3;
         const itemClass = [
           styles.starItem,
-          animate && filled ? styles.animate : undefined,
-          animate && filled ? DELAYS[i - 1] : undefined,
+          animate && isFilled ? styles.animate : undefined,
+          animate && isFilled ? delayClass : undefined,
         ]
           .filter(Boolean)
           .join(' ');
 
         return (
           <span
-            key={i}
+            key={starIndex}
             className={itemClass}
-            data-star-index={i}
-            data-filled={String(filled)}
+            data-star-index={starIndex}
+            data-filled={String(isFilled)}
             data-motion="spring"
           >
-            <StarIcon filled={filled} size={iconSize} />
+            <StarIcon filled={isFilled} size={iconSize} />
           </span>
         );
       })}

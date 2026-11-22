@@ -2,28 +2,30 @@
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
 export function createSpeechEngine() {
-  const syn = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
+  const synthesis = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
   let voices: SpeechSynthesisVoice[] = [];
-  let gen = 0;
-  const load = () => { voices = syn?.getVoices() ?? []; };
-  load();
-  syn?.addEventListener('voiceschanged', load);
-  const supported = Boolean(syn && typeof SpeechSynthesisUtterance !== 'undefined');
+  let generation = 0;
+  const loadVoices = () => { voices = synthesis?.getVoices() ?? []; };
+  loadVoices();
+  synthesis?.addEventListener('voiceschanged', loadVoices);
   return {
-    supported,
+    supported: Boolean(synthesis && typeof SpeechSynthesisUtterance !== 'undefined'),
     speak(text: string, onEnd: () => void) {
-      if (!syn || !supported) return;
-      const cur = ++gen;
-      syn.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'pt-BR';
-      const v = voices.find((x) => x.lang.toLowerCase().replace('_', '-') === 'pt-br') ?? voices.find((x) => x.lang.toLowerCase().startsWith('pt'));
-      if (v) u.voice = v;
-      u.rate = 0.9; u.pitch = 1.1;
-      u.onend = u.onerror = () => { if (gen === cur) onEnd(); };
-      syn.speak(u);
+      if (!synthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+      const current = ++generation;
+      synthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'pt-BR';
+      const voice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === 'pt-br') ?? voices.find(v => v.lang.toLowerCase().startsWith('pt'));
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.1;
+      const finish = () => { if (generation === current) onEnd(); };
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      synthesis.speak(utterance);
     },
-    cancel() { gen++; syn?.cancel(); },
-    dispose() { gen++; syn?.removeEventListener('voiceschanged', load); syn?.cancel(); },
+    cancel() { generation++; synthesis?.cancel(); },
+    dispose() { generation++; synthesis?.removeEventListener('voiceschanged', loadVoices); synthesis?.cancel(); },
   };
 }

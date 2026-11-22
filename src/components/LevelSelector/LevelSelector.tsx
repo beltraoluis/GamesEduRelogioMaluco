@@ -28,25 +28,32 @@ export function LevelSelector({
   onChange,
 }: LevelSelectorProps): ReactElement {
   const baseId = useId();
-  const popoverId = `${baseId}-lp`;
-  const radioName = `${baseId}-lr`;
+  const popoverId = `${baseId}-level-popover`;
+  const radioGroupName = `${baseId}-level-radio`;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+
   const [open, setOpen] = useState(false);
 
-  const idx = Math.max(0, levels.findIndex((l) => l.id === current));
-  const cur = levels[idx] ?? getLevel(1);
-  const prev = levels[idx - 1];
-  const next = levels[idx + 1];
+  const currentIndex = levels.findIndex((l) => l.id === current);
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const currentLevel = levels[safeIndex] ?? getLevel(1);
 
-  const close = useCallback((restoreFocus: boolean) => {
+  const prevLevel = safeIndex > 0 ? levels[safeIndex - 1] : undefined;
+  const nextLevel = safeIndex < levels.length - 1 ? levels[safeIndex + 1] : undefined;
+
+  const closePopover = useCallback((restoreFocus: boolean) => {
     setOpen(false);
     try {
       popoverRef.current?.hidePopover?.();
-    } catch { /* ignore */ }
-    if (restoreFocus) triggerRef.current?.focus();
+    } catch {
+      // Ignora caso não esteja aberto na top-layer nativa
+    }
+    if (restoreFocus) {
+      triggerRef.current?.focus();
+    }
   }, []);
 
   useLayoutEffect(() => {
@@ -56,30 +63,34 @@ export function LevelSelector({
       try {
         if (open) panel.showPopover();
         else panel.hidePopover();
-      } catch { /* ignore */ }
+      } catch {
+        // O painel posicionado por CSS também funciona fora da camada nativa.
+      }
     }
     if (open) panel.querySelector<HTMLInputElement>('input:checked')?.focus();
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    const onOut = (e: MouseEvent) => {
-      const t = e.target as Node | null;
-      if (t && containerRef.current && !containerRef.current.contains(t)) close(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        close(true);
+    const handleOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (target && containerRef.current && !containerRef.current.contains(target)) {
+        closePopover(false);
       }
     };
-    document.addEventListener('click', onOut);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('click', onOut);
-      document.removeEventListener('keydown', onKey);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        closePopover(true);
+      }
     };
-  }, [open, close]);
+    document.addEventListener('click', handleOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, closePopover]);
 
   return (
     <div
@@ -89,8 +100,11 @@ export function LevelSelector({
       aria-label="Níveis"
       data-level-selector="true"
       data-open={String(open)}
-      onBlur={(e) => {
-        if (open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) close(false);
+      onBlur={(event) => {
+        const nextFocus = event.relatedTarget;
+        if (open && nextFocus && !event.currentTarget.contains(nextFocus)) {
+          closePopover(false);
+        }
       }}
     >
       <div className={styles.row}>
@@ -98,8 +112,10 @@ export function LevelSelector({
           type="button"
           className={styles.stepBtn}
           aria-label="Nível anterior"
-          disabled={!prev}
-          onClick={() => prev && onChange(prev.id)}
+          disabled={prevLevel === undefined}
+          onClick={() => {
+            if (prevLevel !== undefined) onChange(prevLevel.id);
+          }}
         >
           <UiIcon name="ChevronLeft" size={24} />
         </button>
@@ -110,13 +126,13 @@ export function LevelSelector({
           className={styles.currentBtn}
           aria-expanded={open}
           aria-controls={popoverId}
-          onClick={() => setOpen((p) => !p)}
-          data-level-current={cur.id}
+          onClick={() => setOpen((prev) => !prev)}
+          data-level-current={currentLevel.id}
         >
-          <span className={styles.levelNum}>{cur.id}</span>
+          <span className={styles.levelNum}>{currentLevel.id}</span>
           <span className={styles.levelText}>
-            <span className={styles.levelName}>{cur.name}</span>
-            <span className={styles.levelGrade}>{cur.grade}</span>
+            <span className={styles.levelName}>{currentLevel.name}</span>
+            <span className={styles.levelGrade}>{currentLevel.grade}</span>
           </span>
           <span className={styles.caret} data-open={String(open)} aria-hidden="true">
             <UiIcon name="ChevronDown" size={22} />
@@ -127,8 +143,10 @@ export function LevelSelector({
           type="button"
           className={styles.stepBtn}
           aria-label="Próximo nível"
-          disabled={!next}
-          onClick={() => next && onChange(next.id)}
+          disabled={nextLevel === undefined}
+          onClick={() => {
+            if (nextLevel !== undefined) onChange(nextLevel.id);
+          }}
         >
           <UiIcon name="ChevronRight" size={24} />
         </button>
@@ -141,27 +159,27 @@ export function LevelSelector({
         hidden={!open}
         data-open={String(open)}
         popover={supportsAnchoredPopover ? 'auto' : undefined}
-        onToggle={(e) => {
-          if (e.newState === 'closed') setOpen(false);
+        onToggle={(event) => {
+          if (event.newState === 'closed') setOpen(false);
         }}
       >
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Escolha o nível</legend>
           {levels.map((level) => {
-            const active = level.id === cur.id;
+            const isSelected = level.id === currentLevel.id;
             return (
               <label
                 key={level.id}
                 className={styles.optionLabel}
-                data-active={String(active)}
+                data-active={String(isSelected)}
                 data-level-option={level.id}
               >
                 <input
                   type="radio"
                   className={styles.radioInput}
-                  name={radioName}
+                  name={radioGroupName}
                   value={level.id}
-                  checked={active}
+                  checked={isSelected}
                   onChange={() => onChange(level.id)}
                 />
                 <span className={styles.levelNum}>{level.id}</span>
@@ -169,11 +187,11 @@ export function LevelSelector({
                   <span className={styles.levelName}>{level.name}</span>
                   <span className={styles.levelGrade}>{level.grade}</span>
                 </span>
-                {active && (
+                {isSelected ? (
                   <span className={styles.activeBadge} aria-hidden="true">
                     <UiIcon name="CheckBadge" size={20} />
                   </span>
-                )}
+                ) : null}
               </label>
             );
           })}

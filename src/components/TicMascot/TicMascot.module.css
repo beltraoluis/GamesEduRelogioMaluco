@@ -68,10 +68,41 @@
     animation: mascot-bell-ring 420ms ease-in-out 2;
   }
 
+  .clockHand {
+    transform-origin: 60px 64px;
+    animation: hand-turn 12s linear infinite;
+  }
+
+  .eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: eyes-blink 4s ease-in-out infinite;
+  }
+
+  @keyframes hand-turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes eyes-blink {
+    0%,
+    44%,
+    48%,
+    100% {
+      transform: scaleY(1);
+    }
+    46% {
+      transform: scaleY(0.08);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .bounceEven,
     .bounceOdd,
-    .bellsCelebrate {
+    .bellsCelebrate,
+    .clockHand,
+    .eyes {
       animation: none;
     }
   }

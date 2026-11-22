@@ -15,21 +15,35 @@ export function SpeechBubble({
   live = 'polite',
   tone = 'neutral',
 }: SpeechBubbleProps): ReactElement {
+  const plainText = toPlainText(message);
+  const toneClass =
+    tone === 'positive'
+      ? styles.positive
+      : tone === 'corrective'
+        ? styles.corrective
+        : styles.neutral;
+  const className = [styles.bubble, toneClass].filter(Boolean).join(' ');
+
   return (
     <div
-      className={`${styles.bubble} ${styles[tone] ?? ''}`}
+      className={className}
       aria-live={live}
       aria-atomic="true"
       data-speech-bubble="true"
       data-tone={tone}
       data-message-code={message.code}
-      data-plain-text={toPlainText(message)}
+      data-plain-text={plainText}
     >
-      {tone !== 'neutral' && (
+      {tone === 'positive' ? (
         <span className={styles.toneIcon} aria-hidden="true">
-          <UiIcon name={tone === 'positive' ? 'CheckBadge' : 'HintBulb'} size={20} />
+          <UiIcon name="CheckBadge" size={20} />
         </span>
-      )}
+      ) : null}
+      {tone === 'corrective' ? (
+        <span className={styles.toneIcon} aria-hidden="true">
+          <UiIcon name="HintBulb" size={20} />
+        </span>
+      ) : null}
       <div className={styles.textWrap}>
         <MessageText message={message} />
       </div>

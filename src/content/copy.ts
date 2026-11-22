@@ -5,20 +5,29 @@ import { ANSWER_REGION_LABELS } from '../contracts';
 import { LEVELS } from '../domain/levels';
 import { MODES } from '../domain/modes';
 
+/** Repositório canônico do Corresponding Source. */
 export const SOURCE_REPO_URL =
   'https://github.com/beltraoluis/GamesEduRelogioMaluco' as const;
 
+/**
+ * Monta a URL `tree/{commit}` do Corresponding Source (ADR-004 §1).
+ *
+ * Exige commit não vazio e diferente de `"unknown"`.
+ */
 export function buildSourceUrl(commit: string): string {
   const trimmed = commit.trim();
-  if (!trimmed || trimmed === 'unknown') {
-    throw new Error('Commit exato exigido (ADR-004).');
+  if (trimmed.length === 0 || trimmed === 'unknown') {
+    throw new Error(
+      'Corresponding Source exige commit exato (ADR-004): informe o SHA do build para montar tree/{commit}.',
+    );
   }
   return `${SOURCE_REPO_URL}/tree/${trimmed}`;
 }
 
-const LISTEN = 'Ouvir';
-const RESET_TITLE = 'Apagar progresso deste aparelho';
+const LISTEN_LABEL = 'Ouvir';
+const RESET_PROGRESS_LABEL = 'Apagar progresso deste aparelho';
 
+/** Toda a copy da interface (pt-BR, sem emojis). */
 export const APP_COPY = {
   home: {
     title: 'Relógio Maluco',
@@ -49,7 +58,7 @@ export const APP_COPY = {
     tileFirstHint:
       'Escolha uma ficha e toque Enter ou Espaço para encaixar',
     hint: 'Dica',
-    listen: LISTEN,
+    listen: LISTEN_LABEL,
     ready: 'Pronto!',
     next: 'Próxima',
     back: 'Voltar ao início',
@@ -57,7 +66,7 @@ export const APP_COPY = {
   explore: {
     title: 'Explorar o relógio',
     now: 'Que horas são agora?',
-    listen: LISTEN,
+    listen: LISTEN_LABEL,
     dragTip:
       'Arraste os ponteiros! Quando o ponteiro grande dá uma volta inteira, o pequeno anda até o próximo número.',
     facts: [
@@ -77,7 +86,7 @@ export const APP_COPY = {
     dismiss: 'Agora não',
   },
   resetProgress: {
-    title: RESET_TITLE,
+    title: RESET_PROGRESS_LABEL,
     confirm:
       'Tem certeza? Todas as estrelas salvas neste aparelho serão apagadas.',
     confirmButton: 'Sim, apagar',
@@ -91,7 +100,7 @@ export const APP_COPY = {
   teachers: {
     title: 'Para educadores e famílias',
     close: 'Fechar',
-    resetButton: RESET_TITLE,
+    resetButton: RESET_PROGRESS_LABEL,
   },
   modes: {
     numbers: MODES[0],

@@ -56,10 +56,14 @@ export function TicMascot({
           <use data-bell="right" fill="#ff8fab" href={`${SPRITE_URL}#tic-bells`} />
         </g>
         <use href={`${SPRITE_URL}#tic-body-${ambient}`} />
-        <use className={styles.clockHand} href={`${SPRITE_URL}#tic-hand`} />
+        <g className={styles.clockHand}>
+          <use href={`${SPRITE_URL}#tic-hand`} />
+        </g>
         <g data-mood-layer={mood}>
           {mood !== 'celebrate' ? (
-            <use className={styles.eyes} href={`${SPRITE_URL}#tic-eyes-${mood}`} />
+            <g className={styles.eyes}>
+              <use href={`${SPRITE_URL}#tic-eyes-${mood}`} />
+            </g>
           ) : null}
           <use href={`${SPRITE_URL}#tic-face-${mood}`} />
         </g>

@@ -12,12 +12,17 @@ import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './TeachersDialog.module.css';
 
-function extractCommit(sourceUrl: string): string {
+function extractCommitFromSourceUrl(sourceUrl: string): string {
   const idx = sourceUrl.indexOf('/tree/');
   const candidate = idx !== -1 ? sourceUrl.slice(idx + 6).trim() : '';
-  if (candidate && candidate !== 'unknown') return candidate;
+  if (candidate.length > 0 && candidate !== 'unknown') return candidate;
   const defined = typeof __APP_COMMIT__ !== 'undefined' ? String(__APP_COMMIT__).trim() : '';
-  return defined && defined !== 'unknown' ? defined : '1c8594a';
+  return defined.length > 0 && defined !== 'unknown' ? defined : '1c8594a';
+}
+
+function resolveAppVersion(): string {
+  const defined = typeof __APP_VERSION__ !== 'undefined' ? String(__APP_VERSION__).trim() : '';
+  return defined.length > 0 ? defined : '0.1.0';
 }
 
 export function TeachersDialog({
@@ -28,40 +33,45 @@ export function TeachersDialog({
   persistent,
 }: TeachersDialogProps): ReactElement {
   const baseId = useId();
-  const titleId = `${baseId}-t`;
-  const bnccId = `${baseId}-b`;
-  const confirmId = `${baseId}-c`;
+  const titleId = `${baseId}-teachers-title`;
+  const bnccHeadingId = `${baseId}-bncc-heading`;
+  const confirmTextId = `${baseId}-confirm-reset`;
 
-  const [confirming, setConfirming] = useState(false);
-  const [announced, setAnnounced] = useState(false);
-  const resetRef = useRef<HTMLDivElement>(null);
-  const restoreFocus = useRef(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetAnnounced, setResetAnnounced] = useState(false);
+  const resetSectionRef = useRef<HTMLDivElement>(null);
+  const restoreResetFocus = useRef(false);
 
   const handleClose = useCallback(() => {
-    restoreFocus.current = false;
-    setConfirming(false);
+    restoreResetFocus.current = false;
+    setConfirmingReset(false);
     onClose();
   }, [onClose]);
 
   const dialogRef = useModalDialog(open, handleClose);
-  const showConfirm = open && confirming;
+
+  const showConfirmBox = open && confirmingReset;
 
   useEffect(() => {
-    if (!open || !restoreFocus.current) return;
-    resetRef.current
-      ?.querySelector<HTMLButtonElement>(
-        showConfirm ? '[data-reset-step="2-confirm"]' : '[data-reset-step="1"]',
-      )
-      ?.focus();
-    if (!showConfirm) restoreFocus.current = false;
-  }, [open, showConfirm]);
+    if (!open || !restoreResetFocus.current) return;
+    const nextButton = resetSectionRef.current?.querySelector<HTMLButtonElement>(
+      showConfirmBox ? '[data-reset-step="2-confirm"]' : '[data-reset-step="1"]',
+    );
+    nextButton?.focus();
+    if (!showConfirmBox) restoreResetFocus.current = false;
+  }, [open, showConfirmBox]);
 
-  const commit = extractCommit(sourceUrl);
-  const version =
-    typeof __APP_VERSION__ !== 'undefined' && String(__APP_VERSION__).trim()
-      ? String(__APP_VERSION__).trim()
-      : '0.1.0';
-  const agplNotice = buildAgplNotice({ version, commit });
+  const commit = extractCommitFromSourceUrl(sourceUrl);
+  const agplNotice = buildAgplNotice({
+    version: resolveAppVersion(),
+    commit,
+  });
+
+  const handleConfirmReset = () => {
+    onResetStars();
+    setConfirmingReset(false);
+    setResetAnnounced(true);
+  };
 
   return (
     <dialog
@@ -87,7 +97,7 @@ export function TeachersDialog({
           </button>
         </header>
 
-        {!persistent && (
+        {!persistent ? (
           <div
             className={styles.persistenceAlert}
             role="note"
@@ -95,14 +105,18 @@ export function TeachersDialog({
           >
             {APP_COPY.persistence.unavailable}
           </div>
-        )}
+        ) : null}
 
         <p className={styles.paragraph}>{EDUCATORS_CONTENT.intro}</p>
 
-        <h3 id={bnccId} className={styles.sectionTitle}>
+        <h3 id={bnccHeadingId} className={styles.sectionTitle}>
           {EDUCATORS_CONTENT.bnccHeading}
         </h3>
-        <div className={styles.tableWrapper} role="region" aria-labelledby={bnccId}>
+        <div
+          className={styles.tableWrapper}
+          role="region"
+          aria-labelledby={bnccHeadingId}
+        >
           <table className={styles.bnccTable} role="table">
             <thead>
               <tr>
@@ -111,15 +125,16 @@ export function TeachersDialog({
                 <th scope="col">Onde aparece</th>
               </tr>
             </thead>
+            {/* Os papéis explícitos preservam a tabela empilhada no WebKit antigo (bug 257458). */}
             {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
             <tbody role="rowgroup">
-              {EDUCATORS_CONTENT.bnccSkills.map((e) => (
-                <tr key={e.code} role="row" data-bncc-row={e.code}>
-                  <th scope="row" role="rowheader">{e.code}</th>
+              {EDUCATORS_CONTENT.bnccSkills.map((entry) => (
+                <tr key={entry.code} role="row" data-bncc-row={entry.code}>
+                  <th scope="row" role="rowheader">{entry.code}</th>
                   {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
-                  <td role="cell">{e.summary}</td>
+                  <td role="cell">{entry.summary}</td>
                   {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
-                  <td role="cell">{e.where}</td>
+                  <td role="cell">{entry.where}</td>
                 </tr>
               ))}
             </tbody>
@@ -129,18 +144,18 @@ export function TeachersDialog({
 
         <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.levelsHeading}</h3>
         <ul className={styles.list}>
-          {EDUCATORS_CONTENT.levels.map((l) => (
-            <li key={l.id}>
-              <strong>{l.title}:</strong> {l.description}
+          {EDUCATORS_CONTENT.levels.map((level) => (
+            <li key={level.id}>
+              <strong>{level.title}:</strong> {level.description}
             </li>
           ))}
         </ul>
 
         <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.modesHeading}</h3>
         <ul className={styles.list}>
-          {EDUCATORS_CONTENT.modes.map((m) => (
-            <li key={m.id}>
-              <strong>{m.title}:</strong> {m.description}
+          {EDUCATORS_CONTENT.modes.map((mode) => (
+            <li key={mode.id}>
+              <strong>{mode.title}:</strong> {mode.description}
             </li>
           ))}
         </ul>
@@ -155,20 +170,20 @@ export function TeachersDialog({
 
         <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.usageHeading}</h3>
         <ul className={styles.list}>
-          {EDUCATORS_CONTENT.usageSuggestions.map((s, i) => (
-            <li key={i}>{s}</li>
+          {EDUCATORS_CONTENT.usageSuggestions.map((suggestion, index) => (
+            <li key={index}>{suggestion}</li>
           ))}
         </ul>
 
-        <div ref={resetRef} className={styles.resetSection}>
-          {!showConfirm ? (
+        <div ref={resetSectionRef} className={styles.resetSection}>
+          {!showConfirmBox ? (
             <div>
               <Button
                 variant="soft"
                 onClick={() => {
-                  restoreFocus.current = true;
-                  setConfirming(true);
-                  setAnnounced(false);
+                  restoreResetFocus.current = true;
+                  setConfirmingReset(true);
+                  setResetAnnounced(false);
                 }}
                 data-reset-step="1"
               >
@@ -181,25 +196,21 @@ export function TeachersDialog({
               role="group"
               aria-label={APP_COPY.resetProgress.title}
             >
-              <p id={confirmId} className={styles.paragraph}>
+              <p id={confirmTextId} className={styles.paragraph}>
                 {APP_COPY.resetProgress.confirm}
               </p>
               <div className={styles.confirmActions}>
                 <Button
                   variant="primary"
-                  aria-describedby={confirmId}
-                  onClick={() => {
-                    onResetStars();
-                    setConfirming(false);
-                    setAnnounced(true);
-                  }}
+                  aria-describedby={confirmTextId}
+                  onClick={handleConfirmReset}
                   data-reset-step="2-confirm"
                 >
                   {APP_COPY.resetProgress.confirmButton}
                 </Button>
                 <Button
                   variant="soft"
-                  onClick={() => setConfirming(false)}
+                  onClick={() => setConfirmingReset(false)}
                   data-reset-step="2-cancel"
                 >
                   {APP_COPY.resetProgress.cancelButton}
@@ -209,7 +220,7 @@ export function TeachersDialog({
           )}
 
           <p className={styles.liveStatus} role="status" aria-live="polite">
-            {announced ? APP_COPY.resetProgress.liveMessage : ''}
+            {resetAnnounced ? APP_COPY.resetProgress.liveMessage : ''}
           </p>
         </div>
 

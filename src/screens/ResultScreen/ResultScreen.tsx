@@ -15,6 +15,7 @@ import styles from './ResultScreen.module.css';
 
 export interface ResultScreenProps {
   readonly summary: RoundSummary;
+  /** Primeira vez com essa quantidade de estrelas nesta chave. */
   readonly newRecord: boolean;
   readonly onPlayAgain: () => void;
   readonly onHome: () => void;
@@ -26,7 +27,9 @@ export function ResultScreen({
   onPlayAgain,
   onHome,
 }: ResultScreenProps): ReactElement {
-  const titleId = `${useId()}-rt`;
+  const titleId = `${useId()}-result-title`;
+  const title = RESULT_TITLES[summary.stars];
+  const text = resultText(summary);
 
   return (
     <section
@@ -41,15 +44,15 @@ export function ResultScreen({
           <TicMascot mood="celebrate" size="lg" ambient="day" bounceSeq={1} />
         </div>
 
-        {newRecord && (
+        {newRecord ? (
           <div className={styles.recordBadge} data-record-badge="true">
             <UiIcon name="TrophyCup" size={18} />
             <span>Novo recorde!</span>
           </div>
-        )}
+        ) : null}
 
         <h1 id={titleId} className={styles.title}>
-          {RESULT_TITLES[summary.stars]}
+          {title}
         </h1>
 
         <div className={styles.starsRegion} aria-live="polite">
@@ -61,7 +64,7 @@ export function ResultScreen({
           />
         </div>
 
-        <p className={styles.summaryText}>{resultText(summary)}</p>
+        <p className={styles.summaryText}>{text}</p>
 
         <div className={styles.actions}>
           <Button

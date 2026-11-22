@@ -24,16 +24,22 @@ export function Button({
   children,
   ...rest
 }: ButtonProps): ReactElement {
+  const variantClass = styles[variant];
+  const sizeClass = styles[size];
+  const mergedClassName = [styles.button, variantClass, sizeClass, className]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <button
       type={type}
-      className={[styles.button, styles[variant], styles[size], className].filter(Boolean).join(' ')}
+      className={mergedClassName}
       data-variant={variant}
       data-size={size}
       data-motion="spring"
       {...rest}
     >
-      {icon != null && <span className={styles.iconWrap}>{icon}</span>}
+      {icon !== undefined && icon !== null ? <span className={styles.iconWrap}>{icon}</span> : null}
       {children}
     </button>
   );
