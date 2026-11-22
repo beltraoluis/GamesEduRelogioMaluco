@@ -2,7 +2,11 @@
 
 Data: 2026-11-22. Branch de entrega: `beltraoluis/monte-o-relogio`.
 
-**Estado: integração funcional validada, orçamento ainda reprovado no React 19.3.1.**
+**Estado final: os dois orçamentos passam com React/DOM 19.3.1.**
+Solução medida em build limpo: `df5608123d938835256f3426ba441c21a105610c`,
+**91589 B de JS gzip / 523531 B de precache**. Margens: **571 B / 757 B**.
+As medições intermediárias reprovadas e o experimento React 18 abaixo são histórico;
+React 18 continua separado e não foi adotado.
 Nenhum teto, exclusão do verificador, funcionalidade, licença ou recurso offline foi alterado.
 Não houve push, publicação, PR ou merge.
 
@@ -21,19 +25,20 @@ exceto sourcemaps; o JS inicial exclui os arquivos do service worker/Workbox.
 | Reuso a92, `0f072c0818082b6d353b91fa68ecd3774e56caec` | 103092 | 525959 | falha |
 | Otimização externa, sem modo, `414cdd889712f36d18f4c3b4d05ebce077198ce4` | 92079 | 521892 | passa |
 | Integração React 19, `6b1ce842683f3140345d8b55bc0f7fa3bc8a34f9` | 93817 | 531750 | falha |
+| Solução React 19, `df5608123d938835256f3426ba441c21a105610c` | 91589 | 523531 | passa |
 | Experimento React 18, `5f777870bca639b8b3353dd24f41359cbed106f3` | 71159 | 452870 | passa tamanho; falha teste/typecheck |
 | Tetos mantidos | 92160 | 524288 | — |
 
 Delta original do modo: **+2472 B gzip / +9534 B precache**. A base já reprovava
-antes do modo. A integração atual reduz **17078 B gzip / 52510 B precache** frente
-a `4380d8b`, mas ainda excede os tetos em **1657 B / 7462 B**.
-Contra o snapshot externo sem o modo, o incremento atual é +1738 B / +9858 B
+antes do modo. A integração intermediária reduziu **17078 B gzip / 52510 B precache** frente
+a `4380d8b`, mas ainda excedia os tetos em **1657 B / 7462 B**.
+Contra o snapshot externo sem o modo, o incremento intermediário era +1738 B / +9858 B
 (inclui a integração e a centralização dos textos da montagem).
 
 Reprodução no checkout da entrega:
 
 ```sh
-node scripts/measure-build.mjs cc63fc9 4380d8b 0f072c0 414cdd8 6b1ce84
+node scripts/measure-build.mjs cc63fc9 4380d8b 0f072c0 414cdd8 6b1ce84 df56081
 npm ci --include=dev
 npm run typecheck
 npm run lint
@@ -81,7 +86,7 @@ integrado de 94119 para 94680 B gzip; JSX clássico ficou em 94135 B. O padrão 
 foi preservado. Nenhum runtime foi editado e nenhuma dependência foi disfarçada
 como arquivo de outro tipo para sair do gate.
 
-## Validação do candidato React 19
+## Validação do candidato intermediário React 19 (`6b1ce84`)
 
 - Typecheck e lint passam.
 - 356 testes unitários/de integração passam, incluindo o replay com Activity.
@@ -95,7 +100,77 @@ como arquivo de outro tipo para sair do gate.
 - Jornada offline das outras telas e sprite passa também no WebKit; migração
   v6, rollback v7, atualização sem reload automático, subpath e licenças passam.
 - No-emoji, 60 verificações de contraste e chunk único passam.
-- **Tamanho falha**, conforme a tabela; não há candidato pronto para merge.
+- **Tamanho falhava** nesse snapshot, conforme a tabela; foi resolvido em `df56081`.
+
+## Solução final e verificação do grafo
+
+Confirmei com o coordenador paralelo que a referência de release mais recente é
+`6f4f8da2db523b040e01123530c61fd143ec1c4d`, em `beltraoluis/updateVisual` e na branch
+`f5-integrated-verification` do checkout temporário. Desde `414cdd8` não há nova
+otimização nas fontes distribuídas; mede 92077 B / 521892 B sem a montagem. Não
+copiei alterações pendentes nem fiz push na branch compartilhada.
+
+A investigação mostrou que `require("react")` mantinha o namespace inteiro vivo,
+mesmo quando o aplicativo usava poucos exports. O plugin de build
+`build/reactStaticImports.ts` transforma **somente duas declarações de dependências**
+dos arquivos oficiais de produção em imports estáticos, na mesma ordem, e resolve
+`react` diretamente para o arquivo de produção que seu index.js selecionaria.
+O tree shaking CommonJS do Rolldown pode então eliminar exports não referenciados.
+Não há patch de funções internas, flags, erros, símbolos, scheduler ou lógica React;
+os entry points React DOM com `checkDCE` continuam presentes. Nenhum arquivo em
+`node_modules` é modificado. A resolução especial só roda no build de produção.
+
+O plugin verifica a versão exata **19.3.1** e os SHA-256 dos três arquivos revisados;
+uma distribuição diferente interrompe o build e exige nova revisão. Esse é o custo
+de manutenção deliberado da otimização: uma atualização do React deve revisar as
+declarações e repetir a prova de runtime, sem atualizar hashes às cegas.
+
+Sourcemaps são preservados tanto nessa transformação quanto no compilador de
+imports CSS. `magic-string` e `@jridgewell/sourcemap-codec` são dependências de
+desenvolvimento; não entram no chunk nem no precache.
+
+Contribuições mapeadas antes/depois da última otimização (bytes de código minificado;
+gzip individual é diagnóstico e não se soma ao gate):
+
+| Módulo | Antes raw / gzip isolado | Depois raw / gzip isolado |
+|---|---:|---:|
+| React core | 7807 / 2928 | 1831 / 721 |
+| React DOM API | 3553 / 1237 | 973 / 576 |
+| React DOM client | 202894 / 62701 | 202681 / 62719 |
+| Scheduler | 3465 / 1484 | 3468 / 1486 |
+
+As pequenas diferenças nos módulos que não encolheram vêm dos identificadores
+escolhidos pelo minificador. A remoção efetiva foi de exports não usados dos dois
+primeiros módulos. A última mudança retirou **2228 B gzip / 8219 B precache**;
+frente ao modo original, a solução retirou **19306 B / 60729 B**.
+
+Maiores arquivos finais, medidos no build limpo: JS 292262 B; CSS 48113 B;
+LICENSE.txt 34523 B; fonte 29732 B; index.html 28348 B; sprite 18793 B;
+Workbox 15112 B. Fonte, conteúdo, imagens, licenças e política de cache permanecem
+inteiros. Nenhum arquivo mudou de extensão para escapar dos gates.
+
+Reproduzir a atribuição (separada da medição oficial sem sourcemaps):
+
+```sh
+npm run build -- --sourcemap
+node scripts/analyze-bundle.mjs dist > /tmp/assembly-analysis.json
+```
+
+Validação final: typecheck e lint passam; **356 testes passam**; **57 E2E passam**
+em Chromium/WebKit, com os mesmos 3 skips condicionais anteriores. A suíte mantém
+a montagem completa offline, erro/retry, arrasto touch por CDP, clique/toque,
+legibilidade a 320 px, repetição e persistência. Os gates de tamanho, chunk único,
+no-emoji e as 60 verificações de contraste passam.
+
+A prova adicional `e2e/react-runtime.spec.ts` usa um entry de teste compilado pelo
+mesmo config de produção, fora do build distribuído. Ela comprova `Activity` ocultando
+uma fila pendente sem executar seus efeitos; ao reexibir, comprova callback atualizado,
+ack da fila e uma única execução, inclusive após outro ciclo ocultar/reexibir. Também
+confirma duas chamadas `checkDCE` antes da injeção de DevTools, versão 19.3.1 e ausência
+de erros no navegador. O teste original de Activity em StrictMode continua intacto.
+
+O checkout limpo de `df56081`, após `npm ci --include=dev`, também é usado para repetir
+typecheck, lint, unitários e E2E, além dos gates oficiais registrados na tabela.
 
 ## Experimento separado React 18 — não adotado
 
@@ -135,6 +210,10 @@ como pronta enquanto esse teste e o ADR estiverem pendentes.
 - Limitações React 18: `/tmp/assembly-react18-types-final.log`,
   `/tmp/assembly-react18-tests.log`, `/tmp/assembly-react18-e2e.log`.
 - Contribuições originais: `/tmp/assembly-contributions.json`.
+- Solução limpa: `/tmp/assembly-solution-clean.log`.
+- Validação repetida no checkout limpo: `/tmp/assembly-clean-validation.log`.
+- Suíte final: `/tmp/assembly-final-tests.log`, `/tmp/assembly-final-e2e.log`.
+- Perfil final por arquivo/módulo: `/tmp/assembly-final-analysis.json`.
 
 Como jogar: escolha Monte o relógio na entrada habitual, arraste cada peça ou
 toque na peça e no encaixe; complete as horas, avance para os minutos (00 no topo,

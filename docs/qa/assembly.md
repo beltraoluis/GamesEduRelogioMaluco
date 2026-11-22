@@ -2,6 +2,11 @@
 
 Base de integração: `cc63fc9` de `beltraoluis/updateVisual`. Trabalho na branch isolada `beltraoluis/monte-o-relogio`.
 
+Atualização: os dois limites de tamanho passaram mantendo React 19.3.1 em
+`df56081` (91589 B JS gzip / 523531 B precache), com 356 testes e 57 E2E aprovados,
+incluindo montagem offline e Activity em produção. Veja [medições, causas e comandos](assembly-size.md).
+As evidências abaixo registram a implementação inicial `4380d8b`.
+
 ## Como jogar
 
 1. Na tela inicial, escolha qualquer uma das quatro dificuldades e o cartão **Monte o relógio**.
@@ -22,7 +27,7 @@ A montagem introdutória é a mesma em todas as dificuldades. As estrelas ficam 
 - Playwright/Chromium: teste `e2e/assembly.spec.ts` usa toque pelo motor de entrada (CDP) para arrastar e cancelar e `tap()` para concluir as duas etapas, corrigir erro, repetir, sair e verificar estrelas após recarregar. Também mede alvos de pelo menos 44 px e separação vertical de `12/00`.
 - `check:no-emoji`, as **60 verificações de contraste**, `build` e `check:entry`: aprovados. A atividade entra no precache gerado pelo build sem novos arquivos externos.
 
-## Limites e pendência da base
+## Limites e pendência da base na implementação inicial
 
 O comando de toque do navegador embutido Orca enviou coordenadas incorretas (inclusive x negativo). A verificação de toque foi realizada pelo Playwright do projeto. Isso não constitui teste em aparelho físico.
 
