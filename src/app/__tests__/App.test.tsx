@@ -38,6 +38,7 @@ const screens: AppScreens = {
       <button type="button" onClick={() => onSelectMode('numbers')}>Números</button>
       <button type="button" onClick={() => onSelectMode('hands')}>Ponteiros</button>
       <button type="button" onClick={() => onSelectMode('explore')}>Explorar</button>
+      <button type="button" onClick={() => onSelectMode('assemble')}>Monte o relógio</button>
     </div>
   ),
   Game: (props) => {
@@ -116,6 +117,26 @@ function current(): GameSessionApi {
   if (session === null) throw new Error('sem sessão');
   return session;
 }
+
+it('abre montagem pela seleção habitual e salva sem alterar dificuldade ou estrelas anteriores', () => {
+  const { store } = renderApp();
+  act(() => { store.setLevel(3); store.recordStars('numbers-3', 2); });
+  fireEvent.click(screen.getByText('Monte o relógio'));
+  expect(session).toBeNull();
+  for (let phase = 0; phase < 2; phase++) {
+    for (let p = 0; p < 12; p++) {
+      fireEvent.click(document.querySelector(`[data-piece="${p}"]`)!);
+      fireEvent.click(document.querySelector(`[data-slot-id="assembly-${p}"]`)!);
+    }
+    if (phase === 0) fireEvent.click(screen.getByText('Montar os minutos'));
+  }
+  expect(store.getSnapshot().prefs.stars).toEqual({ 'numbers-3': 2, 'assemble-3': 3 });
+  fireEvent.click(screen.getByText('Ver resultado'));
+  expect(screen.getByText('Você montou o relógio!')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Início'));
+  expect(screen.getByText('nível 3')).toBeInTheDocument();
+  store.dispose();
+});
 
 function solveCurrent(): void {
   const s = current().state as GameState;

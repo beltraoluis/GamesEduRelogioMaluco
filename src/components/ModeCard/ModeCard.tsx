@@ -11,6 +11,7 @@ import { ModeIllustration } from '@/ui/illustrations/ModeIllustration';
 import styles from './ModeCard.module.css';
 
 const MODE_ICON: Readonly<Record<ModeId, UiIconName>> = {
+  assemble: 'ClockHands',
   numbers: 'DigitalBlocks',
   words: 'PuzzleWords',
   hands: 'ClockHands',

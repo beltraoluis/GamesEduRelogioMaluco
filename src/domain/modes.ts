@@ -5,7 +5,8 @@
 
 import type { GameMode, ModeId, ModeMeta } from './types';
 
-export const MODES: readonly [ModeMeta, ModeMeta, ModeMeta, ModeMeta] = [
+export const MODES: readonly ModeMeta[] = [
+  { id: 'assemble', title: 'Monte o relógio', description: 'Encaixe as horas e depois os minutos', scored: true },
   { id: 'numbers', title: 'Números', description: 'Leia o relógio e arraste os números', scored: true },
   { id: 'words', title: 'Palavras', description: 'Monte a frase da hora', scored: true },
   { id: 'hands', title: 'Ponteiros', description: 'Gire os ponteiros do relógio', scored: true },
@@ -20,7 +21,7 @@ export function isGameMode(value: unknown): value is GameMode {
 }
 
 export function isModeId(value: unknown): value is ModeId {
-  return isGameMode(value) || value === 'explore';
+  return isGameMode(value) || value === 'explore' || value === 'assemble';
 }
 
 export function getMode(id: ModeId): ModeMeta {

@@ -27,7 +27,7 @@ export type LevelId = 1 | 2 | 3 | 4;
 export type GameMode = 'numbers' | 'words' | 'hands';
 
 /** Todos os cartões da tela inicial (o `explore` não tem rodada nem estrelas). */
-export type ModeId = GameMode | 'explore';
+export type ModeId = GameMode | 'explore' | 'assemble';
 
 /** Grupo pedagógico de uma ficha/lacuna (cor fixa: azul, vermelho, roxo). */
 export type Group = 'hour' | 'minute' | 'period';
@@ -46,7 +46,7 @@ export type Period = 'da madrugada' | 'da manhã' | 'da tarde' | 'da noite';
 export type Atmosphere = 'madrugada' | 'manha' | 'tarde' | 'noite';
 
 /** Chave das estrelas salvas: `numbers-1`, `words-4`, ... */
-export type StarsKey = `${GameMode}-${LevelId}`;
+export type StarsKey = `${GameMode | 'assemble'}-${LevelId}`;
 
 /** Resultado de uma rodada. */
 export type Stars = 1 | 2 | 3;

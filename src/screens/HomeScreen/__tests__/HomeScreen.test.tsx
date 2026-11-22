@@ -9,7 +9,7 @@ import { axe } from 'vitest-axe';
 import { HomeScreen } from '@/screens/HomeScreen';
 
 describe('HomeScreen', () => {
-  it('renderiza mascote Tic, LevelSelector, 4 ModeCards com descricoes e estrelas, menu e dialogo', async () => {
+  it('renderiza mascote Tic, LevelSelector, 5 ModeCards com descricoes e estrelas, menu e dialogo', async () => {
     const user = userEvent.setup();
     const onSelectMode = vi.fn();
     const onChangeLevel = vi.fn();
@@ -44,7 +44,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Vamos aprender a ler as horas!')).toBeInTheDocument();
     expect(container.querySelector('svg[data-mascot="tic"][data-size="md"]')).not.toBeNull();
 
-    // 4 modos com descrição curta
+    // 5 modos com descrição curta
     expect(screen.getByText('Leia o relógio e arraste os números')).toBeInTheDocument();
     expect(screen.getByText('Monte a frase da hora')).toBeInTheDocument();
     expect(screen.getByText('Gire os ponteiros do relógio')).toBeInTheDocument();
@@ -53,7 +53,9 @@ describe('HomeScreen', () => {
     // Estrelas do nível 2
     expect(screen.getByRole('img', { name: '3 de 3 estrelas' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: '1 de 3 estrelas' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: '0 de 3 estrelas' })).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: '0 de 3 estrelas' })).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: /Monte o relógio/i }));
+    expect(onSelectMode).toHaveBeenCalledWith('assemble');
 
     // Toast oculto quando updateReady === false
     expect(screen.queryByText('Nova versão pronta.')).toBeNull();

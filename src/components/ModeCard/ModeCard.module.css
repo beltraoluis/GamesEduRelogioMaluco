@@ -40,6 +40,10 @@
     border-bottom: 5px solid var(--color-hour);
   }
 
+  .assemble {
+    border-bottom: 5px solid var(--color-hour);
+  }
+
   .words {
     border-bottom: 5px solid var(--color-period);
   }

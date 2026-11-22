@@ -163,9 +163,9 @@ describe('copy estrutural mínima', () => {
     );
   });
 
-  it('mantém 4 níveis, 4 modos e competências com redundância de cor', () => {
+  it('mantém 4 níveis, 5 modos e competências com redundância de cor', () => {
     expect(EDUCATORS_CONTENT.levels).toHaveLength(4);
-    expect(EDUCATORS_CONTENT.modes).toHaveLength(4);
+    expect(EDUCATORS_CONTENT.modes).toHaveLength(5);
     expect(EDUCATORS_CONTENT.competencies).toMatch(/azul = horas/i);
     expect(EDUCATORS_CONTENT.competencies).toMatch(/vermelho = minutos/i);
     expect(EDUCATORS_CONTENT.competencies).toMatch(/roxo = período/i);
