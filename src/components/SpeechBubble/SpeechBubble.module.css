@@ -1,0 +1,123 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .bubble {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    min-height: 3.5rem;
+    flex: 1 1 16rem;
+    min-width: 0;
+    border-radius: var(--radius-xl);
+    background-color: var(--color-surface-card);
+    color: var(--color-ink);
+    border: 2.5px solid var(--color-border-card);
+    box-shadow: var(--shadow-card);
+    font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+    font-weight: 600;
+    line-height: 1.45;
+    transition:
+      border-color var(--duration-normal) var(--ease-standard),
+      background-color var(--duration-normal) var(--ease-standard);
+  }
+
+  .bubble::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -11px;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    border-width: 10px 11px 10px 0;
+    border-style: solid;
+    border-color: transparent var(--color-border-card) transparent transparent;
+  }
+
+  .bubble::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: -8px;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    border-width: 8px 9px 8px 0;
+    border-style: solid;
+    border-color: transparent var(--color-surface-card) transparent transparent;
+  }
+
+  /* Redundância visual por tom (borda + selo lateral, nunca só cor) */
+  .neutral {
+    border-color: var(--color-border-card);
+    background-color: var(--color-surface-card);
+  }
+
+  .positive {
+    border-color: var(--color-success);
+    border-inline-start-width: 6px;
+    background-color: var(--color-success-soft);
+  }
+
+  .positive::before {
+    border-color: transparent var(--color-success) transparent transparent;
+  }
+
+  .positive::after {
+    border-color: transparent var(--color-success-soft) transparent transparent;
+  }
+
+  .corrective {
+    border-color: var(--color-warning-warm);
+    border-style: dashed;
+    border-inline-start-style: solid;
+    border-inline-start-width: 6px;
+    background-color: var(--color-surface-elevated);
+  }
+
+  .corrective::before {
+    border-color: transparent var(--color-warning-warm) transparent transparent;
+  }
+
+  .corrective::after {
+    border-color: transparent var(--color-surface-elevated) transparent transparent;
+  }
+
+  .toneIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--radius-pill);
+  }
+
+  .positive .toneIcon {
+    color: var(--color-success);
+    background-color: var(--color-surface-card);
+  }
+
+  .corrective .toneIcon {
+    color: var(--color-warning-ink);
+    background-color: var(--color-surface-card);
+  }
+
+  .textWrap {
+    flex: 1;
+    min-width: 0;
+  }
+
+  @media (max-width: 560px) {
+    .bubble::before,
+    .bubble::after {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bubble {
+      transition: none;
+    }
+  }
+}
