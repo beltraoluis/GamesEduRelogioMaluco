@@ -12,32 +12,12 @@ import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './TeachersDialog.module.css';
 
-// Fallback seguro para ambientes de teste (JSDOM) onde HTMLDialogElement não implementa showModal/close nativamente
-if (typeof HTMLDialogElement !== 'undefined') {
-  if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
-    HTMLDialogElement.prototype.showModal = function showModalFallback(this: HTMLDialogElement) {
-      this.setAttribute('open', '');
-    };
-  }
-  if (typeof HTMLDialogElement.prototype.close !== 'function') {
-    HTMLDialogElement.prototype.close = function closeFallback(this: HTMLDialogElement) {
-      this.removeAttribute('open');
-      this.dispatchEvent(new Event('close'));
-    };
-  }
-}
-
-function extractCommitFromSourceUrl(sourceUrl: string): string {
+function extractCommit(sourceUrl: string): string {
   const idx = sourceUrl.indexOf('/tree/');
   const candidate = idx !== -1 ? sourceUrl.slice(idx + 6).trim() : '';
-  if (candidate.length > 0 && candidate !== 'unknown') return candidate;
+  if (candidate && candidate !== 'unknown') return candidate;
   const defined = typeof __APP_COMMIT__ !== 'undefined' ? String(__APP_COMMIT__).trim() : '';
-  return defined.length > 0 && defined !== 'unknown' ? defined : '1c8594a';
-}
-
-function resolveAppVersion(): string {
-  const defined = typeof __APP_VERSION__ !== 'undefined' ? String(__APP_VERSION__).trim() : '';
-  return defined.length > 0 ? defined : '0.1.0';
+  return defined && defined !== 'unknown' ? defined : '1c8594a';
 }
 
 export function TeachersDialog({
@@ -48,45 +28,40 @@ export function TeachersDialog({
   persistent,
 }: TeachersDialogProps): ReactElement {
   const baseId = useId();
-  const titleId = `${baseId}-teachers-title`;
-  const bnccHeadingId = `${baseId}-bncc-heading`;
-  const confirmTextId = `${baseId}-confirm-reset`;
+  const titleId = `${baseId}-t`;
+  const bnccId = `${baseId}-b`;
+  const confirmId = `${baseId}-c`;
 
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  const [resetAnnounced, setResetAnnounced] = useState(false);
-  const resetSectionRef = useRef<HTMLDivElement>(null);
-  const restoreResetFocus = useRef(false);
+  const [confirming, setConfirming] = useState(false);
+  const [announced, setAnnounced] = useState(false);
+  const resetRef = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef(false);
 
   const handleClose = useCallback(() => {
-    restoreResetFocus.current = false;
-    setConfirmingReset(false);
+    restoreFocus.current = false;
+    setConfirming(false);
     onClose();
   }, [onClose]);
 
   const dialogRef = useModalDialog(open, handleClose);
-
-  const showConfirmBox = open && confirmingReset;
+  const showConfirm = open && confirming;
 
   useEffect(() => {
-    if (!open || !restoreResetFocus.current) return;
-    const nextButton = resetSectionRef.current?.querySelector<HTMLButtonElement>(
-      showConfirmBox ? '[data-reset-step="2-confirm"]' : '[data-reset-step="1"]',
-    );
-    nextButton?.focus();
-    if (!showConfirmBox) restoreResetFocus.current = false;
-  }, [open, showConfirmBox]);
+    if (!open || !restoreFocus.current) return;
+    resetRef.current
+      ?.querySelector<HTMLButtonElement>(
+        showConfirm ? '[data-reset-step="2-confirm"]' : '[data-reset-step="1"]',
+      )
+      ?.focus();
+    if (!showConfirm) restoreFocus.current = false;
+  }, [open, showConfirm]);
 
-  const commit = extractCommitFromSourceUrl(sourceUrl);
-  const agplNotice = buildAgplNotice({
-    version: resolveAppVersion(),
-    commit,
-  });
-
-  const handleConfirmReset = () => {
-    onResetStars();
-    setConfirmingReset(false);
-    setResetAnnounced(true);
-  };
+  const commit = extractCommit(sourceUrl);
+  const version =
+    typeof __APP_VERSION__ !== 'undefined' && String(__APP_VERSION__).trim()
+      ? String(__APP_VERSION__).trim()
+      : '0.1.0';
+  const agplNotice = buildAgplNotice({ version, commit });
 
   return (
     <dialog
@@ -112,7 +87,7 @@ export function TeachersDialog({
           </button>
         </header>
 
-        {!persistent ? (
+        {!persistent && (
           <div
             className={styles.persistenceAlert}
             role="note"
@@ -120,18 +95,14 @@ export function TeachersDialog({
           >
             {APP_COPY.persistence.unavailable}
           </div>
-        ) : null}
+        )}
 
         <p className={styles.paragraph}>{EDUCATORS_CONTENT.intro}</p>
 
-        <h3 id={bnccHeadingId} className={styles.sectionTitle}>
+        <h3 id={bnccId} className={styles.sectionTitle}>
           {EDUCATORS_CONTENT.bnccHeading}
         </h3>
-        <div
-          className={styles.tableWrapper}
-          role="region"
-          aria-labelledby={bnccHeadingId}
-        >
+        <div className={styles.tableWrapper} role="region" aria-labelledby={bnccId}>
           <table className={styles.bnccTable} role="table">
             <thead>
               <tr>
@@ -140,16 +111,15 @@ export function TeachersDialog({
                 <th scope="col">Onde aparece</th>
               </tr>
             </thead>
-            {/* Os papéis explícitos preservam a tabela empilhada no WebKit antigo (bug 257458). */}
             {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
             <tbody role="rowgroup">
-              {EDUCATORS_CONTENT.bnccSkills.map((entry) => (
-                <tr key={entry.code} role="row" data-bncc-row={entry.code}>
-                  <th scope="row" role="rowheader">{entry.code}</th>
+              {EDUCATORS_CONTENT.bnccSkills.map((e) => (
+                <tr key={e.code} role="row" data-bncc-row={e.code}>
+                  <th scope="row" role="rowheader">{e.code}</th>
                   {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
-                  <td role="cell">{entry.summary}</td>
+                  <td role="cell">{e.summary}</td>
                   {/* eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role */}
-                  <td role="cell">{entry.where}</td>
+                  <td role="cell">{e.where}</td>
                 </tr>
               ))}
             </tbody>
@@ -159,18 +129,18 @@ export function TeachersDialog({
 
         <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.levelsHeading}</h3>
         <ul className={styles.list}>
-          {EDUCATORS_CONTENT.levels.map((level) => (
-            <li key={level.id}>
-              <strong>{level.title}:</strong> {level.description}
+          {EDUCATORS_CONTENT.levels.map((l) => (
+            <li key={l.id}>
+              <strong>{l.title}:</strong> {l.description}
             </li>
           ))}
         </ul>
 
         <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.modesHeading}</h3>
         <ul className={styles.list}>
-          {EDUCATORS_CONTENT.modes.map((mode) => (
-            <li key={mode.id}>
-              <strong>{mode.title}:</strong> {mode.description}
+          {EDUCATORS_CONTENT.modes.map((m) => (
+            <li key={m.id}>
+              <strong>{m.title}:</strong> {m.description}
             </li>
           ))}
         </ul>
@@ -185,20 +155,20 @@ export function TeachersDialog({
 
         <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.usageHeading}</h3>
         <ul className={styles.list}>
-          {EDUCATORS_CONTENT.usageSuggestions.map((suggestion, index) => (
-            <li key={index}>{suggestion}</li>
+          {EDUCATORS_CONTENT.usageSuggestions.map((s, i) => (
+            <li key={i}>{s}</li>
           ))}
         </ul>
 
-        <div ref={resetSectionRef} className={styles.resetSection}>
-          {!showConfirmBox ? (
+        <div ref={resetRef} className={styles.resetSection}>
+          {!showConfirm ? (
             <div>
               <Button
                 variant="soft"
                 onClick={() => {
-                  restoreResetFocus.current = true;
-                  setConfirmingReset(true);
-                  setResetAnnounced(false);
+                  restoreFocus.current = true;
+                  setConfirming(true);
+                  setAnnounced(false);
                 }}
                 data-reset-step="1"
               >
@@ -211,21 +181,25 @@ export function TeachersDialog({
               role="group"
               aria-label={APP_COPY.resetProgress.title}
             >
-              <p id={confirmTextId} className={styles.paragraph}>
+              <p id={confirmId} className={styles.paragraph}>
                 {APP_COPY.resetProgress.confirm}
               </p>
               <div className={styles.confirmActions}>
                 <Button
                   variant="primary"
-                  aria-describedby={confirmTextId}
-                  onClick={handleConfirmReset}
+                  aria-describedby={confirmId}
+                  onClick={() => {
+                    onResetStars();
+                    setConfirming(false);
+                    setAnnounced(true);
+                  }}
                   data-reset-step="2-confirm"
                 >
                   {APP_COPY.resetProgress.confirmButton}
                 </Button>
                 <Button
                   variant="soft"
-                  onClick={() => setConfirmingReset(false)}
+                  onClick={() => setConfirming(false)}
                   data-reset-step="2-cancel"
                 >
                   {APP_COPY.resetProgress.cancelButton}
@@ -235,7 +209,7 @@ export function TeachersDialog({
           )}
 
           <p className={styles.liveStatus} role="status" aria-live="polite">
-            {resetAnnounced ? APP_COPY.resetProgress.liveMessage : ''}
+            {announced ? APP_COPY.resetProgress.liveMessage : ''}
           </p>
         </div>
 
