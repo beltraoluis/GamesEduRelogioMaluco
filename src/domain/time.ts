@@ -1,71 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { readDomJson } from '../content/runtimeDomData';
+import { content } from '../content/runtimeDomData';
 import type { Atmosphere, ClockTime, Period, PhraseOptions, PhrasePart } from './types';
 
-const FALLBACK_UNITS = [
-  'zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove',
-  'dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove',
-] as const;
-
-const FALLBACK_TENS: Readonly<Record<number, string>> = {
-  20: 'vinte',
-  30: 'trinta',
-  40: 'quarenta',
-  50: 'cinquenta',
-};
-
-const FALLBACK_PERIODS: readonly [Period, Period, Period, Period] = [
-  'da madrugada',
-  'da manhã',
-  'da tarde',
-  'da noite',
-];
-
-const UNITS: readonly string[] = readDomJson(
-  'units',
-  () => (import.meta.env.PROD ? [] : FALLBACK_UNITS),
-);
-
-const TENS: Readonly<Record<number, string>> = readDomJson(
-  'tens',
-  () => (import.meta.env.PROD ? {} : FALLBACK_TENS),
-);
-
-export const PERIODS: readonly [Period, Period, Period, Period] = readDomJson(
-  'periods',
-  () => (import.meta.env.PROD ? (['da madrugada', 'da manhã', 'da tarde', 'da noite'] as const) : FALLBACK_PERIODS),
-);
-
-function assertMinuteRange(n: number): void {
-  if (!Number.isInteger(n) || n < 0 || n > 59) throw new RangeError(`numberWord: ${n} fora de 0–59`);
-}
+export const PERIODS: readonly [Period, Period, Period, Period] = content.periods;
 
 export function numberWord(n: number, feminine = false): string {
-  assertMinuteRange(n);
-  if (n < 20) {
-    if (feminine && n === 1) return 'uma';
-    if (feminine && n === 2) return 'duas';
-    return UNITS[n] as string;
-  }
-  const tens = Math.floor(n / 10) * 10;
-  const unit = n % 10;
-  const tensWord = TENS[tens] as string;
-  return unit === 0 ? tensWord : `${tensWord} e ${numberWord(unit, feminine)}`;
+  const word = content.numberWords[n];
+  if (!Number.isInteger(n) || word === undefined) throw new RangeError(`numberWord: ${n} fora de 0–59`);
+  if (!feminine) return word;
+  return word.replace(/\bum$/, 'uma').replace(/\bdois$/, 'duas');
 }
 
-const WORD_TO_NUMBER: ReadonlyMap<string, number> = (() => {
-  const map = new Map<string, number>();
-  for (let n = 0; n < 60; n++) {
-    map.set(numberWord(n), n);
-    map.set(numberWord(n, true), n);
-  }
-  return map;
-})();
-
 export function wordToNumber(word: string): number | null {
-  return WORD_TO_NUMBER.get(word) ?? null;
+  const masculine = word.replace(/\buma$/, 'um').replace(/\bduas$/, 'dois');
+  const index = content.numberWords.indexOf(masculine);
+  return index < 0 ? null : index;
 }
 
 export const pad = (n: number): string => String(n).padStart(2, '0');
@@ -75,10 +26,8 @@ export function periodOf(h: number): Period {
   return PERIODS[h < 6 ? 0 : h < 12 ? 1 : h < 18 ? 2 : 3]!;
 }
 
-const ATMOSPHERES = ['madrugada', 'manha', 'tarde', 'noite'] as const;
-
 export function atmosphereOf(h: number): Atmosphere {
-  return ATMOSPHERES[h < 6 ? 0 : h < 12 ? 1 : h < 18 ? 2 : 3]!;
+  return content.atmospheres[periodOf(h)];
 }
 
 function text(value: string): PhrasePart {

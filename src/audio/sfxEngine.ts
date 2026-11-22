@@ -3,6 +3,8 @@
 
 import type { SfxName } from '../contracts';
 
+import { content } from '../content/runtimeDomData';
+
 let context: AudioContext | null = null;
 
 function getContext(): AudioContext | null {
@@ -36,13 +38,7 @@ export function play(name: SfxName): void {
   const audio = getContext();
   if (!audio) return;
   if (audio.state === 'suspended') void audio.resume().catch(() => {});
-  const emit = (frequency: number, start: number, duration: number, type: OscillatorType, volume: number) => tone(audio, frequency, start, duration, type, volume);
-  switch (name) {
-    case 'pick': emit(660, 0, 0.08, 'triangle', 0.15); break;
-    case 'drop': emit(523, 0, 0.1, 'triangle', 0.18); emit(784, 0.07, 0.14, 'triangle', 0.18); break;
-    case 'wrong': emit(240, 0, 0.16, 'square', 0.06); emit(190, 0.14, 0.24, 'square', 0.06); break;
-    case 'tick': emit(1400, 0, 0.025, 'square', 0.03); break;
-    case 'success': [523, 659, 784, 1047].forEach((f, i) => emit(f, i * 0.09, 0.22, 'triangle', 0.18)); break;
-    case 'fanfare': [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => emit(f, i * 0.12, 0.25, 'triangle', 0.18)); break;
+  for (const [frequency, start, duration, wave, volume] of content.sounds[name]) {
+    tone(audio, frequency, start, duration, wave, volume);
   }
 }

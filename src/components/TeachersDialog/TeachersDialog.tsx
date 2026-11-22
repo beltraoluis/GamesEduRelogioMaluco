@@ -1,30 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { UI_COPY, readDomTemplate } from '@/content/runtimeDomData';
 import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 
 import { Button } from '@/components/Button';
-import { APP_COPY } from '@/content/copy';
-import { buildAgplNotice, EDUCATORS_CONTENT } from '@/content/educators';
-import { readDomTemplate } from '@/content/runtimeDomData';
+import { buildAgplNotice, EDUCATORS_CONTENT, LICENSE_HEADING } from '@/content/educators';
 import type { TeachersDialogProps } from '@/contracts';
 import { useModalDialog } from '@/hooks/useModalDialog';
 import { UiIcon } from '@/ui/icons/UiIcons';
 
 import styles from './TeachersDialog.module.css';
-
-function extractCommitFromSourceUrl(sourceUrl: string): string {
-  const idx = sourceUrl.indexOf('/tree/');
-  const candidate = idx !== -1 ? sourceUrl.slice(idx + 6).trim() : '';
-  if (candidate.length > 0 && candidate !== 'unknown') return candidate;
-  const defined = typeof __APP_COMMIT__ !== 'undefined' ? String(__APP_COMMIT__).trim() : '';
-  return defined.length > 0 && defined !== 'unknown' ? defined : '1c8594a';
-}
-
-function resolveAppVersion(): string {
-  const defined = typeof __APP_VERSION__ !== 'undefined' ? String(__APP_VERSION__).trim() : '';
-  return defined.length > 0 ? defined : '0.1.0';
-}
 
 export function TeachersDialog({
   open,
@@ -62,9 +48,10 @@ export function TeachersDialog({
     if (!showConfirmBox) restoreResetFocus.current = false;
   }, [open, showConfirmBox]);
 
-  const commit = extractCommitFromSourceUrl(sourceUrl);
+  const sourceCommit = sourceUrl.match(/\/tree\/(.+)$/)?.[1]?.trim();
+  const commit = sourceCommit && sourceCommit !== 'unknown' ? sourceCommit : __APP_COMMIT__;
   const agplNotice = buildAgplNotice({
-    version: resolveAppVersion(),
+    version: __APP_VERSION__,
     commit,
   });
 
@@ -87,12 +74,12 @@ export function TeachersDialog({
       <div className={styles.body}>
         <header className={styles.header}>
           <h2 id={titleId} className={styles.title}>
-            {EDUCATORS_CONTENT.title}
+            {UI_COPY.teachers.title}
           </h2>
           <button
             type="button"
             className={styles.closeBtn}
-            aria-label={APP_COPY.teachers.close}
+            aria-label={UI_COPY.teachers.close}
             onClick={handleClose}
             data-close-teachers="true"
           >
@@ -106,7 +93,7 @@ export function TeachersDialog({
             role="note"
             data-persistence-unavailable="true"
           >
-            {APP_COPY.persistence.unavailable}
+            {UI_COPY.persistence.unavailable}
           </div>
         ) : null}
 
@@ -195,17 +182,17 @@ export function TeachersDialog({
                 }}
                 data-reset-step="1"
               >
-                {APP_COPY.teachers.resetButton}
+                {UI_COPY.teachers.resetButton}
               </Button>
             </div>
           ) : (
             <div
               className={styles.confirmBox}
               role="group"
-              aria-label={APP_COPY.resetProgress.title}
+              aria-label={UI_COPY.resetProgress.title}
             >
               <p id={confirmTextId} className={styles.paragraph}>
-                {APP_COPY.resetProgress.confirm}
+                {UI_COPY.resetProgress.confirm}
               </p>
               <div className={styles.confirmActions}>
                 <Button
@@ -214,25 +201,25 @@ export function TeachersDialog({
                   onClick={handleConfirmReset}
                   data-reset-step="2-confirm"
                 >
-                  {APP_COPY.resetProgress.confirmButton}
+                  {UI_COPY.resetProgress.confirmButton}
                 </Button>
                 <Button
                   variant="soft"
                   onClick={() => setConfirmingReset(false)}
                   data-reset-step="2-cancel"
                 >
-                  {APP_COPY.resetProgress.cancelButton}
+                  {UI_COPY.resetProgress.cancelButton}
                 </Button>
               </div>
             </div>
           )}
 
           <p className={styles.liveStatus} role="status" aria-live="polite">
-            {resetAnnounced ? APP_COPY.resetProgress.liveMessage : ''}
+            {resetAnnounced ? UI_COPY.resetProgress.liveMessage : ''}
           </p>
         </div>
 
-        <h3 className={styles.sectionTitle}>{EDUCATORS_CONTENT.licenseHeading}</h3>
+        <h3 className={styles.sectionTitle}>{LICENSE_HEADING}</h3>
         <div className={styles.licenseBox}>
           <p className={styles.smallText} data-agpl-notice="true">
             {agplNotice}

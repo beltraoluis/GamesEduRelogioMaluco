@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { readDomJson } from '../content/runtimeDomData';
+import { content } from '../content/runtimeDomData';
 import { b, msg, s, t, term } from './messages';
-import type { BadgeKind, Message, MessageSegment } from './messages';
+import type { Message, MessageSegment } from './messages';
 import { GROUP_NAMES, spokenPhrase } from './question';
 import { to12 } from './time';
 import type {
@@ -117,76 +117,11 @@ export function helpFor(question: Question, filled: Readonly<Record<string, stri
   };
 }
 
-export type DeclarativeSegment =
-  | string
-  | readonly ['s', string]
-  | readonly ['m', string, string]
-  | readonly ['b', BadgeKind];
-
-export type DeclarativeHintsTable = Readonly<Record<string, readonly DeclarativeSegment[]>>;
-
-const BIG_HAND: readonly DeclarativeSegment[] = [['m', 'ponteiro grande', 'minute'], ['b', 'minute-hand']];
-const SMALL_HAND: readonly DeclarativeSegment[] = [['m', 'ponteiro pequeno', 'hour'], ['b', 'hour-hand']];
-const PERIOD_TERM: readonly DeclarativeSegment[] = [['m', 'período do dia', 'period'], ['b', 'period']];
-const PERIOD_RANGES: readonly DeclarativeSegment[] = [
-  'A ', ['m', 'madrugada', 'period'], ' vai da meia-noite às 5 horas; a ',
-  ['m', 'manhã', 'period'], ', das 6 às 11; a ',
-  ['m', 'tarde', 'period'], ', das 12 às 17; e a ',
-  ['m', 'noite', 'period'], ', das 18 às 23.',
-];
-
-const FALLBACK_HINTS: DeclarativeHintsTable = {
-  'drop.group-mismatch': ['Essa ficha é de ', ['m', '{0}', '{1}'], '. Procure a lacuna do mesmo tipo: horas, minutos ou período.'],
-  'drop.hour.noon': ['Às 12 horas do dia, dizemos ', ['s', 'meio-dia'], '!'],
-  'drop.hour.midnight': ['À zero hora, no meio da noite, dizemos ', ['s', 'meia-noite'], '!'],
-  'drop.hour.minute-hand-number': ['Esse é o número para onde o ', ...BIG_HAND, ' aponta. Quem mostra a hora é o ', ...SMALL_HAND, '!'],
-  'drop.hour.rounded-up': ['Quase! O ', ...SMALL_HAND, ' ainda ', ['s', 'não'], ' chegou nesse número. Escolha o número que ele já passou.'],
-  'drop.hour.add-12-afternoon': ['Olhe o ', ...PERIOD_TERM, '! Depois do meio-dia, somamos 12: 3 horas da tarde são 15 horas.'],
-  'drop.hour.no-add-12-morning': ['Olhe o ', ...PERIOD_TERM, '! De manhã e de madrugada, não somamos 12.'],
-  'drop.hour.look-hour-hand': ['Olhe o ', ...SMALL_HAND, ': ele mostra as horas.'],
-  'drop.hour.subtract-12': ['Depois do meio-dia, tiramos 12: 15 horas são 3 horas da tarde.'],
-  'drop.hour.before-colon': ['As ', ['m', 'horas', 'hour'], ' são os números ', ['s', 'antes'], ' dos dois pontos ', ['b', 'colon'], '.'],
-  'drop.minute.count-by-5': ['O ', ...BIG_HAND, ' aponta para o {0}, mas cada número vale 5 minutos. Conte de 5 em 5!'],
-  'drop.minute.half-not-meio': ['Para as horas, dizemos ', ['s', 'e meia'], ' (meia hora).'],
-  'drop.minute.count-from-12': ['Conte de 5 em 5 a partir do 12: 5, 10, 15, 20…'],
-  'drop.minute.look-minute-hand': ['Olhe o ', ...BIG_HAND, ': ele mostra os minutos.'],
-  'drop.minute.after-colon': ['Os ', ['m', 'minutos', 'minute'], ' são os números ', ['s', 'depois'], ' dos dois pontos ', ['b', 'colon'], '.'],
-  'drop.period.ranges': PERIOD_RANGES,
-  'help.period': PERIOD_RANGES,
-  'hands.minute.on-12': ['Hora certa: o ', ...BIG_HAND, ' fica no 12!'],
-  'hands.minute.amount': ['O ', ...BIG_HAND, ' precisa mostrar {0}.'],
-  'hands.minute.point-to': ['O ', ...BIG_HAND, ' deve apontar para o {0}.'],
-  'hands.hour.adjust': ['Os minutos estão certos! Agora ajuste o ', ...SMALL_HAND, ' das horas.'],
-  'hands.hour.position': ['O ', ...SMALL_HAND, ' deve ficar {0}.'],
-  'help.hands': ['Primeiro o ', ...BIG_HAND, ' (minutos), depois o ', ['m', 'pequeno', 'hour'], ['b', 'hour-hand'], ' (horas). Os ', ['m', 'números vermelhos dos minutos', 'minute'], ' ajudam a contar.'],
-  'help.analog.minute': ['O ', ...BIG_HAND, ' mostra os minutos. Veja os ', ['m', 'números vermelhos dos minutos', 'minute'], ': cada número vale 5 minutos!'],
-  'help.analog.hour': ['O ', ...SMALL_HAND, ' mostra a hora. Para qual número ele aponta?'],
-  'help.analog.hour-between': ['O ', ...SMALL_HAND, ' mostra a hora. Se ele estiver entre dois números, escolha o que ele já passou.'],
-  'help.digital.hour': ['Veja os números ', ['s', 'antes'], ' dos dois pontos ', ['b', 'colon'], ': eles mostram as ', ['m', 'horas', 'hour'], '.'],
-  'help.digital.minute': ['Veja os números ', ['s', 'depois'], ' dos dois pontos ', ['b', 'colon'], ': eles mostram os ', ['m', 'minutos', 'minute'], '.'],
-  'intro.hands': ['Arraste os ponteiros. Depois toque em ', ['s', 'Pronto!'], '.'],
-  'intro.analog': ['Comece pelo ', ...SMALL_HAND, ': ele mostra as horas.'],
-  'intro.digital': ['Os números antes dos dois pontos ', ['b', 'colon'], ' são as ', ['m', 'horas', 'hour'], '.'],
-  done: ['Rodada completa! Veja quantas estrelas você ganhou.'],
-};
-
-const FALLBACK_PRAISE = ['Muito bem!', 'Isso mesmo!', 'Arrasou!', 'Que incrível!', 'Mandou bem!', 'Perfeito!'] as const;
-const FALLBACK_PROGRESS = ['Isso! Agora a próxima.', 'Boa! Falta pouco.', 'Certo! Continue.'] as const;
-
-export const PRAISE: readonly string[] = readDomJson(
-  'praise',
-  () => (import.meta.env.PROD ? [] : FALLBACK_PRAISE),
-);
-
-export const PROGRESS: readonly string[] = readDomJson(
-  'progress',
-  () => (import.meta.env.PROD ? [] : FALLBACK_PROGRESS),
-);
-
-const HINTS_TABLE: DeclarativeHintsTable = readDomJson(
-  'hints',
-  () => (import.meta.env.PROD ? {} : FALLBACK_HINTS),
-);
+import type { DeclarativeSegment } from '../content/staticContent';
+export type { DeclarativeSegment, DeclarativeHintsTable } from '../content/staticContent';
+export const PRAISE: readonly string[] = content.praise;
+export const PROGRESS: readonly string[] = content.progress;
+const HINTS_TABLE = content.hints;
 
 function variantOf(list: readonly string[], variant: number): string {
   const i = ((Math.trunc(variant) % list.length) + list.length) % list.length;

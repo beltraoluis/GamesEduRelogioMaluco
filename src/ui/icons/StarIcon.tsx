@@ -23,6 +23,10 @@ export function StarIcon({
   title,
 }: StarIconProps): ReactElement {
   const resolvedVariant: StarIconVariant = variant ?? (filled ? 'filled' : 'outline');
+  return <SpriteIcon symbol={`star-${resolvedVariant}`} data-star-variant={resolvedVariant} size={size} className={className} title={title} />;
+}
+
+export function SpriteIcon({ symbol, size = 24, title, className, ...attributes }: Pick<StarIconProps, 'size' | 'title' | 'className'> & { symbol: string }) {
   const isDecorative = title === undefined || title.length === 0;
 
   return (
@@ -33,12 +37,12 @@ export function StarIcon({
       fill="none"
       strokeLinecap="round"
       strokeLinejoin="round"
-      data-star-variant={resolvedVariant}
+      {...attributes}
       {...(isDecorative ? { 'aria-hidden': 'true' } : { role: 'img', 'aria-label': title })}
-      {...(className === undefined ? {} : { className })}
+      className={className}
     >
       {!isDecorative ? <title>{title}</title> : null}
-      <use href={`${SPRITE_URL}#star-${resolvedVariant}`} />
+      <use href={`${SPRITE_URL}#${symbol}`} />
     </svg>
   );
 }

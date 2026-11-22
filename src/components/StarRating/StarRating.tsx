@@ -17,13 +17,10 @@ export function StarRating({
   animate = false,
 }: StarRatingProps): ReactElement {
   const iconSize = size === 'lg' ? 44 : 22;
-  const rootClass = [styles.starRating, size === 'lg' ? styles.lg : undefined]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <div
-      className={rootClass}
+      className={styles.starRating}
+      data-animate={animate || undefined}
       role="img"
       aria-label={label}
       data-star-rating={value}
@@ -31,24 +28,10 @@ export function StarRating({
     >
       {STAR_INDICES.map((starIndex) => {
         const isFilled = starIndex <= value;
-        const delayClass =
-          starIndex === 1
-            ? styles.delay1
-            : starIndex === 2
-              ? styles.delay2
-              : styles.delay3;
-        const itemClass = [
-          styles.starItem,
-          animate && isFilled ? styles.animate : undefined,
-          animate && isFilled ? delayClass : undefined,
-        ]
-          .filter(Boolean)
-          .join(' ');
-
         return (
           <span
             key={starIndex}
-            className={itemClass}
+            className={styles.starItem}
             data-star-index={starIndex}
             data-filled={String(isFilled)}
             data-motion="spring"

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { content } from '@/content/runtimeDomData';
 import type { ReactElement } from 'react';
 
 import { PeriodMedallion } from '@/components/PeriodMedallion';
@@ -8,12 +9,7 @@ import type { Period, PeriodBadgeProps } from '@/contracts';
 
 import styles from './PeriodBadge.module.css';
 
-const OPPOSITE_PERIOD: Readonly<Record<Period, Period>> = {
-  'da madrugada': 'da tarde',
-  'da manhã': 'da noite',
-  'da tarde': 'da madrugada',
-  'da noite': 'da manhã',
-};
+const OPPOSITE_PERIOD: Readonly<Record<Period, Period>> = content.oppositePeriods;
 
 export function PeriodBadge({ period, onToggle }: PeriodBadgeProps): ReactElement {
   const shortLabel = period.replace(/^da\s+/u, '');

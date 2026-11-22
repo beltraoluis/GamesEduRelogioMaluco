@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { UI_COPY, readDomTemplate } from '@/content/runtimeDomData';
 import { useId, useState, type ReactElement } from 'react';
 
 import { AppMenu } from '@/components/AppMenu';
 import { LevelSelector } from '@/components/LevelSelector';
-import { ModeCard } from '@/components/ModeCard';
+import { HomeModeCard } from '@/components/ModeCard';
 import { TeachersDialog } from '@/components/TeachersDialog';
 import { TicMascot } from '@/components/TicMascot';
 import { UpdateToast } from '@/components/UpdateToast';
-import { APP_COPY } from '@/content/copy';
-import { readDomTemplate } from '@/content/runtimeDomData';
 import type {
   LevelId,
   ModeId,
@@ -95,9 +94,9 @@ export function HomeScreen({
             </div>
             <div className={styles.titleBlock}>
               <h1 id={titleId} className={styles.title}>
-                {APP_COPY.home.title}
+                {UI_COPY.home.title}
               </h1>
-              <p className={styles.subtitle}>{APP_COPY.home.subtitle}</p>
+              <p className={styles.subtitle}>{UI_COPY.home.subtitle}</p>
             </div>
           </div>
         ) : null}
@@ -115,14 +114,14 @@ export function HomeScreen({
 
       <section className={styles.section} aria-labelledby={levelHeadingId}>
         <h2 id={levelHeadingId} className={styles.sectionTitle}>
-          {APP_COPY.home.levelSection}
+          {UI_COPY.home.levelSection}
         </h2>
         <LevelSelector levels={LEVELS} current={prefs.level} onChange={onChangeLevel} />
       </section>
 
       <section className={styles.section} aria-labelledby={modeHeadingId}>
         <h2 id={modeHeadingId} className={styles.sectionTitle}>
-          {APP_COPY.home.modeSection}
+          {UI_COPY.home.modeSection}
         </h2>
         <div className={styles.modesGrid}>
           {MODES.map((mode) => {
@@ -131,7 +130,7 @@ export function HomeScreen({
                 ? null
                 : (prefs.stars[`${mode.id}-${prefs.level}`] ?? 0);
             return (
-              <ModeCard
+              <HomeModeCard
                 key={mode.id}
                 mode={mode}
                 stars={modeStars}

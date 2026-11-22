@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
+import { content } from '../content/runtimeDomData';
 /** Montagem determinística das perguntas de uma rodada. */
 
 import { randomTime } from './clockMath';
@@ -32,18 +33,10 @@ import type {
 } from './types';
 
 /** Nome do grupo como aparece nas mensagens ("Essa ficha é de horas"). */
-export const GROUP_NAMES: Readonly<Record<Group, string>> = {
-  hour: 'horas',
-  minute: 'minutos',
-  period: 'período do dia',
-};
+export const GROUP_NAMES: Readonly<Record<Group, string>> = content.groups;
 
 /** Nome acessível da lacuna vazia. */
-export const SLOT_LABELS: Readonly<Record<Group, string>> = {
-  hour: 'Lacuna das horas',
-  minute: 'Lacuna dos minutos',
-  period: 'Lacuna do período do dia',
-};
+export const SLOT_LABELS: Readonly<Record<Group, string>> = content.slots;
 
 export function slotIdOf(group: Group): string {
   return `slot-${group}`;
@@ -112,11 +105,9 @@ function buildWords(time: ClockTime, level: Level, rng: Rng, index: number): Wor
   };
 }
 
-const START_HOURS: readonly number[] = Array.from({ length: 12 }, (_, i) => i + 1);
-
 function buildHands(time: ClockTime, level: Level, rng: Rng, index: number): HandsQuestion {
   const target12 = to12(time.h);
-  const startH = pick(START_HOURS.filter((h) => h !== target12), rng);
+  const startH = pick(content.hours12.filter((h) => h !== target12), rng);
   const base: HandsQuestion = {
     mode: 'hands',
     index,
