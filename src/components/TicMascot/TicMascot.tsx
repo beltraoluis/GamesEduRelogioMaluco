@@ -132,6 +132,7 @@ export function TicMascot({
 
         {/* Ponteiro-nariz do Tic */}
         <line
+          className={styles.clockHand}
           x1={60}
           y1={64}
           x2={60}
@@ -149,10 +150,12 @@ export function TicMascot({
         {/* Expressões por mood */}
         {mood === 'happy' ? (
           <g data-mood-layer="happy">
-            <ellipse cx={46} cy={56} rx={5} ry={7} fill="#1e2832" />
-            <circle cx={44.5} cy={53.5} r={1.8} fill="#ffffff" />
-            <ellipse cx={74} cy={56} rx={5} ry={7} fill="#1e2832" />
-            <circle cx={72.5} cy={53.5} r={1.8} fill="#ffffff" />
+            <g className={styles.eyes}>
+              <ellipse cx={46} cy={56} rx={5} ry={7} fill="#1e2832" />
+              <circle cx={44.5} cy={53.5} r={1.8} fill="#ffffff" />
+              <ellipse cx={74} cy={56} rx={5} ry={7} fill="#1e2832" />
+              <circle cx={72.5} cy={53.5} r={1.8} fill="#ffffff" />
+            </g>
             <path
               d="M46 74 Q60 88 74 74"
               fill="none"
@@ -179,10 +182,12 @@ export function TicMascot({
               strokeWidth={2.8}
               strokeLinecap="round"
             />
-            <ellipse cx={48} cy={54} rx={4.8} ry={6.5} fill="#1e2832" />
-            <circle cx={49.5} cy={51.5} r={1.6} fill="#ffffff" />
-            <ellipse cx={76} cy={54} rx={4.8} ry={6.5} fill="#1e2832" />
-            <circle cx={77.5} cy={51.5} r={1.6} fill="#ffffff" />
+            <g className={styles.eyes}>
+              <ellipse cx={48} cy={54} rx={4.8} ry={6.5} fill="#1e2832" />
+              <circle cx={49.5} cy={51.5} r={1.6} fill="#ffffff" />
+              <ellipse cx={76} cy={54} rx={4.8} ry={6.5} fill="#1e2832" />
+              <circle cx={77.5} cy={51.5} r={1.6} fill="#ffffff" />
+            </g>
             <circle
               cx={60}
               cy={79}
@@ -238,8 +243,10 @@ export function TicMascot({
 
         {mood === 'hint' ? (
           <g data-mood-layer="hint">
-            <ellipse cx={46} cy={56} rx={5} ry={7} fill="#1e2832" />
-            <circle cx={44.5} cy={53.5} r={1.8} fill="#ffffff" />
+            <g className={styles.eyes}>
+              <ellipse cx={46} cy={56} rx={5} ry={7} fill="#1e2832" />
+              <circle cx={44.5} cy={53.5} r={1.8} fill="#ffffff" />
+            </g>
             {/* Olho direito piscando amigavelmente */}
             <path
               d="M67 56 Q74 50 81 56"
