@@ -8,7 +8,7 @@
     gap: 0.25rem;
   }
 
-  .lg {
+  .starRating:where([data-size="lg"]) {
     gap: 0.5rem;
   }
 
@@ -18,24 +18,24 @@
     justify-content: center;
   }
 
-  .animate {
+  :where(.starRating[data-animate]) .starItem:where([data-filled="true"]) {
     animation: star-pop 380ms var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
   }
 
-  .delay1 {
+  .starItem:where([data-star-index="1"]) {
     animation-delay: 120ms;
   }
 
-  .delay2 {
+  .starItem:where([data-star-index="2"]) {
     animation-delay: 260ms;
   }
 
-  .delay3 {
+  .starItem:where([data-star-index="3"]) {
     animation-delay: 400ms;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .animate {
+    :where(.starRating[data-animate]) .starItem:where([data-filled="true"]) {
       animation: none;
     }
   }

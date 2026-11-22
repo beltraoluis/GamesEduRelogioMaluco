@@ -4,6 +4,7 @@
 import type { ReactElement } from 'react';
 
 import { Button } from '@/components/Button';
+import { UI_COPY } from '@/content/runtimeDomData';
 import type { UpdateToastProps } from '@/contracts';
 import { UiIcon } from '@/ui/icons/UiIcons';
 
@@ -31,14 +32,14 @@ export function UpdateToast({
           size={22}
           {...(styles.icon === undefined ? {} : { className: styles.icon })}
         />
-        <span>Nova versão pronta.</span>
+        <span>{UI_COPY.updateToast.title}.</span>
       </div>
       <div className={styles.actions}>
         <Button variant="primary" size="sm" onClick={onApply}>
-          Atualizar agora
+          {UI_COPY.updateToast.apply}
         </Button>
         <Button variant="soft" size="sm" onClick={onDismiss}>
-          Agora não
+          {UI_COPY.updateToast.dismiss}
         </Button>
       </div>
     </div>

@@ -48,26 +48,26 @@
   }
 
   /* Redundância visual por tom (borda + selo lateral, nunca só cor) */
-  .neutral {
+  .bubble:where([data-tone="neutral"]) {
     border-color: var(--color-border-card);
     background-color: var(--color-surface-card);
   }
 
-  .positive {
+  .bubble:where([data-tone="positive"]) {
     border-color: var(--color-success);
     border-inline-start-width: 6px;
     background-color: var(--color-success-soft);
   }
 
-  .positive::before {
+  .bubble:where([data-tone="positive"])::before {
     border-color: transparent var(--color-success) transparent transparent;
   }
 
-  .positive::after {
+  .bubble:where([data-tone="positive"])::after {
     border-color: transparent var(--color-success-soft) transparent transparent;
   }
 
-  .corrective {
+  .bubble:where([data-tone="corrective"]) {
     border-color: var(--color-warning-warm);
     border-style: dashed;
     border-inline-start-style: solid;
@@ -75,11 +75,11 @@
     background-color: var(--color-surface-elevated);
   }
 
-  .corrective::before {
+  .bubble:where([data-tone="corrective"])::before {
     border-color: transparent var(--color-warning-warm) transparent transparent;
   }
 
-  .corrective::after {
+  .bubble:where([data-tone="corrective"])::after {
     border-color: transparent var(--color-surface-elevated) transparent transparent;
   }
 
@@ -93,12 +93,12 @@
     border-radius: var(--radius-pill);
   }
 
-  .positive .toneIcon {
+  .bubble:where([data-tone="positive"]) .toneIcon {
     color: var(--color-success);
     background-color: var(--color-surface-card);
   }
 
-  .corrective .toneIcon {
+  .bubble:where([data-tone="corrective"]) .toneIcon {
     color: var(--color-warning-ink);
     background-color: var(--color-surface-card);
   }

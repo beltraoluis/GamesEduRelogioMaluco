@@ -9,13 +9,13 @@
     user-select: none;
   }
 
-  .inline {
+  .handBadge:where([data-size="inline"]) {
     width: 1.25rem;
     height: 1.25rem;
     margin: 0 0.15rem;
   }
 
-  .md {
+  .handBadge:where([data-size="md"]) {
     width: 1.5rem;
     height: 1.5rem;
   }

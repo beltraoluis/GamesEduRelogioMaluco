@@ -8,6 +8,8 @@ import type { ModeCardProps, ModeId } from '@/contracts';
 import { UiIcon, type UiIconName } from '@/ui/icons/UiIcons';
 import { ModeIllustration } from '@/ui/illustrations/ModeIllustration';
 
+import { readDomTemplate } from '@/content/runtimeDomData';
+
 import styles from './ModeCard.module.css';
 
 const MODE_ICON: Readonly<Record<ModeId, UiIconName>> = {
@@ -17,35 +19,17 @@ const MODE_ICON: Readonly<Record<ModeId, UiIconName>> = {
   explore: 'CompassExplore',
 };
 
-export function ModeCard({ mode, stars, onSelect }: ModeCardProps): ReactElement {
-  const modeClass = styles[mode.id];
-  const cardClass = [styles.card, modeClass].filter(Boolean).join(' ');
+function CardFrame({ mode, stars, onSelect, children }: ModeCardProps & { children: ReactElement }): ReactElement {
 
   return (
     <button
       type="button"
-      className={cardClass}
+      className={styles.card}
       onClick={() => onSelect(mode.id)}
       data-mode-card={mode.id}
       data-motion="spring"
     >
-      <div className={styles.illustrationWrap} aria-hidden="true">
-        <ModeIllustration
-          mode={mode.id}
-          width={384}
-          height={384}
-          {...(styles.illustration === undefined ? {} : { className: styles.illustration })}
-        />
-        <span className={styles.modeBadge}>
-          <UiIcon name={MODE_ICON[mode.id]} size={18} />
-        </span>
-      </div>
-
-      <div className={styles.body}>
-        <span className={styles.title}>{mode.title}</span>
-        <span className={styles.description}>{mode.description}</span>
-      </div>
-
+      {children}
       <div className={styles.footer}>
         {stars !== null ? (
           <StarRating value={stars} label={`${stars} de 3 estrelas`} size="sm" />
@@ -54,6 +38,42 @@ export function ModeCard({ mode, stars, onSelect }: ModeCardProps): ReactElement
         )}
       </div>
     </button>
+  );
+}
+
+export function ModeCard(props: ModeCardProps): ReactElement {
+  const { mode } = props;
+  return (
+    <CardFrame {...props}>
+      <>
+        <div className={styles.illustrationWrap} aria-hidden="true">
+          <ModeIllustration
+            mode={mode.id}
+            width={384}
+            height={384}
+            {...(styles.illustration === undefined ? {} : { className: styles.illustration })}
+          />
+          <span className={styles.modeBadge}>
+            <UiIcon name={MODE_ICON[mode.id]} size={18} />
+          </span>
+        </div>
+
+        <div className={styles.body}>
+          <span className={styles.title}>{mode.title}</span>
+          <span className={styles.description}>{mode.description}</span>
+        </div>
+      </>
+    </CardFrame>
+  );
+}
+
+/** The Home screen displays the four canonical modes from the build. */
+export function HomeModeCard(props: ModeCardProps): ReactElement {
+  if (!import.meta.env.PROD) return <ModeCard {...props} />;
+  return (
+    <CardFrame {...props}>
+      <div className={styles.staticContent} dangerouslySetInnerHTML={{ __html: readDomTemplate(`rm-card-${props.mode.id}`) ?? '' }} />
+    </CardFrame>
   );
 }
 
