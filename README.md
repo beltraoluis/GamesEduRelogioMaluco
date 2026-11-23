@@ -22,7 +22,17 @@ Abra a prévia com internet uma vez, aguarde o indicador de disponibilidade offl
 
 ## Publicação
 
-Sirva o conteúdo de `dist/` por HTTPS. Os caminhos relativos permitem hospedar o mesmo build na raiz do domínio ou em uma pasta como `/GamesEduRelogioMaluco/` no GitHub Pages. Para a prévia local, o navegador também permite o service worker em `localhost`.
+O GitHub Actions publica o jogo automaticamente no GitHub Pages quando uma alteração chega ao branch `main`. O deploy só começa depois que todas as verificações da CI passam; pull requests apenas executam as verificações.
+
+Para habilitar a publicação no repositório:
+
+1. Abra **Settings → Pages**.
+2. Em **Build and deployment → Source**, selecione **GitHub Actions**.
+3. Faça merge ou push no branch `main` e acompanhe **Actions → CI** até o job `deploy` terminar.
+
+Como o repositório se chama `GamesEduRelogioMaluco`, o endereço publicado será <https://beltraoluis.github.io/GamesEduRelogioMaluco/>. O Vite já gera caminhos relativos, necessários para hospedar o mesmo build na pasta do projeto. Não selecione `gh-pages` nem configure uma pasta de publicação manualmente: o workflow envia `dist/` como artefato do Pages.
+
+Para executar localmente uma compilação de produção, use `npm ci && npm run build`; ela exige um checkout Git com o commit da versão. Sirva o conteúdo de `dist/` por HTTPS. Para a prévia local, o navegador também permite o service worker em `localhost`.
 
 Gere a distribuição a partir de um checkout limpo do commit que será disponibilizado como código-fonte. O build lê o SHA do Git ou de `GITHUB_SHA` e exige que esse commit exista no checkout.
 
