@@ -3,6 +3,7 @@
 
 import type { ReactElement } from 'react';
 
+import modeAssembleImg from '@/assets/illustrations/mode-assemble.webp';
 import modeExploreImg from '@/assets/illustrations/mode-explore.webp';
 import modeHandsImg from '@/assets/illustrations/mode-hands.webp';
 import modeNumbersImg from '@/assets/illustrations/mode-numbers.webp';
@@ -10,7 +11,7 @@ import modeWordsImg from '@/assets/illustrations/mode-words.webp';
 import type { ModeId } from '@/contracts';
 
 export const MODE_ILLUSTRATION_SRCS: Readonly<Record<ModeId, string>> = {
-  assemble: modeNumbersImg,
+  assemble: modeAssembleImg,
   numbers: modeNumbersImg,
   words: modeWordsImg,
   hands: modeHandsImg,

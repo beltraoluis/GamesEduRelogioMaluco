@@ -7,7 +7,7 @@ import path from 'node:path';
 import { openMode, selectLevel } from './helpers/app.ts';
 import { solveLevelOneNumbers } from './helpers/clock.ts';
 import { requiresF3Composition } from './helpers/composition.ts';
-import { homeHeading } from './helpers/locators.ts';
+import { homeHeading, modeCard } from './helpers/locators.ts';
 import { F2C_DIST, F2C_SHA, RUNTIME_DIST, SUBPATH } from './helpers/paths.ts';
 import { listCacheNames, waitForServiceWorkerControl } from './helpers/preferences.ts';
 import { startSwitchableServer } from './helpers/static-server.ts';
@@ -115,6 +115,136 @@ test.describe('Subpath GitHub Pages (base: ./)', () => {
       const controller = await waitForServiceWorkerControl(page, 20_000);
       expect(controller).toContain(`${SUBPATH}/sw.js`);
       await waitForWorkboxPrecache(page);
+    } finally {
+      await context.close();
+      await server.close();
+    }
+  });
+
+  test('[F3] card de montagem usa ilustração própria no HTML estático pré-hidratação e no subpath Pages', async ({
+    browser,
+  }, testInfo) => {
+    requiresF3Composition(
+      testInfo,
+      'Template estático rm-card-assemble e asset emitido resolvido no subpath Pages',
+    );
+
+    const distDir = RUNTIME_DIST;
+    const server = await startSwitchableServer({ distDir });
+    server.setRoot('dist');
+    server.setSubpath(SUBPATH);
+
+    const subpathBase = `${server.origin}${SUBPATH}/`;
+    const context = await browser.newContext({ baseURL: subpathBase });
+    const page = await context.newPage();
+
+    const extractTemplateImgSrc = (html: string, mode: 'assemble' | 'numbers'): string => {
+      const tplMatch = html.match(
+        new RegExp(`<template id="rm-card-${mode}">([\\s\\S]*?)<\\/template>`),
+      );
+      expect(tplMatch, `Template estático rm-card-${mode} deve existir no HTML`).toBeTruthy();
+
+      const imgTags = tplMatch![1]!.match(/<img\b[^>]*>/g) ?? [];
+      const modeImgTag = imgTags.find((tag) =>
+        new RegExp(`data-mode-illustration=["']${mode}["']`).test(tag),
+      );
+      expect(
+        modeImgTag,
+        `Template rm-card-${mode} deve conter <img data-mode-illustration="${mode}">`,
+      ).toBeTruthy();
+
+      const srcMatch = modeImgTag!.match(/\bsrc=["']([^"']+)["']/);
+      expect(srcMatch, `Imagem do template rm-card-${mode} deve ter src`).toBeTruthy();
+      return srcMatch![1]!;
+    };
+
+    try {
+      // 1. HTML estático bruto anterior à hidratação servido sob o subpath
+      const indexRes = await fetch(subpathBase);
+      expect(indexRes.status).toBe(200);
+      const rawHtml = await indexRes.text();
+
+      const assembleSrc = extractTemplateImgSrc(rawHtml, 'assemble');
+      const numbersSrc = extractTemplateImgSrc(rawHtml, 'numbers');
+      expect(assembleSrc).toMatch(/^\.\/assets\/mode-assemble-[^/"']+\.(?:webp|png)$/);
+      expect(assembleSrc).not.toBe(numbersSrc);
+
+      const resolvedAssembleUrl = new URL(assembleSrc, subpathBase);
+      expect(resolvedAssembleUrl.pathname).toMatch(
+        new RegExp(`^${SUBPATH}/assets/mode-assemble-[^/]+\\.(?:webp|png)$`),
+      );
+      expect(existsSync(path.join(distDir, assembleSrc.replace(/^\.\//, '')))).toBe(true);
+
+      const assetRes = await fetch(resolvedAssembleUrl);
+      expect(assetRes.status).toBe(200);
+      expect(assetRes.headers.get('content-type') ?? '').toMatch(/^image\/(?:webp|png)/);
+      expect((await assetRes.arrayBuffer()).byteLength).toBeGreaterThan(0);
+
+      // 2. Navegador no subpath: template no DOM, hidratação e resolução HTTP
+      const assembleResponsePromise = page.waitForResponse(
+        (res) => new URL(res.url()).pathname === resolvedAssembleUrl.pathname,
+        { timeout: 10_000 },
+      );
+
+      await page.goto('./');
+      await expect(homeHeading(page)).toBeVisible();
+      await expect(modeCard(page, 'assemble')).toBeVisible();
+
+      const assembleResponse = await assembleResponsePromise;
+      expect(assembleResponse.status()).toBe(200);
+
+      await expect
+        .poll(
+          () =>
+            page.evaluate(async () => {
+              const assembleImg = document.querySelector(
+                '[data-mode-card="assemble"] img[data-mode-illustration="assemble"]',
+              ) as HTMLImageElement | null;
+              const numbersImg = document.querySelector(
+                '[data-mode-card="numbers"] img[data-mode-illustration="numbers"]',
+              ) as HTMLImageElement | null;
+              if (
+                !assembleImg ||
+                !numbersImg ||
+                !assembleImg.complete ||
+                assembleImg.naturalWidth <= 0 ||
+                !assembleImg.currentSrc ||
+                !numbersImg.currentSrc
+              ) {
+                return false;
+              }
+              await assembleImg.decode();
+              return true;
+            }),
+          { timeout: 10_000 },
+        )
+        .toBe(true);
+
+      const domSnapshot = await page.evaluate(() => {
+        const tpl = document.getElementById('rm-card-assemble') as HTMLTemplateElement | null;
+        const tplImg = tpl?.content.querySelector('img[data-mode-illustration="assemble"]');
+        const assembleImg = document.querySelector(
+          '[data-mode-card="assemble"] img[data-mode-illustration="assemble"]',
+        ) as HTMLImageElement | null;
+        const numbersImg = document.querySelector(
+          '[data-mode-card="numbers"] img[data-mode-illustration="numbers"]',
+        ) as HTMLImageElement | null;
+        return {
+          templateSrc: tplImg?.getAttribute('src') ?? null,
+          cardAttrSrc: assembleImg?.getAttribute('src') ?? null,
+          cardCurrentSrc: assembleImg?.currentSrc ?? null,
+          numbersCurrentSrc: numbersImg?.currentSrc ?? null,
+          complete: assembleImg?.complete ?? false,
+          naturalWidth: assembleImg?.naturalWidth ?? 0,
+        };
+      });
+
+      expect(domSnapshot.templateSrc).toBe(assembleSrc);
+      expect(domSnapshot.cardAttrSrc).toBe(assembleSrc);
+      expect(domSnapshot.cardCurrentSrc).toBe(resolvedAssembleUrl.toString());
+      expect(domSnapshot.cardCurrentSrc).not.toBe(domSnapshot.numbersCurrentSrc);
+      expect(domSnapshot.complete).toBe(true);
+      expect(domSnapshot.naturalWidth).toBeGreaterThan(0);
     } finally {
       await context.close();
       await server.close();

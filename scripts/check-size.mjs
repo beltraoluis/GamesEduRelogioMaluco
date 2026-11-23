@@ -22,6 +22,7 @@ const LIMITS = {
 };
 
 const EXPECTED_WEBP_FILES = [
+  'mode-assemble.webp',
   'mode-numbers.webp',
   'mode-words.webp',
   'mode-hands.webp',
@@ -48,7 +49,7 @@ function collectFiles(dirPath, acc = []) {
 function main() {
   const errors = [];
 
-  // 1. Validar os 4 arquivos .webp em src/assets/illustrations/
+  // 1. Validar os 5 arquivos .webp em src/assets/illustrations/
   const illustrationsDir = join(ROOT_DIR, 'src/assets/illustrations');
   let webpTotalBytes = 0;
 
@@ -79,10 +80,10 @@ function main() {
 
   const webpTotalOk = webpTotalBytes <= LIMITS.webpTotalMax;
   console.log(
-    `[${webpTotalOk ? 'PASS' : 'FAIL'}] Soma dos 4 WebPs: ${formatKB(webpTotalBytes)} (limite <= ${formatKB(LIMITS.webpTotalMax)})`,
+    `[${webpTotalOk ? 'PASS' : 'FAIL'}] Soma dos 5 WebPs: ${formatKB(webpTotalBytes)} (limite <= ${formatKB(LIMITS.webpTotalMax)})`,
   );
   if (!webpTotalOk) {
-    errors.push(`Soma dos 4 WebPs excede 110 KB: ${formatKB(webpTotalBytes)}`);
+    errors.push(`Soma dos 5 WebPs excede 110 KB: ${formatKB(webpTotalBytes)}`);
   }
 
   // 2. Validar fonte .woff2 e licenca OFL.txt em src/assets/fonts/

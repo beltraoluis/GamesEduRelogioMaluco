@@ -11,8 +11,8 @@ import { UI_ICON_NAMES, UiIcon } from '@/ui/icons/UiIcons';
 import { MODE_ILLUSTRATION_SRCS, ModeIllustration } from '@/ui/illustrations/ModeIllustration';
 
 describe('ModeIllustration', () => {
-  it('renderiza as 4 ilustracoes WebP com atributos de performance e acessibilidade', async () => {
-    const modes = ['numbers', 'words', 'hands', 'explore'] as const;
+  it('renderiza as 5 ilustracoes dos modos com atributos de performance e acessibilidade', async () => {
+    const modes = ['assemble', 'numbers', 'words', 'hands', 'explore'] as const;
     for (const mode of modes) {
       expect(MODE_ILLUSTRATION_SRCS[mode]).toBeTruthy();
       const { container, unmount } = render(<ModeIllustration mode={mode} className="custom-img" />);

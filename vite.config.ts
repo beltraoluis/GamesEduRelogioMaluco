@@ -123,7 +123,7 @@ function buildStaticTemplates(resolveClass: (mod: string, local: string) => stri
   const modeCards = staticContent.modesList
     .map((mode) => {
       const icon = modeIcons[mode.id];
-      return `<template id="rm-card-${mode.id}"><div class="${card('illustrationWrap')}" aria-hidden="true"><img src="/src/assets/illustrations/mode-${mode.id === 'assemble' ? 'numbers' : mode.id}.webp" width="384" height="384" alt="" aria-hidden="true" loading="eager" decoding="async" class="${card('illustration')}" data-mode-illustration="${mode.id}"><span class="${card('modeBadge')}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke-linecap="round" stroke-linejoin="round" data-ui-icon="${icon}" aria-hidden="true"><use href="./icons/sprite.svg#ui-${icon}"></use></svg></span></div><div class="${card('body')}"><span class="${card('title')}">${escapeHtml(mode.title)}</span><span class="${card('description')}">${escapeHtml(mode.description)}</span></div></template>`;
+      return `<template id="rm-card-${mode.id}"><div class="${card('illustrationWrap')}" aria-hidden="true"><img src="/src/assets/illustrations/mode-${mode.id}.webp" width="384" height="384" alt="" aria-hidden="true" loading="eager" decoding="async" class="${card('illustration')}" data-mode-illustration="${mode.id}"><span class="${card('modeBadge')}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke-linecap="round" stroke-linejoin="round" data-ui-icon="${icon}" aria-hidden="true"><use href="./icons/sprite.svg#ui-${icon}"></use></svg></span></div><div class="${card('body')}"><span class="${card('title')}">${escapeHtml(mode.title)}</span><span class="${card('description')}">${escapeHtml(mode.description)}</span></div></template>`;
     })
     .join('');
 

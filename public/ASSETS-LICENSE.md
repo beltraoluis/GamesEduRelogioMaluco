@@ -1,4 +1,4 @@
-# Licença, Proveniência e Auditoria Técnica de Ativos Visuais (`ASSETS-LICENSE.md`)
+# Licença e inventário de ilustrações
 
 <!--
   SPDX-FileCopyrightText: 2026 Luis Henrique Coutinho Beltrão
@@ -9,6 +9,8 @@
 - **SPDX-License-Identifier:** `AGPL-3.0-or-later`
 
 ---
+
+Os 5 WebPs em `src/assets/illustrations/` foram gerados por IA, conforme o dono (item 7). Gerador, prompt, data e vínculo com os 4 masters históricos abaixo não estão registrados para esse lote.
 
 ## 1. Declaração de Proveniência e Licenciamento (`AGPL-3.0-or-later`)
 
@@ -29,7 +31,7 @@ Todas as ilustrações rasterizadas (arquivos masters em alta resolução e deri
 
 ---
 
-## 3. Inventário Técnico de Arquivos, Dimensões e Tamanhos Exatos
+## 3. Inventário histórico
 
 ### 3.1. Arquivos Masters (`design/source/illustrations/`)
 
