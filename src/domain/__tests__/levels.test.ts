@@ -36,10 +36,10 @@ describe('LEVELS', () => {
 });
 
 describe('MODES', () => {
-  it('4 modos; só explore sem pontuação', () => {
-    expect(MODES.map((m) => m.id)).toEqual(['numbers', 'words', 'hands', 'explore']);
-    expect(MODES.map((m) => m.scored)).toEqual([true, true, true, false]);
-    expect(MODES.map((m) => m.title)).toEqual(['Números', 'Palavras', 'Ponteiros', 'Explorar']);
+  it('5 modos; só explore sem pontuação', () => {
+    expect(MODES.map((m) => m.id)).toEqual(['assemble', 'numbers', 'words', 'hands', 'explore']);
+    expect(MODES.map((m) => m.scored)).toEqual([true, true, true, true, false]);
+    expect(MODES.map((m) => m.title)).toEqual(['Monte o relógio', 'Números', 'Palavras', 'Ponteiros', 'Explorar']);
     for (const m of MODES) {
       expect(m.description.length).toBeGreaterThan(0);
       expect(m.title + m.description).not.toMatch(/\p{Extended_Pictographic}/u);

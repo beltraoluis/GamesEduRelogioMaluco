@@ -19,6 +19,7 @@ const ANSWER_REGION_LABELS = {
 };
 
 const MODES = [
+  { id: 'assemble', title: 'Monte o relógio', description: 'Encaixe as horas e depois os minutos', scored: true },
   { id: 'numbers', title: 'Números', description: 'Leia o relógio e arraste os números', scored: true },
   { id: 'words', title: 'Palavras', description: 'Monte a frase da hora', scored: true },
   { id: 'hands', title: 'Ponteiros', description: 'Gire os ponteiros do relógio', scored: true },
@@ -343,6 +344,31 @@ function sequence(length: number, start = 0, step = 1) {
 }
 
 export const staticContent = {
+  assembly: {
+    intro: {
+      hours: 'Comece no 12, lá em cima. Conte de um em um ao redor do relógio.',
+      minutes: 'Comece no 00, lá em cima. Conte de cinco em cinco ao redor do relógio.',
+    },
+    title: 'Monte o relógio: ',
+    phases: { hours: 'horas', minutes: 'minutos' },
+    instructions: 'Arraste cada peça ou toque na peça e depois no encaixe.',
+    celebration: 'Muito bem! Você montou o relógio completo!',
+    resultTitle: 'Você montou o relógio!',
+    resultDescription: '12 horas e 12 marcações de minutos nos seus lugares.',
+    selected: 'Peça {0} selecionada. Agora toque no encaixe.',
+    wrong: 'Ainda não é esse lugar. Tente outro encaixe para {0}. {1}',
+    progress: 'Isso! {0} de 12 peças encaixadas. Continue!',
+    finished: { hours: 'Você montou as horas! Agora vamos aos minutos.', minutes: 'Você montou o relógio completo!' },
+    target: 'Encaixe {0}{1}',
+    top: 'no topo',
+    position: 'na posição {0} do relógio',
+    filled: ': {0}, preenchido',
+    empty: ', vazio',
+    listen: 'Ouvir instruções',
+    next: 'Montar os minutos',
+    result: 'Ver resultado',
+  },
+
   hours12: /* @__PURE__ */ sequence(12, 1),
   hours24: /* @__PURE__ */ sequence(24),
   minutePools: {

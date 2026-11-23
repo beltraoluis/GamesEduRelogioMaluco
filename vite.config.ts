@@ -10,8 +10,10 @@ import { globSync, readFileSync } from 'node:fs';
 
 import { basename } from 'node:path';
 import { transform } from 'lightningcss';
+import MagicString from 'magic-string';
 import { staticContent } from './src/content/staticContent.ts';
 import { EDUCATORS_CONTENT } from './src/content/educatorsArticle.ts';
+import { reactStaticImports } from './build/reactStaticImports.ts';
 const APP_COPY = staticContent.copy;
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
@@ -112,6 +114,7 @@ function buildStaticTemplates(resolveClass: (mod: string, local: string) => stri
 
   const card = (local: string) => resolveClass('ModeCard', local);
   const modeIcons = {
+    assemble: 'ClockHands',
     numbers: 'DigitalBlocks',
     words: 'PuzzleWords',
     hands: 'ClockHands',
@@ -120,7 +123,7 @@ function buildStaticTemplates(resolveClass: (mod: string, local: string) => stri
   const modeCards = staticContent.modesList
     .map((mode) => {
       const icon = modeIcons[mode.id];
-      return `<template id="rm-card-${mode.id}"><div class="${card('illustrationWrap')}" aria-hidden="true"><img src="/src/assets/illustrations/mode-${mode.id}.webp" width="384" height="384" alt="" aria-hidden="true" loading="eager" decoding="async" class="${card('illustration')}" data-mode-illustration="${mode.id}"><span class="${card('modeBadge')}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke-linecap="round" stroke-linejoin="round" data-ui-icon="${icon}" aria-hidden="true"><use href="./icons/sprite.svg#ui-${icon}"></use></svg></span></div><div class="${card('body')}"><span class="${card('title')}">${escapeHtml(mode.title)}</span><span class="${card('description')}">${escapeHtml(mode.description)}</span></div></template>`;
+      return `<template id="rm-card-${mode.id}"><div class="${card('illustrationWrap')}" aria-hidden="true"><img src="/src/assets/illustrations/mode-${mode.id === 'assemble' ? 'numbers' : mode.id}.webp" width="384" height="384" alt="" aria-hidden="true" loading="eager" decoding="async" class="${card('illustration')}" data-mode-illustration="${mode.id}"><span class="${card('modeBadge')}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke-linecap="round" stroke-linejoin="round" data-ui-icon="${icon}" aria-hidden="true"><use href="./icons/sprite.svg#ui-${icon}"></use></svg></span></div><div class="${card('body')}"><span class="${card('title')}">${escapeHtml(mode.title)}</span><span class="${card('description')}">${escapeHtml(mode.description)}</span></div></template>`;
     })
     .join('');
 
@@ -163,7 +166,11 @@ function buildOptimizationPlugin(): Plugin {
     enforce: 'pre',
     transform(source, id) {
       if (id.endsWith('.tsx')) {
-        return source.replace(/import styles from ('[^']+\.module\.css');/, 'import * as styles from $1;');
+        const match = /import styles from ('[^']+\.module\.css');/.exec(source);
+        if (!match) return;
+        const edited = new MagicString(source);
+        edited.overwrite(match.index, match.index + match[0].length, `import * as styles from ${match[1]};`);
+        return { code: edited.toString(), map: edited.generateMap({ source: id, hires: true, includeContent: true }) };
       }
     },
     transformIndexHtml: {
@@ -185,7 +192,7 @@ export default defineConfig(({ command }) => ({
     cssMinify: 'lightningcss',
     // The single application chunk has no module dependencies to preload.
     modulePreload: { polyfill: false },
-    rolldownOptions: { output: { codeSplitting: false } },
+    rolldownOptions: { treeshake: { commonjs: true }, output: { codeSplitting: false } },
   },
   define: { __APP_VERSION__: JSON.stringify(pkg.version), __APP_COMMIT__: JSON.stringify(commit) },
   css: {
@@ -195,6 +202,7 @@ export default defineConfig(({ command }) => ({
         : { generateScopedName: (local, file) => resolveClass(basename(file, '.module.css'), local) },
   },
   plugins: [
+    reactStaticImports(),
     buildOptimizationPlugin(),
     {
       name: 'retain-component-css',

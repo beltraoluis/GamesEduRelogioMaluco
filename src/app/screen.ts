@@ -18,6 +18,7 @@ export type Screen =
       readonly levelId: LevelId;
     }
   | { readonly name: 'explore' }
+  | { readonly name: 'assemble'; readonly levelId: LevelId }
   | {
       readonly name: 'result';
       readonly summary: RoundSummary;
@@ -45,6 +46,7 @@ export function screenReducer(screen: Screen, action: ScreenAction): Screen {
     case 'open-mode':
       if (screen.name !== 'home') return screen;
       if (action.mode === 'explore') return { name: 'explore' };
+      if (action.mode === 'assemble') return { name: 'assemble', levelId: action.levelId };
       if (!isGameMode(action.mode)) return screen;
       return { name: 'game', mode: action.mode, levelId: action.levelId };
     case 'finish':

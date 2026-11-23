@@ -13,6 +13,7 @@ import { readDomTemplate } from '@/content/runtimeDomData';
 import styles from './ModeCard.module.css';
 
 const MODE_ICON: Readonly<Record<ModeId, UiIconName>> = {
+  assemble: 'ClockHands',
   numbers: 'DigitalBlocks',
   words: 'PuzzleWords',
   hands: 'ClockHands',

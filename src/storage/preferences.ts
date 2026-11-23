@@ -26,7 +26,7 @@ export const DEFAULT_PREFERENCES: Preferences = Object.freeze({
 });
 
 /** Chaves de estrelas válidas: `numbers-1` ... `hands-4`. */
-export const STARS_KEY_PATTERN = /^(numbers|words|hands)-[1-4]$/;
+export const STARS_KEY_PATTERN = /^(numbers|words|hands|assemble)-[1-4]$/;
 
 const KNOWN_KEYS: ReadonlySet<string> = new Set(['level', 'sound', 'voice', 'stars']);
 

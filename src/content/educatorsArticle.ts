@@ -106,6 +106,7 @@ export const EDUCATORS_CONTENT: EducatorsContent = {
   ],
   modesHeading: 'Modos de jogo',
   modes: [
+    { id: 'assemble', title: 'Monte o relógio', description: 'Monte as horas de 1 a 12 e depois os minutos de 00 a 55, de cinco em cinco. Arraste ou selecione uma peça e toque no destino. A atividade introdutória está disponível em todas as dificuldades e guarda estrelas em cada uma.' },
     {
       id: 'numbers',
       title: 'Números',

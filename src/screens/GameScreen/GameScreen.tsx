@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Luis Henrique Coutinho Beltrão
 
-import { UI_COPY, content, readDomTemplate } from '@/content/runtimeDomData';
+import { UI_COPY, content, readDomTemplate, formatText as fmt } from '@/content/runtimeDomData';
 import { useEffect, useId, useRef, type ReactElement } from 'react';
 
 import { AnalogClock } from '@/components/AnalogClock';
@@ -47,10 +47,6 @@ export interface AnalogDescriptionOptions {
 }
 
 const ANALOG_DESC = content.analogDesc;
-
-function fmt(tpl: string, ...args: readonly (string | number)[]): string {
-  return tpl.replace(/\{(\d)\}/g, (_m, i: string) => String(args[Number(i)] ?? ''));
-}
 
 export function describeAnalogHandPositions(time: ClockTime): string {
   const h12 = to12(time.h);
@@ -187,7 +183,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
         slot={slot}
         filledWith={filledWith}
         over={overSlotId === slot.id && filledWith === null}
-        {...(glowSeq > 0 ? { glowSeq } : {})}
+        glowSeq={glowSeq}
       />
     );
   };
@@ -325,7 +321,7 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                     minuteLabels={showMinuteLabels}
                     highlight={view.handHighlight}
                     size="lg"
-                    onChange={(nextTime) => session.moveHands(nextTime)}
+                    onChange={session.moveHands}
                   />
                 </div>
                 {readDomTemplate('rm-tpl-hands-legend') !== null ? (
@@ -383,10 +379,10 @@ function GameStage({ state, session, onHome }: GameStageProps): ReactElement {
                       key={tile.id}
                       tile={tile}
                       used={usedTileIds.includes(tile.id)}
-                      {...(shakeSeq > 0 ? { shakeSeq } : {})}
-                      onDrop={(tId, sId) => session.dropTile(tId, sId)}
-                      onTap={(tId) => session.tapTile(tId)}
-                      onPick={(tId) => session.pickTile(tId)}
+                      shakeSeq={shakeSeq}
+                      onDrop={session.dropTile}
+                      onTap={session.tapTile}
+                      onPick={session.pickTile}
                     />
                   );
                 })}

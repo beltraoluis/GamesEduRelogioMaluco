@@ -19,6 +19,7 @@ import { useCallback, useMemo, useReducer, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { Confetti } from '../components/Confetti';
+import { AssemblyScreen } from '../screens/AssemblyScreen/AssemblyScreen';
 import { buildSourceUrl } from '../content/copy';
 import type { ConfettiProps, LevelId, ModeId, RoundSummary, ServiceWorkerUpdateApi } from '../contracts';
 import { usePreferences } from '../hooks/usePreferences';
@@ -116,9 +117,10 @@ export function App({
       unlock();
       play('pick');
       dispatchScreen({ type: 'open-mode', mode: id, levelId: prefs.level });
-      if (id !== 'explore') start(id, prefs.level);
+      if (id !== 'explore' && id !== 'assemble') start(id, prefs.level);
+      else cancel();
     },
-    [play, unlock, start, prefs.level],
+    [play, unlock, start, prefs.level, cancel],
   );
   const onPlayAgain = useCallback(() => {
     if (screen.name !== 'result') return;
@@ -165,6 +167,10 @@ export function App({
       break;
     case 'explore':
       content = <Explore speech={speech} sound={sound} onHome={goHome} />;
+      break;
+    case 'assemble':
+      content = <AssemblyScreen levelId={screen.levelId} sound={sound} speech={speech}
+        recordStars={preferences.recordStars} onConfetti={onConfetti} onHome={goHome} />;
       break;
     case 'result':
       content = <Result summary={screen.summary} newRecord={screen.newRecord} onPlayAgain={onPlayAgain} onHome={goHome} />;

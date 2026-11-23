@@ -10,6 +10,7 @@ import modeWordsImg from '@/assets/illustrations/mode-words.webp';
 import type { ModeId } from '@/contracts';
 
 export const MODE_ILLUSTRATION_SRCS: Readonly<Record<ModeId, string>> = {
+  assemble: modeNumbersImg,
   numbers: modeNumbersImg,
   words: modeWordsImg,
   hands: modeHandsImg,

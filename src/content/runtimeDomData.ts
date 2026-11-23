@@ -16,3 +16,7 @@ export function readDomTemplate(id: string): string | null {
   if (!el) return null;
   return el.innerHTML;
 }
+
+export function formatText(template: string, ...values: readonly (string | number)[]): string {
+  return template.replace(/\{(\d)\}/g, (_match, index: string) => String(values[Number(index)] ?? ''));
+}

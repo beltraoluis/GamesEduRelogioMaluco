@@ -38,7 +38,7 @@
   }
 
   /* Redundância cromática e geométrica por modo */
-  .card:where([data-mode-card="numbers"]) {
+  .card:where([data-mode-card="numbers"], [data-mode-card="assemble"]) {
     border-bottom: 5px solid var(--color-hour);
   }
 
@@ -93,7 +93,7 @@
     border: 1.5px solid var(--color-border-card);
   }
 
-  .card:where([data-mode-card="numbers"]) .modeBadge {
+  .card:where([data-mode-card="numbers"], [data-mode-card="assemble"]) .modeBadge {
     color: var(--color-hour);
     background-color: var(--color-hour-soft);
     border-color: var(--color-hour);

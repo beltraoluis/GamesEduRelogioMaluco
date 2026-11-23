@@ -7,13 +7,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 
 import { ModeCard } from '@/components/ModeCard';
-import { MODES } from '@/domain/modes';
+import { getMode } from '@/domain/modes';
 
 describe('ModeCard', () => {
   it('renderiza ilustracao WebP 384x384, titulo, descricao curta e estrelas para modos pontuados', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    const numbersMode = MODES[0];
+    const numbersMode = getMode("numbers");
 
     const { container } = render(
       <ModeCard mode={numbersMode} stars={2} onSelect={onSelect} />,
@@ -38,7 +38,7 @@ describe('ModeCard', () => {
 
   it('nao renderiza estrelas para o modo explorar (stars = null)', async () => {
     const onSelect = vi.fn();
-    const exploreMode = MODES[3];
+    const exploreMode = getMode("explore");
 
     const { container } = render(
       <ModeCard mode={exploreMode} stars={null} onSelect={onSelect} />,

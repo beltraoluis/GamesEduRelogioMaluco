@@ -3,7 +3,7 @@
 
 import { ANSWER_REGION_LABELS } from '../contracts';
 import { LEVELS } from '../domain/levels';
-import { MODES } from '../domain/modes';
+import { getMode } from '../domain/modes';
 import { content } from './runtimeDomData';
 
 import { SOURCE_REPO_URL } from './staticContent';
@@ -24,7 +24,7 @@ export function buildSourceUrl(commit: string): string {
 
 export const APP_COPY = {
   ...content.copy,
-  modes: { numbers: MODES[0], words: MODES[1], hands: MODES[2], explore: MODES[3] },
+  modes: { assemble: getMode('assemble'), numbers: getMode('numbers'), words: getMode('words'), hands: getMode('hands'), explore: getMode('explore') },
   levels: { 1: LEVELS[0], 2: LEVELS[1], 3: LEVELS[2], 4: LEVELS[3] },
   answerRegions: ANSWER_REGION_LABELS,
 } as const;

@@ -14,12 +14,13 @@ import {
 } from './helpers/locators.ts';
 import type { GameMode, LevelId } from '../src/domain/types.ts';
 
-/** Amostra da matriz 4×4: todo modo × nível 1, e nível 4 nos modos pontuados. */
+/** Todo modo no nível 1, e nível 4 nos modos pontuados. */
 const MATRIX: ReadonlyArray<{ mode: (typeof MODE_IDS)[number]; level: LevelId }> = [
   ...MODE_IDS.map((mode) => ({ mode, level: 1 as const })),
   { mode: 'numbers', level: 4 },
   { mode: 'words', level: 4 },
   { mode: 'hands', level: 4 },
+  { mode: 'assemble', level: 4 },
 ];
 
 test.describe('Matriz modos × níveis [F3]', () => {
@@ -40,6 +41,8 @@ test.describe('Matriz modos × níveis [F3]', () => {
       if (mode === 'explore') {
         await expect(page.getByRole('heading', { name: APP_COPY.explore.title })).toBeVisible();
         await expect(page.getByText(APP_COPY.explore.dragTip)).toBeVisible();
+      } else if (mode === 'assemble') {
+        await expect(page.getByRole('heading', { name: 'Monte o relógio: horas' })).toBeVisible();
       } else {
         const gameMode = mode as GameMode;
         await expect(answerRegion(page, gameMode)).toBeVisible();

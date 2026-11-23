@@ -137,6 +137,11 @@ describe('zero emojis e glifos proibidos', () => {
 });
 
 describe('copy estrutural mínima', () => {
+  it('identifica modos pelo id mesmo com a montagem no primeiro cartão', () => {
+    for (const id of ['assemble', 'numbers', 'words', 'hands', 'explore'] as const) {
+      expect(APP_COPY.modes[id].id).toBe(id);
+    }
+  });
   it('mantém prompts, ações de jogo e confirmação em 2 etapas', () => {
     expect(APP_COPY.home.title).toBe('Relógio Maluco');
     expect(APP_COPY.home.subtitle).toBe('Vamos aprender a ler as horas!');
@@ -163,9 +168,9 @@ describe('copy estrutural mínima', () => {
     );
   });
 
-  it('mantém 4 níveis, 4 modos e competências com redundância de cor', () => {
+  it('mantém 4 níveis, 5 modos e competências com redundância de cor', () => {
     expect(EDUCATORS_CONTENT.levels).toHaveLength(4);
-    expect(EDUCATORS_CONTENT.modes).toHaveLength(4);
+    expect(EDUCATORS_CONTENT.modes).toHaveLength(5);
     expect(EDUCATORS_CONTENT.competencies).toMatch(/azul = horas/i);
     expect(EDUCATORS_CONTENT.competencies).toMatch(/vermelho = minutos/i);
     expect(EDUCATORS_CONTENT.competencies).toMatch(/roxo = período/i);

@@ -6,7 +6,7 @@
 import { content } from '../content/runtimeDomData';
 import type { GameMode, ModeId, ModeMeta } from './types';
 
-export const MODES: readonly [ModeMeta, ModeMeta, ModeMeta, ModeMeta] = content.modesList;
+export const MODES: readonly ModeMeta[] = content.modesList;
 
 /** Modos com rodada e estrelas. */
 export const GAME_MODES: readonly [GameMode, GameMode, GameMode] = ['numbers', 'words', 'hands'];
@@ -16,7 +16,7 @@ export function isGameMode(value: unknown): value is GameMode {
 }
 
 export function isModeId(value: unknown): value is ModeId {
-  return isGameMode(value) || value === 'explore';
+  return isGameMode(value) || value === 'explore' || value === 'assemble';
 }
 
 export function getMode(id: ModeId): ModeMeta {
