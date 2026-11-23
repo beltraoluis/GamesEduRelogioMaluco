@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .messageText {
+    display: inline;
+    line-height: 1.5;
+  }
+
+  .strong {
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .term {
+    font-weight: 700;
+    padding: 0.05em 0.3em;
+    border-radius: 0.35rem;
+  }
+
+  .term:where([data-term-group="hour"]) {
+    color: var(--color-hour, #1560bd);
+    background-color: var(--color-hour-soft, #e8f1fc);
+    text-decoration: underline solid var(--color-hour, #1560bd) 2px;
+    text-underline-offset: 0.16em;
+  }
+
+  .term:where([data-term-group="minute"]) {
+    color: var(--color-minute, #d62839);
+    background-color: var(--color-minute-soft, #fff5f6);
+    text-decoration: underline dashed var(--color-minute, #d62839) 2px;
+    text-underline-offset: 0.16em;
+  }
+
+  .term:where([data-term-group="period"]) {
+    color: var(--color-period, #7b2cbf);
+    background-color: var(--color-period-soft, #f3eafa);
+    border-radius: var(--radius-pill, 9999px);
+    text-decoration: underline dotted var(--color-period, #7b2cbf) 2px;
+    text-underline-offset: 0.16em;
+  }
+}

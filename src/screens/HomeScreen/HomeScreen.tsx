@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Luis Henrique Coutinho Beltrão
+
+import { UI_COPY, readDomTemplate } from '@/content/runtimeDomData';
+import { useId, useState, type ReactElement } from 'react';
+
+import { AppMenu } from '@/components/AppMenu';
+import { LevelSelector } from '@/components/LevelSelector';
+import { HomeModeCard } from '@/components/ModeCard';
+import { TeachersDialog } from '@/components/TeachersDialog';
+import { TicMascot } from '@/components/TicMascot';
+import { UpdateToast } from '@/components/UpdateToast';
+import type {
+  LevelId,
+  ModeId,
+  Preferences,
+  PwaApi,
+  ServiceWorkerUpdateApi,
+  StarCount,
+} from '@/contracts';
+import { LEVELS } from '@/domain/levels';
+import { MODES } from '@/domain/modes';
+
+import styles from './HomeScreen.module.css';
+
+export interface HomeScreenProps {
+  readonly prefs: Preferences;
+  /** `PreferencesApi.persistent` (aviso no diálogo dos educadores). */
+  readonly persistent: boolean;
+  readonly onSelectMode: (id: ModeId) => void;
+  readonly onChangeLevel: (id: LevelId) => void;
+  readonly onToggleSound: () => void;
+  readonly onToggleVoice: () => void;
+  /** Confirmação em 2 etapas fica no `TeachersDialog`; aqui só grava. */
+  readonly onResetStars: () => void;
+  /** Toast "Nova versão pronta" (`UpdateToast`), só nesta tela (ADR-003). */
+  readonly update: ServiceWorkerUpdateApi;
+  /** `tree/{commit}` (AGPL §13). */
+  readonly sourceUrl: string;
+  /** Opcional (F2c/F3): estado de instalação/offline do PWA para o AppMenu. */
+  readonly pwa?: Pick<PwaApi, 'canInstall' | 'install' | 'isStandalone' | 'showIosInstallTip'> & {
+    readonly offlineReady?: boolean;
+  };
+}
+
+const DEFAULT_PWA: Pick<
+  PwaApi,
+  'canInstall' | 'install' | 'isStandalone' | 'showIosInstallTip'
+> = Object.freeze({
+  canInstall: false,
+  install: async () => 'unavailable' as const,
+  isStandalone: false,
+  showIosInstallTip: false,
+});
+
+export function HomeScreen({
+  prefs,
+  persistent,
+  onSelectMode,
+  onChangeLevel,
+  onToggleSound,
+  onToggleVoice,
+  onResetStars,
+  update,
+  sourceUrl,
+  pwa = DEFAULT_PWA,
+}: HomeScreenProps): ReactElement {
+  const baseId = useId();
+  const staticHeroHtml = readDomTemplate('rm-tpl-home-hero');
+  const titleId = staticHeroHtml !== null ? 'rm-home-title' : `${baseId}-home-title`;
+  const levelHeadingId = `${baseId}-level-heading`;
+  const modeHeadingId = `${baseId}-mode-heading`;
+
+  const [teachersOpen, setTeachersOpen] = useState(false);
+
+  return (
+    <section className={styles.screen} aria-labelledby={titleId} data-screen="home">
+      <UpdateToast
+        visible={update.updateReady}
+        onApply={update.applyUpdate}
+        onDismiss={update.dismissToast}
+      />
+
+      <header className={styles.hero}>
+        {staticHeroHtml !== null ? (
+          <div
+            className={styles.heroIdentity}
+            dangerouslySetInnerHTML={{ __html: staticHeroHtml }}
+          />
+        ) : !import.meta.env.PROD ? (
+          <div className={styles.heroIdentity}>
+            <div className={styles.mascotWrap}>
+              <TicMascot mood="happy" size="md" ambient="day" />
+            </div>
+            <div className={styles.titleBlock}>
+              <h1 id={titleId} className={styles.title}>
+                {UI_COPY.home.title}
+              </h1>
+              <p className={styles.subtitle}>{UI_COPY.home.subtitle}</p>
+            </div>
+          </div>
+        ) : null}
+
+        <AppMenu
+          sound={prefs.sound}
+          voice={prefs.voice}
+          onToggleSound={onToggleSound}
+          onToggleVoice={onToggleVoice}
+          onOpenTeachers={() => setTeachersOpen(true)}
+          sourceUrl={sourceUrl}
+          pwa={pwa}
+        />
+      </header>
+
+      <section className={styles.section} aria-labelledby={levelHeadingId}>
+        <h2 id={levelHeadingId} className={styles.sectionTitle}>
+          {UI_COPY.home.levelSection}
+        </h2>
+        <LevelSelector levels={LEVELS} current={prefs.level} onChange={onChangeLevel} />
+      </section>
+
+      <section className={styles.section} aria-labelledby={modeHeadingId}>
+        <h2 id={modeHeadingId} className={styles.sectionTitle}>
+          {UI_COPY.home.modeSection}
+        </h2>
+        <div className={styles.modesGrid}>
+          {MODES.map((mode) => {
+            const modeStars: StarCount | null =
+              mode.id === 'explore'
+                ? null
+                : (prefs.stars[`${mode.id}-${prefs.level}`] ?? 0);
+            return (
+              <HomeModeCard
+                key={mode.id}
+                mode={mode}
+                stars={modeStars}
+                onSelect={onSelectMode}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      <TeachersDialog
+        open={teachersOpen}
+        onClose={() => setTeachersOpen(false)}
+        onResetStars={onResetStars}
+        sourceUrl={sourceUrl}
+        persistent={persistent}
+      />
+    </section>
+  );
+}
+
+export default HomeScreen;

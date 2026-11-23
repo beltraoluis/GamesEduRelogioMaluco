@@ -1,0 +1,492 @@
+{
+  "periods": [
+    "da madrugada",
+    "da manhã",
+    "da tarde",
+    "da noite"
+  ],
+  "values": [
+    {
+      "n": 0,
+      "masculine": "zero",
+      "feminine": "zero",
+      "padded": "00"
+    },
+    {
+      "n": 1,
+      "masculine": "um",
+      "feminine": "uma",
+      "padded": "01"
+    },
+    {
+      "n": 2,
+      "masculine": "dois",
+      "feminine": "duas",
+      "padded": "02"
+    },
+    {
+      "n": 3,
+      "masculine": "três",
+      "feminine": "três",
+      "padded": "03"
+    },
+    {
+      "n": 4,
+      "masculine": "quatro",
+      "feminine": "quatro",
+      "padded": "04"
+    },
+    {
+      "n": 5,
+      "masculine": "cinco",
+      "feminine": "cinco",
+      "padded": "05"
+    },
+    {
+      "n": 6,
+      "masculine": "seis",
+      "feminine": "seis",
+      "padded": "06"
+    },
+    {
+      "n": 7,
+      "masculine": "sete",
+      "feminine": "sete",
+      "padded": "07"
+    },
+    {
+      "n": 8,
+      "masculine": "oito",
+      "feminine": "oito",
+      "padded": "08"
+    },
+    {
+      "n": 9,
+      "masculine": "nove",
+      "feminine": "nove",
+      "padded": "09"
+    },
+    {
+      "n": 10,
+      "masculine": "dez",
+      "feminine": "dez",
+      "padded": "10"
+    },
+    {
+      "n": 11,
+      "masculine": "onze",
+      "feminine": "onze",
+      "padded": "11"
+    },
+    {
+      "n": 12,
+      "masculine": "doze",
+      "feminine": "doze",
+      "padded": "12"
+    },
+    {
+      "n": 13,
+      "masculine": "treze",
+      "feminine": "treze",
+      "padded": "13"
+    },
+    {
+      "n": 14,
+      "masculine": "catorze",
+      "feminine": "catorze",
+      "padded": "14"
+    },
+    {
+      "n": 15,
+      "masculine": "quinze",
+      "feminine": "quinze",
+      "padded": "15"
+    },
+    {
+      "n": 16,
+      "masculine": "dezesseis",
+      "feminine": "dezesseis",
+      "padded": "16"
+    },
+    {
+      "n": 17,
+      "masculine": "dezessete",
+      "feminine": "dezessete",
+      "padded": "17"
+    },
+    {
+      "n": 18,
+      "masculine": "dezoito",
+      "feminine": "dezoito",
+      "padded": "18"
+    },
+    {
+      "n": 19,
+      "masculine": "dezenove",
+      "feminine": "dezenove",
+      "padded": "19"
+    },
+    {
+      "n": 20,
+      "masculine": "vinte",
+      "feminine": "vinte",
+      "padded": "20"
+    },
+    {
+      "n": 21,
+      "masculine": "vinte e um",
+      "feminine": "vinte e uma",
+      "padded": "21"
+    },
+    {
+      "n": 22,
+      "masculine": "vinte e dois",
+      "feminine": "vinte e duas",
+      "padded": "22"
+    },
+    {
+      "n": 23,
+      "masculine": "vinte e três",
+      "feminine": "vinte e três",
+      "padded": "23"
+    },
+    {
+      "n": 24,
+      "masculine": "vinte e quatro",
+      "feminine": "vinte e quatro",
+      "padded": "24"
+    },
+    {
+      "n": 25,
+      "masculine": "vinte e cinco",
+      "feminine": "vinte e cinco",
+      "padded": "25"
+    },
+    {
+      "n": 26,
+      "masculine": "vinte e seis",
+      "feminine": "vinte e seis",
+      "padded": "26"
+    },
+    {
+      "n": 27,
+      "masculine": "vinte e sete",
+      "feminine": "vinte e sete",
+      "padded": "27"
+    },
+    {
+      "n": 28,
+      "masculine": "vinte e oito",
+      "feminine": "vinte e oito",
+      "padded": "28"
+    },
+    {
+      "n": 29,
+      "masculine": "vinte e nove",
+      "feminine": "vinte e nove",
+      "padded": "29"
+    },
+    {
+      "n": 30,
+      "masculine": "trinta",
+      "feminine": "trinta",
+      "padded": "30"
+    },
+    {
+      "n": 31,
+      "masculine": "trinta e um",
+      "feminine": "trinta e uma",
+      "padded": "31"
+    },
+    {
+      "n": 32,
+      "masculine": "trinta e dois",
+      "feminine": "trinta e duas",
+      "padded": "32"
+    },
+    {
+      "n": 33,
+      "masculine": "trinta e três",
+      "feminine": "trinta e três",
+      "padded": "33"
+    },
+    {
+      "n": 34,
+      "masculine": "trinta e quatro",
+      "feminine": "trinta e quatro",
+      "padded": "34"
+    },
+    {
+      "n": 35,
+      "masculine": "trinta e cinco",
+      "feminine": "trinta e cinco",
+      "padded": "35"
+    },
+    {
+      "n": 36,
+      "masculine": "trinta e seis",
+      "feminine": "trinta e seis",
+      "padded": "36"
+    },
+    {
+      "n": 37,
+      "masculine": "trinta e sete",
+      "feminine": "trinta e sete",
+      "padded": "37"
+    },
+    {
+      "n": 38,
+      "masculine": "trinta e oito",
+      "feminine": "trinta e oito",
+      "padded": "38"
+    },
+    {
+      "n": 39,
+      "masculine": "trinta e nove",
+      "feminine": "trinta e nove",
+      "padded": "39"
+    },
+    {
+      "n": 40,
+      "masculine": "quarenta",
+      "feminine": "quarenta",
+      "padded": "40"
+    },
+    {
+      "n": 41,
+      "masculine": "quarenta e um",
+      "feminine": "quarenta e uma",
+      "padded": "41"
+    },
+    {
+      "n": 42,
+      "masculine": "quarenta e dois",
+      "feminine": "quarenta e duas",
+      "padded": "42"
+    },
+    {
+      "n": 43,
+      "masculine": "quarenta e três",
+      "feminine": "quarenta e três",
+      "padded": "43"
+    },
+    {
+      "n": 44,
+      "masculine": "quarenta e quatro",
+      "feminine": "quarenta e quatro",
+      "padded": "44"
+    },
+    {
+      "n": 45,
+      "masculine": "quarenta e cinco",
+      "feminine": "quarenta e cinco",
+      "padded": "45"
+    },
+    {
+      "n": 46,
+      "masculine": "quarenta e seis",
+      "feminine": "quarenta e seis",
+      "padded": "46"
+    },
+    {
+      "n": 47,
+      "masculine": "quarenta e sete",
+      "feminine": "quarenta e sete",
+      "padded": "47"
+    },
+    {
+      "n": 48,
+      "masculine": "quarenta e oito",
+      "feminine": "quarenta e oito",
+      "padded": "48"
+    },
+    {
+      "n": 49,
+      "masculine": "quarenta e nove",
+      "feminine": "quarenta e nove",
+      "padded": "49"
+    },
+    {
+      "n": 50,
+      "masculine": "cinquenta",
+      "feminine": "cinquenta",
+      "padded": "50"
+    },
+    {
+      "n": 51,
+      "masculine": "cinquenta e um",
+      "feminine": "cinquenta e uma",
+      "padded": "51"
+    },
+    {
+      "n": 52,
+      "masculine": "cinquenta e dois",
+      "feminine": "cinquenta e duas",
+      "padded": "52"
+    },
+    {
+      "n": 53,
+      "masculine": "cinquenta e três",
+      "feminine": "cinquenta e três",
+      "padded": "53"
+    },
+    {
+      "n": 54,
+      "masculine": "cinquenta e quatro",
+      "feminine": "cinquenta e quatro",
+      "padded": "54"
+    },
+    {
+      "n": 55,
+      "masculine": "cinquenta e cinco",
+      "feminine": "cinquenta e cinco",
+      "padded": "55"
+    },
+    {
+      "n": 56,
+      "masculine": "cinquenta e seis",
+      "feminine": "cinquenta e seis",
+      "padded": "56"
+    },
+    {
+      "n": 57,
+      "masculine": "cinquenta e sete",
+      "feminine": "cinquenta e sete",
+      "padded": "57"
+    },
+    {
+      "n": 58,
+      "masculine": "cinquenta e oito",
+      "feminine": "cinquenta e oito",
+      "padded": "58"
+    },
+    {
+      "n": 59,
+      "masculine": "cinquenta e nove",
+      "feminine": "cinquenta e nove",
+      "padded": "59"
+    }
+  ],
+  "hours": [
+    {
+      "h": 0,
+      "h12": 12,
+      "period": "da madrugada"
+    },
+    {
+      "h": 1,
+      "h12": 1,
+      "period": "da madrugada"
+    },
+    {
+      "h": 2,
+      "h12": 2,
+      "period": "da madrugada"
+    },
+    {
+      "h": 3,
+      "h12": 3,
+      "period": "da madrugada"
+    },
+    {
+      "h": 4,
+      "h12": 4,
+      "period": "da madrugada"
+    },
+    {
+      "h": 5,
+      "h12": 5,
+      "period": "da madrugada"
+    },
+    {
+      "h": 6,
+      "h12": 6,
+      "period": "da manhã"
+    },
+    {
+      "h": 7,
+      "h12": 7,
+      "period": "da manhã"
+    },
+    {
+      "h": 8,
+      "h12": 8,
+      "period": "da manhã"
+    },
+    {
+      "h": 9,
+      "h12": 9,
+      "period": "da manhã"
+    },
+    {
+      "h": 10,
+      "h12": 10,
+      "period": "da manhã"
+    },
+    {
+      "h": 11,
+      "h12": 11,
+      "period": "da manhã"
+    },
+    {
+      "h": 12,
+      "h12": 12,
+      "period": "da tarde"
+    },
+    {
+      "h": 13,
+      "h12": 1,
+      "period": "da tarde"
+    },
+    {
+      "h": 14,
+      "h12": 2,
+      "period": "da tarde"
+    },
+    {
+      "h": 15,
+      "h12": 3,
+      "period": "da tarde"
+    },
+    {
+      "h": 16,
+      "h12": 4,
+      "period": "da tarde"
+    },
+    {
+      "h": 17,
+      "h12": 5,
+      "period": "da tarde"
+    },
+    {
+      "h": 18,
+      "h12": 6,
+      "period": "da noite"
+    },
+    {
+      "h": 19,
+      "h12": 7,
+      "period": "da noite"
+    },
+    {
+      "h": 20,
+      "h12": 8,
+      "period": "da noite"
+    },
+    {
+      "h": 21,
+      "h12": 9,
+      "period": "da noite"
+    },
+    {
+      "h": 22,
+      "h12": 10,
+      "period": "da noite"
+    },
+    {
+      "h": 23,
+      "h12": 11,
+      "period": "da noite"
+    }
+  ]
+}

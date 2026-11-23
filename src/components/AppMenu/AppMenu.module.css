@@ -1,0 +1,232 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2026 Luis Henrique Coutinho Beltrão */
+
+@layer components {
+  .menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .trigger {
+    display: inline-grid;
+    place-items: center;
+    width: var(--tap-target-min);
+    height: var(--tap-target-min);
+    padding: 0;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface-card);
+    color: var(--color-ink);
+    border: 2px solid var(--color-border-card);
+    box-shadow: var(--ledge-sm) var(--color-border-ledge);
+    cursor: pointer;
+    anchor-name: --app-menu-trigger;
+    transition:
+      transform var(--duration-fast) var(--ease-spring),
+      background-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .trigger:hover {
+    background-color: var(--color-surface-elevated);
+  }
+
+  .trigger:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 var(--color-border-ledge);
+  }
+
+  .burger {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .burger i {
+    display: block;
+    width: 22px;
+    height: 3px;
+    border-radius: 2px;
+    background-color: var(--color-ink);
+    transition:
+      transform var(--duration-fast) var(--ease-standard),
+      opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  .trigger[aria-expanded='true'] .burger i:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+  }
+
+  .trigger[aria-expanded='true'] .burger i:nth-child(2) {
+    opacity: 0;
+  }
+
+  .trigger[aria-expanded='true'] .burger i:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+  }
+
+  .panel {
+    position: fixed;
+    z-index: 80;
+    inset: var(--menu-top, 4rem) auto auto var(--menu-left, 1rem);
+    margin: 0;
+    width: max-content;
+    min-width: min(17.5rem, calc(100vw - 1rem));
+    max-width: calc(100vw - 1rem);
+    max-block-size: calc(100vh - 1rem);
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-surface-card);
+    color: var(--color-ink);
+    border: 2.5px solid var(--color-border-card);
+    box-shadow: var(--shadow-floating);
+  }
+
+  .panel[hidden] {
+    display: none;
+  }
+
+  @supports (position-area: block-end) {
+    .panel:popover-open {
+      position-anchor: --app-menu-trigger;
+      inset: auto;
+      margin: 0;
+      margin-block-start: var(--space-2);
+      position-area: block-end span-inline-start;
+      position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    }
+  }
+
+  .menuItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-height: 3rem;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: transparent;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: var(--font-size-md);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-standard);
+  }
+
+  button.menuItem:hover,
+  a.menuItem:hover {
+    background-color: var(--color-surface-elevated);
+  }
+
+  .itemIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    color: var(--color-hour);
+  }
+
+  .itemLabel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .switchTrack {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 2.75rem;
+    height: 1.6rem;
+    padding: 0.15rem;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-border-card);
+    border: 2px solid var(--color-ink-muted);
+    flex: none;
+    transition:
+      background-color var(--duration-fast) var(--ease-standard),
+      border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .switchTrack[data-checked='true'] {
+    background-color: var(--color-hour);
+    border-color: var(--color-hour-ledge);
+  }
+
+  .switchThumb {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-surface-card);
+    transform: translateX(0);
+    transition: transform var(--duration-fast) var(--ease-spring);
+  }
+
+  .switchTrack[data-checked='true'] .switchThumb {
+    transform: translateX(1.1rem);
+  }
+
+  .divider {
+    width: 100%;
+    height: 1px;
+    border: 0;
+    margin: var(--space-1) 0;
+    background-color: var(--color-border-card);
+  }
+
+  .installItem {
+    background-color: var(--color-warning-accent);
+    color: var(--color-ink);
+    border: 2px solid var(--color-warning-warm);
+  }
+
+  button.installItem:hover {
+    background-color: var(--color-surface-elevated);
+  }
+
+  .installItem .itemIcon {
+    color: var(--color-warning-ink);
+  }
+
+  .iosTipItem {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-warning-ink);
+    border: 1.5px dashed var(--color-warning-warm);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    line-height: 1.35;
+    cursor: default;
+  }
+
+  .iosTipItem .itemIcon {
+    color: var(--color-warning-ink);
+  }
+
+  .offlineBadge {
+    background-color: var(--color-success-soft);
+    color: var(--color-success-ledge);
+    border: 1.5px solid var(--color-success);
+    font-size: var(--font-size-sm);
+    cursor: default;
+  }
+
+  .offlineBadge .itemIcon {
+    color: var(--color-success);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trigger,
+    .burger i,
+    .menuItem,
+    .switchTrack,
+    .switchThumb {
+      transition: none;
+    }
+  }
+}

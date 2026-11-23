@@ -1,2 +1,11 @@
 .DS_Store
 .claude/
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
+*.tsbuildinfo
+blob-report/
+e2e/.runtime-dist/
