@@ -38,8 +38,12 @@
   }
 
   /* Redundância cromática e geométrica por modo */
-  .card:where([data-mode-card="numbers"], [data-mode-card="assemble"]) {
+  .card:where([data-mode-card="numbers"]) {
     border-bottom: 5px solid var(--color-hour);
+  }
+
+  .card:where([data-mode-card="assemble"]) {
+    border-bottom: 5px solid var(--color-warning-warm);
   }
 
   .card:where([data-mode-card="words"]) {
@@ -93,10 +97,16 @@
     border: 1.5px solid var(--color-border-card);
   }
 
-  .card:where([data-mode-card="numbers"], [data-mode-card="assemble"]) .modeBadge {
+  .card:where([data-mode-card="numbers"]) .modeBadge {
     color: var(--color-hour);
     background-color: var(--color-hour-soft);
     border-color: var(--color-hour);
+  }
+
+  .card:where([data-mode-card="assemble"]) .modeBadge {
+    color: var(--color-warning-warm);
+    background-color: color-mix(in srgb, var(--color-warning-warm) 14%, #ffffff);
+    border-color: var(--color-warning-warm);
   }
 
   .card:where([data-mode-card="words"]) .modeBadge {
